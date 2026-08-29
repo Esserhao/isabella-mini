@@ -20,7 +20,8 @@
 
         <view v-else class="onb-result">
           <view class="onb-reco" v-for="p in onboardReco" :key="p.id" @tap.stop="onboardUseThis(p)">
-            <image class="onb-reco-img" :src="imgSrc(p.id)" mode="aspectFill"></image>
+            <image class="onb-reco-img" :src="imgSrc(p.id)" mode="aspectFill"
+                   style="background:#dfe7e0" @error="onImgError(p.id)"></image>
             <view class="onb-reco-info">
               <text class="onb-reco-name">{{ p.name }}</text>
               <text class="onb-reco-sub">{{ p.brand }} · {{ p.hook }}</text>
@@ -474,7 +475,10 @@ function goTutorial() {
   onboardOpen.value = false
   startTour()
 }
-function imgSrc(id) { return 'https://raw.githubusercontent.com/Esserhao/isabella-mini/main/src/static/gallery/p' + id + '.jpg' }
+// 与 gallery.vue 保持一致：走本地资源，不依赖境外域名
+function imgSrc(id) { return '/static/gallery/p' + id + '.jpg' }
+// 本地图理论上不会失败，但万一打包漏图，至少不露白洞，并留一条 warn 方便排查
+function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
 </script>
 
 <style scoped>

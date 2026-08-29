@@ -33,11 +33,15 @@
 
 <script setup>
 import { ref } from 'vue'
+import { onUnload } from '@dcloudio/uni-app'
 import { moderateText, cloudModerate } from '@/utils/moderate.js'
 import { track } from '@/utils/analytics.js'
 
 const content = ref('')
 const sending = ref(false)
+// 页面是否已卸载。提交成功后的延迟返回要挡住「用户自己先返回了」这种情况
+let unloaded = false
+onUnload(() => { unloaded = true })
 
 const today = (() => {
   const d = new Date()
@@ -76,7 +80,9 @@ async function submit() {
       track('feedback_submit')
       content.value = ''
       uni.showToast({ title: '信已寄出，谢谢你', icon: 'success', duration: 2200 })
-      setTimeout(() => uni.navigateBack(), 1600)
+      // 页面已卸载就别再退了：用户可能在这 1.6s 内自己点了返回，
+      // 定时器照常触发会多退一层，直接退掉用户的上一个页面。
+      setTimeout(() => { if (!unloaded) uni.navigateBack() }, 1600)
     } else {
       // 87014 = 审核未通过；其余为写入失败（如集合未建）
       const msg = (r && r.errMsg) || '寄出失败，稍后再试'

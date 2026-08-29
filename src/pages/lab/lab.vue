@@ -159,6 +159,12 @@
       </view>
     </view>
 
+    <!-- 分享图：转发好友 5:4、朋友圈 1:1。离屏绘制，只为导出图片，不展示 -->
+    <view class="lab-share-wrap">
+      <canvas type="2d" id="shareFriendCanvas" class="lab-share-canvas"></canvas>
+      <canvas type="2d" id="shareTimelineCanvas" class="lab-share-canvas"></canvas>
+    </view>
+
     <!-- 手把手教程：暗色聚光灯，高亮工坊（最重点） -->
     <CoachMask page="lab" />
   </view>
@@ -168,8 +174,8 @@
 import { ref, reactive, nextTick, computed, watch } from 'vue'
 import { onLoad, onShow, onReady, onUnload, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { ACCORDS, RADAR_LABELS, CORE_INGREDIENTS, galleryPerfumes, RADAR_DIM_DESC, SCENT_TEMPLATES } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone } from '@/utils/mix.js'
-import { drawRadar, drawRadarGrow, drawCard, drawCardBase } from '@/utils/canvas-draw.js'
+import { computeRadarValues, generateFormula, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, topAccordDesc } from '@/utils/mix.js'
+import { drawRadar, drawRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE } from '@/utils/canvas-draw.js'
 import { THEME } from '@/utils/theme.js'
 import { recordSeal } from '@/utils/streak.js'
 import { track } from '@/utils/analytics.js'
@@ -739,6 +745,10 @@ async function renderCard(opts = {}) {
     labels: RADAR_LABELS,
     quote: quote.value,
     formula,
+    // 用户亲手填的调香感言（20 字内），画在卡片金线下方；未填则整块留白
+    note: note.value,
+    // 预览阶段尚无真实封存时间，用当前（重绘那天就是「今天」，符合预期）
+    sealTime: Date.now(),
     accords: ACCORDS, accordValues: vals, theme: THEME
   }
   if (stamp) {
@@ -752,7 +762,19 @@ async function renderCard(opts = {}) {
     drawCardBase(card.ctx, cardOpt)
   }
   cardDrawn = true
+  scheduleShareTemp()
   return true
+}
+
+// 分享图不必每次滑块微调都重画：导出两张 canvas 有开销，1.5s 防抖足够。
+// 用户松手停 1.5s 后才生成，拖动手感不受影响。
+let shareTimer = null
+function scheduleShareTemp() {
+  if (shareTimer) clearTimeout(shareTimer)
+  shareTimer = setTimeout(() => {
+    shareTimer = null
+    ensureShareTemp()
+  }, 1500)
 }
 
 // 同步封存卡（手操：拖滑块/开始调香/改香名后，实时同步内容，不盖印章、不写历史）
@@ -807,6 +829,9 @@ async function triggerSeal() {
 
   // 阶梯递进：封存数 +1，拿到当前层级（印章大小/角度/称号）
   const { tier, leveledUp, unlock } = bumpSealCount()
+  // 同一次封存共用一个时间戳；提前到这里，让 drawCard 也能拿到真实封存时间
+  // （否则旧卡片隔几天重开，卡面会印出重绘当天的日期，信息错误）。
+  const sealTime = Date.now()
   const rarity = getRarity(computeRadarValues(getAccordValues()))
 
   // 画带印章的封存卡（含稀有度徽章 + 层级称号），用该层级的 stampScale/stampRotate
@@ -823,9 +848,12 @@ async function triggerSeal() {
       labels: RADAR_LABELS,
       quote: quote.value,
       formula,
+      note: note.value,
       accords: ACCORDS, accordValues: vals, theme: THEME,
       rarity: rarity.label,
       tierTitle: tier.title,
+      // 真实封存时间，旧卡片重绘不会变（drawCardBase 优先用它，否则回退当天）
+      sealTime,
       canvas: card.canvas,
       qrCode: true,
       qrSrc  // 真小程序码路径
@@ -839,9 +867,8 @@ async function triggerSeal() {
   recordSeal()
   if (challengeTarget.value) markChallengeDone()  // 挑战模式下封存即视为今日挑战完成
   const vals = getAccordValues()
-  // 同一次封存必须共用同一个时间戳：历史记录与卡片页都拿它当唯一键，
+  // 同一次封存必须共用同一个时间戳（已在函数上方统一取过）：历史记录与卡片页都拿它当唯一键，
   // 各调一次 Date.now() 会差出几毫秒，导致卡片页收藏后回历史页显示「未收藏」。
-  const sealTime = Date.now()
   try {
     const key = 'isabella_history'
     const list = uni.getStorageSync(key)
@@ -872,7 +899,8 @@ async function triggerSeal() {
     rarityText: rarity.line,
     tierTitle: tier.title,
     tierKey: tier.key,
-    sealLabel: tier.sealLabel
+    sealLabel: tier.sealLabel,
+    radarMode: radarMode.value  // 跨页一致：card 页读它重算雷达，不再回退默认 relative
   }
   try { uni.setStorageSync('isabella_card_data', cardData) } catch (e) { /* 忽略 */ }
   uni.navigateTo({ url: '/pages/card/card?from=seal' })
@@ -925,27 +953,74 @@ function ensureCardTemp() {
   })
 }
 
+// 分享图（5:4 转发好友 / 1:1 朋友圈）。
+// 不能用封存卡那张 600×900 的图：非目标比例会被居中裁剪，香名和调香感言正好在两端。
+let shareFriendPath = ''
+let shareTimelinePath = ''
+
+function exportShareTemp(cvs) {
+  return new Promise((resolve) => {
+    if (!cvs) { resolve(''); return }
+    uni.canvasToTempFilePath({
+      canvas: cvs,
+      destWidth: cvs.width, destHeight: cvs.height,
+      success: (res) => resolve(res.tempFilePath || ''),
+      fail: () => resolve('')
+    })
+  })
+}
+
+async function ensureShareTemp() {
+  const vals = getAccordValues()
+  const base = {
+    name: name.value,
+    radarValues: computeRadarValues(vals, radarMode.value),
+    quote: quote.value,
+    accords: ACCORDS,
+    accordValues: vals,
+    theme: THEME
+  }
+  const friend = await initCanvas('#shareFriendCanvas', SHARE_SIZE.friend.w, SHARE_SIZE.friend.h)
+  if (friend) {
+    drawShareCard(friend.ctx, { ...base, width: friend.w, height: friend.h })
+    shareFriendPath = await exportShareTemp(friend.canvas)
+    // 导出后把离屏 canvas 缩到 1×1 释放显存（dpr=3 下每张约 16MB，下次防抖重画时 initCanvas 会重设尺寸）
+    friend.canvas.width = 1
+    friend.canvas.height = 1
+  }
+  const timeline = await initCanvas('#shareTimelineCanvas', SHARE_SIZE.timeline.w, SHARE_SIZE.timeline.h)
+  if (timeline) {
+    drawShareCard(timeline.ctx, { ...base, width: timeline.w, height: timeline.h })
+    shareTimelinePath = await exportShareTemp(timeline.canvas)
+    timeline.canvas.width = 1
+    timeline.canvas.height = 1
+  }
+}
+
 // card 页已接管分享，lab 页保留原生分享钩子供微信右上角菜单用。
 // path 带上 p（配方）/n（香名）：好友点进来直接还原这瓶香，与扫码闭环同一套参数。
 onShareAppMessage(() => {
   const vals = getAccordValues()
+  const isRealName = name.value && name.value !== '未命名香氛'
   // 分享卡片 path 不带前导斜杠（getwxacode/分享路径规范）
   let path = `pages/lab/lab?p=${encodeAccordParams(vals)}`
-  if (name.value && name.value !== '未命名香氛') {
+  if (isRealName) {
     path += `&n=${encodeURIComponent(name.value)}`
   }
   const obj = {
-    title: `「${name.value}」我调了一瓶属于我的香水`,
+    title: isRealName ? `「${name.value}」我调了一瓶属于我的香水` : `我调了一瓶属于我的${topAccordDesc(vals, 2)}香水`,
     path
   }
-  if (cardTempPath.value) obj.imageUrl = cardTempPath.value
+  if (shareFriendPath) obj.imageUrl = shareFriendPath
   return obj
 })
 onShareTimeline(() => {
+  const vals = getAccordValues()
+  const isRealName = name.value && name.value !== '未命名香氛'
   const obj = {
-    title: `「${name.value}」我调了一瓶属于我的香水`
+    title: isRealName ? `「${name.value}」我调了一瓶属于我的香水` : `我调了一瓶属于我的${topAccordDesc(vals, 2)}香水`
   }
-  if (cardTempPath.value) obj.imageUrl = cardTempPath.value
+  if (shareTimelinePath) obj.imageUrl = shareTimelinePath
   return obj
 })
 
@@ -977,6 +1052,7 @@ onUnload(() => {
   if (syncTimer) clearTimeout(syncTimer)
   if (blendFeedbackTimer) clearTimeout(blendFeedbackTimer)
   if (broadcastTimer) clearTimeout(broadcastTimer)
+  if (shareTimer) clearTimeout(shareTimer)
 })
 
 // 首页「看看我是什么香」会写下这个标记：进入工坊时播一次生长动画
@@ -1069,6 +1145,12 @@ onReady(async () => {
   to   { opacity: 1; transform: translateY(0); }
 }
 .ccanvas { width: 600rpx; height: 900rpx; display: block; margin: 0 auto; background: #f6f3ea; }
+/* 离屏画布：移出视口而不是 display:none，避免部分基础库拿不到 node */
+.lab-share-wrap {
+  position: fixed; left: -9999px; top: 0;
+  width: 0; height: 0; overflow: hidden; pointer-events: none;
+}
+.lab-share-canvas { width: 750px; height: 600px; }
 
 .slider-item { margin-bottom: 10rpx; }
 .slider-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rpx; }

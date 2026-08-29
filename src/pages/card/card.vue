@@ -17,6 +17,12 @@
       <canvas type="2d" id="cardPageCanvas" class="cp-canvas"></canvas>
     </view>
 
+    <!-- 分享图：转发好友 5:4、朋友圈 1:1。离屏绘制，只为导出图片，不展示 -->
+    <view class="cp-share-wrap">
+      <canvas type="2d" id="shareFriendCanvas" class="cp-share-canvas"></canvas>
+      <canvas type="2d" id="shareTimelineCanvas" class="cp-share-canvas"></canvas>
+    </view>
+
     <!-- 调香感言（有则显示，卡面暫不承载） -->
     <view class="cp-note" v-if="data.note">
       <text class="cp-note-label">调香感言</text>
@@ -37,10 +43,10 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { onLoad, onReady, onShareAppMessage } from '@dcloudio/uni-app'
+import { onLoad, onReady, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { ACCORDS, RADAR_LABELS } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, getGuQuote } from '@/utils/mix.js'
-import { drawCard } from '@/utils/canvas-draw.js'
+import { computeRadarValues, generateFormula, getGuQuote, topAccordDesc } from '@/utils/mix.js'
+import { drawCard, drawShareCard, SHARE_SIZE } from '@/utils/canvas-draw.js'
 import { THEME } from '@/utils/theme.js'
 import { isFaved, toggleFav as toggleFavStore } from '@/utils/favorites.js'
 import { track } from '@/utils/analytics.js'
@@ -58,6 +64,9 @@ const faved = ref(false)
 // 首次点收藏时现场生成一个，避免 favorites.js 因缺 time 直接 return false。
 const favTime = ref(0)
 const tempPath = ref('')
+// 分享图：微信要求转发好友 5:4、朋友圈 1:1，直接用 600×900 的卡会被居中裁掉香名和感言
+const tempPathFriend = ref('')
+const tempPathTimeline = ref('')
 let card = null
 
 const subtitle = computed(() => {
@@ -130,13 +139,18 @@ onLoad((option) => {
   }
 
   const accords = normalizeAccords(parsed.accords)
-  const radarValues = computeRadarValues(accords)
+  // radarMode 跨页一致：lab 封存时把模式写进 cardData，这里读它，
+  // 否则 lab 切「对比名香」封存后，card 页一律按默认 relative 重算，
+  // 同一瓶香两页雷达图形状不同。
+  const radarMode = parsed.radarMode || 'relative'
+  const radarValues = computeRadarValues(accords, radarMode)
   const tier = currentTier()
 
   data.value = {
     time: parsed.time || 0,
     name: parsed.name || '未命名香氛',
     accords,
+    radarMode,
     quote: parsed.quote || getGuQuote(radarValues, { voice: tier.voice }),
     formula: parsed.formula && parsed.formula.length ? parsed.formula : generateFormula(accords),
     note: parsed.note || '',
@@ -192,20 +206,25 @@ onReady(async () => {
   await drawCard(card.ctx, {
     width: card.w, height: card.h,
     name: data.value.name,
-    radarValues: computeRadarValues(data.value.accords),
+    radarValues: computeRadarValues(data.value.accords, data.value.radarMode),
     labels: RADAR_LABELS,
     quote: data.value.quote,
     formula: data.value.formula,
+    // 用户封存时填的调香感言，画在金线下方；未填则不显示该区块
+    note: data.value.note,
     accords: ACCORDS,
     accordValues: data.value.accords,
     theme: THEME,
     rarity: data.value.rarity,
     tierTitle: data.value.tierTitle,
+    // 真实封存时间（data.time）；分享/扫码进来的卡 time 为 0，drawCardBase 回退当天
+    sealTime: data.value.time,
     canvas: card.canvas,
     qrCode: true,
     qrSrc
   })
   ensureTemp()
+  ensureShareTemp()  // 不 await：分享图晚一点好也没关系，别拖慢首屏
 })
 
 function ensureTemp() {
@@ -220,6 +239,50 @@ function ensureTemp() {
       fail: (err) => { console.warn('[card] canvasToTempFilePath fail', err); resolve() }
     })
   })
+}
+
+// 把一张离屏 canvas 导出成临时文件
+function exportTemp(cvs) {
+  return new Promise((resolve) => {
+    if (!cvs) { resolve(''); return }
+    uni.canvasToTempFilePath({
+      canvas: cvs,
+      destWidth: cvs.width,
+      destHeight: cvs.height,
+      success: (res) => resolve(res.tempFilePath || ''),
+      fail: (err) => { console.warn('[card] share canvasToTempFilePath fail', err); resolve('') }
+    })
+  })
+}
+
+// 分享图单独画一版：香名 + 雷达色块 + 一句话，不放小程序码。
+// 分享出去的是小程序卡片，点开直接进小程序，码只在「存到相册」那张图上才有意义。
+// 进页面就生成好，避免用户点分享时才开始画（会卡一下甚至超时）。
+async function ensureShareTemp() {
+  const base = {
+    name: data.value.name,
+    radarValues: computeRadarValues(data.value.accords, data.value.radarMode),
+    quote: data.value.quote,
+    accords: ACCORDS,
+    accordValues: data.value.accords,
+    theme: THEME
+  }
+  const friend = await initCanvas('#shareFriendCanvas', SHARE_SIZE.friend.w, SHARE_SIZE.friend.h)
+  if (friend) {
+    drawShareCard(friend.ctx, { ...base, width: friend.w, height: friend.h })
+    tempPathFriend.value = await exportTemp(friend.canvas)
+    // 导出后把离屏 canvas 缩到 1×1 释放显存：dpr=3 下一张 750×600 约 16MB，两张 32MB。
+    // card 页分享图只画一次，缩掉无副作用（temp 文件已是位图快照）。
+    friend.canvas.width = 1
+    friend.canvas.height = 1
+  }
+  const timeline = await initCanvas('#shareTimelineCanvas', SHARE_SIZE.timeline.w, SHARE_SIZE.timeline.h)
+  if (timeline) {
+    drawShareCard(timeline.ctx, { ...base, width: timeline.w, height: timeline.h })
+    tempPathTimeline.value = await exportTemp(timeline.canvas)
+    timeline.canvas.width = 1
+    timeline.canvas.height = 1
+  }
 }
 
 // 检查并申请相册写入权限，返回是否已授权（已授权或本次刚授权都算 true）
@@ -342,19 +405,38 @@ async function onShareTap() {
   track('share')
 }
 
+// 分享标题：未起名时改用主香调描述（如「柑橘调·木质调」），
+// 避免分享出去印着「未命名香氛」这种占位文案。
+function shareTitleOf() {
+  return (data.value.name && data.value.name !== '未命名香氛')
+    ? `「${data.value.name}」我调了一瓶属于我的香水`
+    : `我调了一瓶属于我的${topAccordDesc(data.value.accords, 2)}香水`
+}
+
 // 微信原生分享：好友/群聊点击卡片进来，直接看到这瓶香
-// 只传递核心数据（name, accords），其他数据在接收端重新计算
+// 只传递核心数据（name, accords, radarMode），其他数据在接收端重新计算
 // 注意：path 不能以 / 开头，否则部分微信版本会丢弃 query 参数
 onShareAppMessage(() => {
   const shareData = {
     name: data.value.name,
-    accords: data.value.accords
+    accords: data.value.accords,
+    radarMode: data.value.radarMode
   }
   const obj = {
-    title: `「${data.value.name}」我调了一瓶属于我的香水`,
+    title: shareTitleOf(),
     path: `pages/card/card?s=${encodeURIComponent(JSON.stringify(shareData))}`
   }
-  if (tempPath.value) obj.imageUrl = tempPath.value
+  // 用 5:4 的分享图，不是 600×900 的封存卡——后者会被居中裁掉香名和调香感言
+  if (tempPathFriend.value) obj.imageUrl = tempPathFriend.value
+  return obj
+})
+
+// 朋友圈：图片规范 1:1，同样不能用封存卡
+onShareTimeline(() => {
+  const obj = {
+    title: shareTitleOf()
+  }
+  if (tempPathTimeline.value) obj.imageUrl = tempPathTimeline.value
   return obj
 })
 </script>
@@ -387,6 +469,12 @@ onShareAppMessage(() => {
   text-align: center;
 }
 
+/* 离屏画布：移出视口而不是 display:none，避免部分基础库拿不到 node */
+.cp-share-wrap {
+  position: fixed; left: -9999px; top: 0;
+  width: 0; height: 0; overflow: hidden; pointer-events: none;
+}
+.cp-share-canvas { width: 750px; height: 600px; }
 .cp-canvas-wrap { display: flex; justify-content: center; }
 .cp-canvas {
   width: 600rpx; height: 900rpx; display: block; background: #f6f3ea;

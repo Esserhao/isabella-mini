@@ -1,13 +1,17 @@
 // 小程序 canvas 2d 手绘库（替代网页版 Chart.js / html2canvas）
 // 调用方负责根据 dpr 对 ctx 做 scale，本文件统一使用「逻辑像素」坐标。
 import { THEME, ACCORD_COLORS } from './theme.js'
+import { topAccordDesc } from './mix.js'
 
 function accordColor(key) {
   return ACCORD_COLORS[key] || THEME.primary
 }
 
-// 封存卡页脚的小程序码位置（drawCardBase 的页脚文案与 drawCard 的二维码共用，避免错位）
-const CARD_QR = { x: 60, y: 812, size: 64 }
+// 封存卡的小程序码：x 与正文左边界对齐，size 固定。
+// y **不再写死**——二维码上移到「配方下方 / 金线上方」后，纵向位置随上方区块高度浮动
+// （配方占 1 行还是 2 行会改变）。由 drawCardBase 计算后返回，drawCard 按返回值绘制，
+// 保证码与右侧品牌文案不错位。
+const CARD_QR = { x: 60, size: 64 }
 
 // 圆角矩形路径（小程序 Canvas2D 的 ctx.roundRect 支持不稳，自己描一遍）
 function roundRect(ctx, x, y, w, h, r) {
@@ -378,7 +382,7 @@ export function drawMolecule(ctx, opt) {
 export function drawCardBase(ctx, opt) {
   const { width, height, name, radarValues, labels,
     quote, formula, accords, accordValues, theme = THEME,
-    rarity = '', tierTitle = '', sealLabel = '' } = opt
+    rarity = '', tierTitle = '', sealLabel = '', qrCode = false, note = '', sealTime = 0 } = opt
   const M = 60
   // 背景
   ctx.fillStyle = theme.paper
@@ -388,11 +392,11 @@ export function drawCardBase(ctx, opt) {
   ctx.lineWidth = 3
   ctx.strokeRect(10, 10, width - 20, height - 20)
 
-  // 顶部标题区
+  // 顶部标题区。香名上限 20 字，固定 28px 会顶出左右安全边距，长名字自动缩小
   ctx.fillStyle = theme.primary
-  ctx.font = 'bold 28px sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
+  fitFontSize(ctx, name || '未命名香氛', width - M * 2, 28, 16, true)
   ctx.fillText(name || '未命名香氛', width / 2, 52)
 
   // 稀有度徽章 + 层级称号（居中，位于香名与金线之间）
@@ -488,13 +492,9 @@ export function drawCardBase(ctx, opt) {
   })
 
   // ---------- 区块 2：配方 ----------
-  // 标题与「主要香调」保持同一格式：绿色小竖线 + bold 14px + primary + 左对齐；
-  // 内容则在避开小程序码后的可用区域内居中，与左对齐的标题形成明确区分。
-  const qrReserved = CARD_QR.x + CARD_QR.size + 16
-  const textMaxW = width - M - qrReserved
-  const textCenterX = qrReserved + textMaxW / 2
-
-  let cursor = listBottom + 32
+  // 标题与内容均左对齐，与「主要香调」保持同一 X 起点（ingX）。
+  // 小程序码已上移到配方下方，内容可以占满整幅宽度，不必再给码让位。
+  let cursor = listBottom + 30
   ctx.fillStyle = theme.primary
   ctx.fillRect(ingX, cursor - 7, 4, 14)
   ctx.textAlign = 'left'
@@ -503,35 +503,62 @@ export function drawCardBase(ctx, opt) {
   ctx.fillText('配方', ingX + 12, cursor)
   cursor += 20
 
-  ctx.textAlign = 'center'
+  ctx.textAlign = 'left'
   ctx.fillStyle = theme.ink
   ctx.font = '14px sans-serif'
   const formulaText = formula && formula.length ? formula.join('、') : '—'
-  const fH = wrapTextCenter(ctx, formulaText, textCenterX, cursor, textMaxW, 21, 2)
-  cursor += fH + 12
+  const fH = wrapTextCenter(ctx, formulaText, ingX, cursor, ingW, 21, 2)
+  cursor += fH + 20
 
-  // ---------- 区块 3：调香感言（斜体，带上下细线包裹） ----------
-  ctx.strokeStyle = 'rgba(169,120,38,0.28)'
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  ctx.moveTo(width / 2 - 40, cursor)
-  ctx.lineTo(width / 2 + 40, cursor)
-  ctx.stroke()
+  // ---------- 小程序码 + 品牌信息 + 古先生感言（金线之上，紧接配方）----------
+  // 码本体由 drawCard 绘制（需要异步 loadImage），这里只排文案并算出码的位置。
+  // 码右侧横排两栏：左栏品牌信息、右栏古先生的话，两栏顶端对齐。
+  const qrSize = CARD_QR.size
+  const qrX = CARD_QR.x
+  const qrY = cursor
 
-  cursor += 18
+  // 不带码时（工坊实时预览还没封存）整块左移到正文起点，
+  // 否则码位会在卡片中部空出一块 64px 的洞。
+  const colX = qrCode ? qrX + qrSize + 16 : ingX
+  const infoW = 170                       // 左栏宽度，够放下「扫码调香 · 调出你的味道」
+  const guX = colX + infoW                // 右栏起点
+  const guW = (width - M) - guX           // 右栏宽度，到右边界为止
+
+  // 左栏：品牌信息
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = theme.ink
+  ctx.font = 'bold 13px sans-serif'
+  ctx.fillText('调香日记', colX, qrY + 14)
+  // 封存日期优先用真实的 sealTime（data.time），不再画「今天」——
+  // 否则 8 月封存的香，隔几周重开卡片页会印出重绘当天的日期，信息错误。
+  const d = new Date(sealTime ? sealTime : Date.now())
+  const ds = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0')
+  ctx.fillStyle = 'rgba(107,106,106,0.9)'
+  ctx.font = '12px sans-serif'
+  ctx.fillText('封存于 ' + ds, colX, qrY + 38)
+  ctx.fillStyle = theme.gold
+  ctx.font = '12px sans-serif'
+  ctx.fillText(sealLabel || '扫码调香 · 调出你的味道', colX, qrY + 60)
+
+  // 右栏：古先生的话（斜体，顶端与左栏首行对齐）
+  // 先按 14px 斜体量行数，再按实际高度决定这一块的总高。
+  const guLineH = 20
+  ctx.font = 'italic 14px sans-serif'
+  const guLines = wrapLines(ctx, quote || '', guW, 3)
+  const guH = guLines.length * guLineH
   ctx.fillStyle = theme.inkSoft
-  ctx.font = 'italic 15px sans-serif'
-  const qH = wrapTextCenter(ctx, quote || '', width / 2, cursor, width - M * 2, 24, 3)
-  cursor += qH + 14
+  guLines.forEach((l, i) => {
+    ctx.fillText(l, guX, qrY + 4 + i * guLineH + guLineH / 2)
+  })
 
-  ctx.strokeStyle = 'rgba(169,120,38,0.28)'
-  ctx.beginPath()
-  ctx.moveTo(width / 2 - 40, cursor)
-  ctx.lineTo(width / 2 + 40, cursor)
-  ctx.stroke()
+  // 整块高度取「码 / 左栏三行 / 右栏感言」三者最大值，保证谁都不被裁掉
+  // 注意不能叫 blockH —— 上面「主要香调」区块已经用掉这个名字了
+  const qrBlockH = Math.max(qrSize, 60, guH)
+  const qrBottom = qrY + qrBlockH
 
-  // ---------- 页脚：金线 + 小程序码 + 品牌信息 ----------
-  const footerY = Math.max(cursor + 24, CARD_QR.y - 22)
+  // ---------- 页脚金线（上述区块下方）----------
+  const footerY = qrBottom + 22
   ctx.strokeStyle = 'rgba(169,120,38,0.35)'
   ctx.lineWidth = 1
   ctx.beginPath()
@@ -539,21 +566,38 @@ export function drawCardBase(ctx, opt) {
   ctx.lineTo(width - M, footerY)
   ctx.stroke()
 
-  const fx = CARD_QR.x + CARD_QR.size + 16
-  const fy = CARD_QR.y
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'middle'
-  ctx.fillStyle = theme.ink
-  ctx.font = 'bold 13px sans-serif'
-  ctx.fillText('调香日记', fx, fy + 14)
-  const d = new Date()
-  const ds = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0')
-  ctx.fillStyle = 'rgba(107,106,106,0.9)'
-  ctx.font = '12px sans-serif'
-  ctx.fillText('封存于 ' + ds, fx, fy + 38)
-  ctx.fillStyle = theme.gold
-  ctx.font = '12px sans-serif'
-  ctx.fillText('扫码调香 · 调出你的味道', fx, fy + 60)
+  // ---------- 区块 3：用户自己的调香感言（金线之下）----------
+  // 这是用户封存时亲手填的那句 20 字感触（note），和上方古先生的话（quote）是两回事。
+  // 没填就整块留白——金线位置不变，保证填与不填的卡片结构一致。
+  const noteText = String(note || '').trim()
+  if (noteText) {
+    const nAreaTop = footerY + 20
+    const nAreaBottom = height - 30
+    const nAreaH = nAreaBottom - nAreaTop
+    const nLineH = 26
+    const nLabelH = 22
+    let nMaxLines = Math.floor((nAreaH - nLabelH) / nLineH)
+    if (nMaxLines < 1) nMaxLines = 1
+    if (nMaxLines > 2) nMaxLines = 2
+
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.font = '12px sans-serif'
+    const nLines = wrapLines(ctx, noteText, width - M * 2, nMaxLines)
+    const nH = nLabelH + nLines.length * nLineH
+    const nTop = nAreaTop + Math.max(0, (nAreaH - nH) / 2)
+
+    ctx.fillStyle = theme.gold
+    ctx.fillText('调香感言', width / 2, nTop + 8)
+    ctx.fillStyle = theme.ink
+    ctx.font = '16px sans-serif'
+    nLines.forEach((l, i) => {
+      ctx.fillText(l, width / 2, nTop + nLabelH + i * nLineH + nLineH / 2)
+    })
+  }
+
+  // 供 drawCard 定位二维码图片，避免码与右侧文案错位
+  return { qr: { x: qrX, y: qrY, size: qrSize } }
 }
 
 // ---------- 程序化印章（替代已删除的 name.png 手写签名） ----------
@@ -617,23 +661,140 @@ export function drawSeal(ctx, opt) {
 export async function drawCard(ctx, opt) {
   const { width, height, canvas,
     qrCode = false, qrSrc = '' } = opt
-  drawCardBase(ctx, opt)
+  // 二维码纵向位置由本次布局决定（配方占几行会改变它），取返回值而非常量
+  const layout = drawCardBase(ctx, opt)
+  const qr = (layout && layout.qr) || null
 
-  // 小程序码：与 drawCardBase 的页脚文案共用 CARD_QR 坐标，保证码贴在文案左侧。
+  // 小程序码：位置由 drawCardBase 算出，与右侧品牌文案共用同一 y，保证不错位。
   // 这张卡会被保存到相册或分享到聊天窗口，看到的人扫码就能进小程序。真码。
-  if (qrCode && canvas && qrSrc) {
+  if (qrCode && qr && canvas && qrSrc) {
     try {
       const qrImg = await loadImage(canvas, qrSrc)
-      const qrSize = CARD_QR.size
       // 白底衬垫：只包住码本身，文案由 drawCardBase 负责，互不遮挡
       ctx.fillStyle = '#fff'
-      roundRect(ctx, CARD_QR.x - 4, CARD_QR.y - 4, qrSize + 8, qrSize + 8, 8)
+      roundRect(ctx, qr.x - 4, qr.y - 4, qr.size + 8, qr.size + 8, 8)
       ctx.fill()
-      ctx.drawImage(qrImg, CARD_QR.x, CARD_QR.y, qrSize, qrSize)
+      ctx.drawImage(qrImg, qr.x, qr.y, qr.size, qr.size)
     } catch (e) {
       // 加载失败静默，不阻塞主流程
     }
   }
+}
+
+// ---------- 分享图（转发好友 5:4 / 朋友圈 1:1）----------
+// 微信官方规范：onShareAppMessage 的 imageUrl 显示比例是 5:4，onShareTimeline 是 1:1。
+// 直接把 600×900 的封存卡塞进去会被居中裁剪——香名在顶部、调香感言在底部，
+// 正好是被裁掉的两端。所以分享图单独画一版。
+//
+// 内容只留三样：香名（超大字）+ 雷达色块（视觉锤）+ 一句话。
+// 不放小程序码：分享出去的是小程序卡片，点开直接进小程序，码在这里没有意义
+// （码只在「存到相册」那张图上需要，那张图可能被打印或发到别的平台）。
+export const SHARE_SIZE = {
+  friend: { w: 750, h: 600 },   // 5:4
+  timeline: { w: 600, h: 600 }  // 1:1
+}
+
+// 简化雷达：只画数据多边形 + 外圈，不画网格线/轴线/标签。
+// 分享图在聊天里只有约 200×160，任何 1px 细线缩完都是一团糊。
+function drawShareRadar(ctx, opt) {
+  const { cx, cy, radius, values, max = 100, color } = opt
+  const n = values.length
+  const angle = (i) => (i / n) * Math.PI * 2 - Math.PI / 2
+
+  // 外圈参照边界：缩略图上能一眼看出「这是个图形」而不是一团色块
+  ctx.beginPath()
+  for (let i = 0; i < n; i++) {
+    const x = cx + Math.cos(angle(i)) * radius
+    const y = cy + Math.sin(angle(i)) * radius
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
+  }
+  ctx.closePath()
+  ctx.strokeStyle = rgba(color, 0.28)
+  ctx.lineWidth = Math.max(2, radius * 0.02)
+  ctx.stroke()
+
+  // 数据多边形：实心填充，这是整张分享图的视觉锤
+  ctx.beginPath()
+  for (let i = 0; i < n; i++) {
+    const v = Math.max(0, Math.min(max, values[i] || 0)) / max
+    const x = cx + Math.cos(angle(i)) * radius * v
+    const y = cy + Math.sin(angle(i)) * radius * v
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
+  }
+  ctx.closePath()
+  ctx.fillStyle = rgba(color, 0.55)
+  ctx.fill()
+  ctx.strokeStyle = color
+  ctx.lineWidth = Math.max(3, radius * 0.04)
+  ctx.stroke()
+}
+
+// 画一张分享图。opt: { width, height, name, radarValues, quote, accords, accordValues, theme }
+export function drawShareCard(ctx, opt) {
+  const {
+    width, height, name = '', radarValues = [], quote = '',
+    accords = [], accordValues = {}, theme = THEME
+  } = opt
+
+  const cx = width / 2
+  const border = Math.max(3, width * 0.006)
+
+  // 背景 + 外边框（与封存卡同一套纸感）
+  ctx.fillStyle = theme.paper
+  ctx.fillRect(0, 0, width, height)
+  ctx.strokeStyle = theme.primary
+  ctx.lineWidth = border
+  ctx.strokeRect(border, border, width - border * 2, height - border * 2)
+
+  // 主香调的颜色就是这瓶香的性格，拿它当视觉锤的主色
+  let topKey = ''
+  let topVal = -1
+  accords.forEach((a) => {
+    const v = accordValues[a.key] || 0
+    if (v > topVal) { topVal = v; topKey = a.key }
+  })
+  const mainColor = accordColor(topKey)
+
+  // 1) 香名：分享图上第一眼要看到的，字号按画布宽度取 7.5%，长名字自动缩小。
+  // 没起名时不用「未命名香氛」——改用主香调描述（如「柑橘调·木质调」），
+  // 分享出去至少能看出这瓶香是什么性格。
+  const titleName = (name && name !== '未命名香氛') ? name : topAccordDesc(accordValues, 2)
+  ctx.fillStyle = theme.primary
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  fitFontSize(ctx, titleName, width * 0.84, width * 0.075, Math.round(width * 0.03), true)
+  ctx.fillText(titleName, cx, height * 0.14)
+
+  // 2) 雷达色块：画面中心，直径约占短边 42%
+  const radarR = Math.min(width, height) * 0.21
+  drawShareRadar(ctx, {
+    cx, cy: height * 0.55, radius: radarR,
+    values: radarValues, color: mainColor
+  })
+
+  // 3) 一句话：最多 2 行，超出截断（分享卡片上它只是氛围，不是信息主体）
+  const qSize = Math.round(width * 0.028)
+  const qLineH = qSize * 1.5
+  ctx.font = `italic ${qSize}px sans-serif`
+  const qText = String(quote || '')
+  const qLines = wrapLines(ctx, qText, width * 0.84, 2)
+  // 两行装不下时给末行加省略号。句子突然断在半截，看起来像渲染 bug
+  // （当前 90 条感言最长 58 字，1:1 版容量约 59 字，刚好不触发；加新文案就会）
+  if (qText && qLines.join('').length < qText.length) {
+    const last = qLines.length - 1
+    qLines[last] = qLines[last].slice(0, -1) + '…'
+  }
+  const qTop = height * 0.815
+  ctx.fillStyle = theme.inkSoft
+  qLines.forEach((l, i) => {
+    ctx.fillText(l, cx, qTop + i * qLineH)
+  })
+
+  // 4) 品牌
+  const bSize = Math.round(width * 0.022)
+  ctx.fillStyle = theme.gold
+  ctx.font = `${bSize}px sans-serif`
+  ctx.fillText('调香日记', cx, height * 0.945)
 }
 
 // 卡片右下角印章位置（相对卡片宽高的偏移与半径），供 drawCard 与 drawStampAnimated 共用
@@ -729,8 +890,31 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
 // 换行并居中绘制，返回实际占用高度。
 // 结构化布局需要「先量后画」：只有知道这段文字占几行，才能算出下一个区块的 Y，
 // 否则内容长短不一（短配方 / 8 调长配方 / 长感言）会让区块互相重叠或底部留大片空白。
-function wrapTextCenter(ctx, text, cx, top, maxWidth, lineHeight, maxLines = 3) {
-  if (!text) return 0
+// 按可用宽度自适应字号：先用 startSize 量一次，超宽就按比例缩到刚好，再逐 px 微调。
+// 香名上限是 20 字，固定字号在窄画布上必然撑破——名字长就自动变小，而不是溢出画布。
+// 返回最终字号，调用前需保证 ctx.font 已被本函数设好。
+function fitFontSize(ctx, text, maxWidth, startSize, minSize, bold = false) {
+  const set = (s) => { ctx.font = `${bold ? 'bold ' : ''}${s}px sans-serif` }
+  let size = Math.round(startSize)
+  set(size)
+  const w0 = ctx.measureText(text || '').width
+  if (w0 > maxWidth && w0 > 0) {
+    size = Math.max(minSize, Math.floor(size * maxWidth / w0))
+    set(size)
+    while (size > minSize && ctx.measureText(text || '').width > maxWidth) {
+      size -= 1
+      set(size)
+    }
+  }
+  return size
+}
+
+// 纯计算：按 maxWidth 折行，返回行数组，不绘制。
+// 拆出来是为了让布局阶段能「先量后画」——感言要在金线下方的剩余区域里垂直居中，
+// 必须先知道它占几行，才能算起始 y。
+// 注意：依赖调用前已设好的 ctx.font（measureText 按当前字号量）。
+function wrapLines(ctx, text, maxWidth, maxLines = 3) {
+  if (!text) return []
   const chars = String(text).split('')
   const lines = []
   let line = ''
@@ -745,9 +929,16 @@ function wrapTextCenter(ctx, text, cx, top, maxWidth, lineHeight, maxLines = 3) 
     }
   }
   if (line && lines.length < maxLines) lines.push(line)
-  const safe = lines.length ? lines : ['']
-  safe.forEach((l, i) => {
+  return lines.length ? lines : ['']
+}
+
+// 水平居中折行绘制（cx 为水平中心；左对齐时传左起点亦可，行为由 ctx.textAlign 决定）。
+// 返回实际占用高度，供调用方推进 cursor。
+function wrapTextCenter(ctx, text, cx, top, maxWidth, lineHeight, maxLines = 3) {
+  if (!text) return 0
+  const lines = wrapLines(ctx, text, maxWidth, maxLines)
+  lines.forEach((l, i) => {
     ctx.fillText(l, cx, top + i * lineHeight + lineHeight / 2)
   })
-  return safe.length * lineHeight
+  return lines.length * lineHeight
 }

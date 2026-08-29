@@ -1,6 +1,6 @@
 // 封存卡布局自检：用 mock ctx 跑一遍 drawCardBase / drawCard，
 // 记录所有文本与矩形坐标，检测越界与重叠。
-import { drawCardBase, drawCard } from '../src/utils/canvas-draw.js'
+import { drawCardBase, drawCard, drawShareCard, SHARE_SIZE } from '../src/utils/canvas-draw.js'
 import { ACCORDS, RADAR_LABELS, galleryPerfumes } from '../src/utils/data.js'
 import { computeRadarValues, generateFormula, getGuQuote } from '../src/utils/mix.js'
 import { THEME } from '../src/utils/theme.js'
@@ -94,8 +94,8 @@ async function run(label, accords, opts = {}) {
   items.filter(i => i.y > 0 && i.y < H).sort((a, b) => a.y - b.y).forEach(i => {
     console.log(`  y=${i.y.toFixed(0).padStart(4)}..${i.bottom.toFixed(0).padStart(4)}  x=${i.x.toFixed(0).padStart(4)}..${i.right.toFixed(0).padStart(4)}  ${i.label}`)
   })
-  // 越界检测
-  const oob = items.filter(i => i.bottom > H - 4 || i.right > W - 4 || i.x < 4)
+  // 越界检测（装饰性满版矩形如背景纸、色块本就该到卡片边缘，不参与越界判定）
+  const oob = items.filter(i => !i.label.startsWith('RECT') && (i.bottom > H - 4 || i.right > W - 4 || i.x < 4))
   if (oob.length) { console.log('  !! 越界:'); oob.forEach(i => console.log(`     ${i.label} bottom=${i.bottom.toFixed(0)} right=${i.right.toFixed(0)} x=${i.x.toFixed(0)}`)) }
   // 文本重叠检测
   const texts = items.filter(i => i.label.startsWith('TEXT'))
@@ -127,3 +127,58 @@ await run('场景3 真实图鉴配方 + 有小程序码', a0, { withQr: true })
 const long = { citrus: 25, floral: 20, fruity: 15, woody: 15, oriental: 10, green: 8, musk: 4, aquatic: 3 }
 ACCORDS.forEach(a => { if (long[a.key] === undefined) long[a.key] = 0 })
 await run('场景4 极长配方(8调) + 有小程序码', long, { withQr: true })
+// 场景5：超长感言。金线上方的右栏古先生感言最多 3 行，必须验证「截断」而不是「溢出卡片」
+await run('场景5 超长古先生感言(>3行) + 有小程序码', a0, {
+  withQr: true,
+  extra: { quote: '这是一段刻意写得极长的调香感言，用来验证当文案长度超过三行时卡片会截断而不是把文字溢出到卡片外面，同时右栏与左栏品牌信息顶端仍然保持对齐不会互相压住。' }
+})
+// 场景6：用户填了自己的感言（20 字内），金线下方应出现「调香感言」区块
+await run('场景6 用户感言(15字) + 有小程序码', a0, {
+  withQr: true,
+  extra: { note: '像夏天的傍晚，风里有橘子皮的味道' }
+})
+// 场景7：用户感言顶满 20 字上限，验证金线下方区块不溢出、不挤压金线
+await run('场景7 用户感言(20字满) + 有小程序码', a0, {
+  withQr: true,
+  extra: { note: '第一次调出让自己满意的香，想留住这个下午。' }
+})
+
+// 场景8：香名顶满 20 字上限。香名是固定字号画的，不自适应就会顶出左右安全边距
+await run('场景8 超长香名(20字) + 有小程序码', a0, {
+  withQr: true,
+  name: '一支名字长到会撑破卡片的香氛呀'
+})
+
+// ---------- 分享图（转发好友 5:4 / 朋友圈 1:1）----------
+// 不能用封存卡那张 600×900 的图顶替：非目标比例会被居中裁剪，香名和感言正好在两端。
+function runShare(label, size, accords, opts = {}) {
+  const ctx = makeCtx()
+  const radarValues = computeRadarValues(accords)
+  const quote = getGuQuote(radarValues)
+  drawShareCard(ctx, {
+    width: size.w, height: size.h,
+    name: opts.name || '午后柑橘园',
+    radarValues, quote,
+    accords: ACCORDS, accordValues: accords, theme: THEME
+  })
+  const items = ctx._log.map(rectOf)
+  console.log(`\n========== ${label} (${size.w}x${size.h}) ==========`)
+  console.log(`台词: ${quote}`)
+  items.filter(i => i.label.startsWith('TEXT')).forEach(i => {
+    console.log(`  y=${i.y.toFixed(0).padStart(4)}..${i.bottom.toFixed(0).padStart(4)}  x=${i.x.toFixed(0).padStart(4)}..${i.right.toFixed(0).padStart(4)}  ${i.label}`)
+  })
+  const texts = items.filter(i => i.label.startsWith('TEXT'))
+  const oob = texts.filter(i => i.bottom > size.h || i.right > size.w || i.x < 0 || i.y < 0)
+  if (oob.length) { console.log('  !! 越界:'); oob.forEach(i => console.log(`     ${i.label} bottom=${i.bottom.toFixed(0)} right=${i.right.toFixed(0)}`)) }
+  let th = 0
+  for (let i = 0; i < texts.length; i++) for (let j = i + 1; j < texts.length; j++) {
+    const o = overlap(texts[i], texts[j])
+    if (o) { th++; console.log(`  !! ${texts[i].label} 与 ${texts[j].label} 重叠 ${o.ix.toFixed(0)}x${o.iy.toFixed(0)}`) }
+  }
+  if (!th && !oob.length) console.log('  ✅ 未发现重叠/越界')
+  return { th, oob: oob.length }
+}
+
+await runShare('分享图A 转发好友 5:4', SHARE_SIZE.friend, a0)
+await runShare('分享图B 朋友圈 1:1', SHARE_SIZE.timeline, a0)
+await runShare('分享图C 超长香名 5:4', SHARE_SIZE.friend, a0, { name: '一支名字长到会撑破卡片的香水' })

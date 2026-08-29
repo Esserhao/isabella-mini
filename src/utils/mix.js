@@ -219,6 +219,17 @@ export function summarizeAccords(accordValues) {
     };
 }
 
+// 取数值最高的 n 个香调，拼成「柑橘调·木质调」式描述。
+// 用于未起名香水的分享标题 / 分享图主标题兜底，避免印出「未命名香氛」。
+export function topAccordDesc(accordValues, n = 2) {
+    const rows = ACCORDS
+        .map(a => ({ label: a.label, val: accordValues[a.key] || 0 }))
+        .filter(r => r.val > 0)
+        .sort((a, b) => b.val - a.val);
+    const top = rows.slice(0, n).map(r => r.label + '调');
+    return top.length ? top.join('·') : '调香';
+}
+
 // 随机香名生成器（封存时若未起名，自动起一个，让分享标题有钩子）
 export function genPerfumeName() {
     const A = ['雨夜', '海盐', '雾中', '旧信', '山茶', '琥珀', '雪松', '月光', '清晨', '街角', '暮色', '远山', '潮汐', '青苔', '星光', '白昼', '纸鸢', '薄暮'];

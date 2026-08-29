@@ -11,7 +11,8 @@
     <scroll-view v-show="tab === 'perfumes'" scroll-y class="g-scroll" :show-scrollbar="false">
       <button class="g-random" @tap="randomPick">随便来一瓶（懒人福音）</button>
       <view class="p-card" v-for="(p, i) in perfumes" :key="p.id" :id="i === 0 ? 'coachGalleryCard' : ''" @tap="openPerfume(p)">
-        <image class="p-thumb" :src="imgSrc(p.id)" mode="aspectFill"></image>
+        <image class="p-thumb" :src="imgSrc(p.id)" mode="aspectFill"
+               :style="{ background: imgBg(p.accords) }" @error="onImgError('thumb', p.id)"></image>
         <view class="p-info">
           <view class="p-name">{{ p.name }}</view>
           <view class="p-sub">{{ p.brand }} · {{ p.year }}</view>
@@ -76,7 +77,8 @@
         </view>
         <scroll-view scroll-y class="detail-scroll" :show-scrollbar="false">
           <template v-if="sel.type === 'perfume'">
-            <image class="d-perfume-img" :src="imgSrc(sel.data.id)" mode="aspectFill"></image>
+            <image class="d-perfume-img" :src="imgSrc(sel.data.id)" mode="aspectFill"
+                   :style="{ background: imgBg(sel.data.accords) }" @error="onImgError('detail', sel.data.id)"></image>
             <view class="d-title">{{ sel.data.name }}</view>
             <view class="d-sub">{{ sel.data.brand }} · {{ sel.data.year }} · 调香师 {{ sel.data.perfumer }}</view>
             <view class="d-hook">「{{ sel.data.hook }}」</view>
@@ -184,6 +186,19 @@ import { track } from '@/utils/analytics.js'
 
 function accordColor(key) { return ACCORD_COLORS[key] || '#2e5c45' }
 
+// 图片底色：加载中和加载失败时露出来的都是这瓶香的主色调，不会是个白洞。
+// 本地图理论上不会失败，但万一打包漏了或文件损坏，至少还能看出这是瓶什么香。
+function imgBg(acc) {
+  const entries = Object.entries(acc || {}).sort((a, b) => b[1] - a[1])
+  const key = entries[0] ? entries[0][0] : 'citrus'
+  const c = accordColor(key)
+  return `linear-gradient(155deg, ${c}1f, ${c}3d)`
+}
+function onImgError(where, id) {
+  // 不静默：真失败了留一条 warn，方便事后定位是哪张图
+  console.warn(`[gallery] 图片加载失败 ${where}:`, id)
+}
+
 const tab = ref('perfumes')
 const perfumes = galleryPerfumes
 const accords = ACCORDS
@@ -213,11 +228,12 @@ function label(k) { return GALLERY_LABELS[k] || k }
 // 本地品牌图（小程序不能加载境外域名）
 // 1/3/5/6 下载真实 jpg；2/4 由用户提供的 webp 产品图转 jpg；全部为无水印真实图
 const IMG_EXT = { 1: 'jpg', 2: 'jpg', 3: 'jpg', 4: 'jpg', 5: 'jpg', 6: 'jpg', 7: 'jpg', 8: 'jpg', 9: 'jpg', 10: 'jpg', 11: 'jpg' }
-// 图鉴图片走 GitHub raw + CDN 加载，不占用主包空间。
-// 把小程序的 src/static/gallery/ 目录上传到 GitHub 仓库后，
-// 请将下方 GITHUB_RAW 替换为你的仓库实际地址。
-const GITHUB_RAW = 'https://raw.githubusercontent.com/Esserhao/isabella-mini/main/src/static/gallery'
-function imgSrc(id) { return GITHUB_RAW + '/p' + id + '.' + (IMG_EXT[id] || 'png') }
+// 图鉴图走本地资源，不走 CDN。
+// 之前试过 raw.githubusercontent.com，属境外域名：开发者工具里勾选
+// 「不校验合法域名」能显示，真机上一律加载失败，且该域名在国内本身就不稳定。
+// 本地图已过 scripts/optimize-gallery.py 压缩（最长边 700px / q80 / 单张≤150KB），
+// 11 张合计约 537KB，主包装得下。后续加图务必先跑压缩脚本再看主包余量。
+function imgSrc(id) { return '/static/gallery/p' + id + '.' + (IMG_EXT[id] || 'png') }
 // 香调矢量图标（SVG→PNG 静态图，体积小保留本地）
 function accordImg(key) { return '/static/gallery/accords/' + key + '.png' }
 
