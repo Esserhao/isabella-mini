@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+_cloudfunctions_bak*
+build_old*
+index.html
+new/
+FISSION_CLOSED_LOOP.md
+_memlog.py
+_retired_20260820/
+代码扫描报告-20260820.md
+留言板云开发设置指南.md
+自检报告-20260828.md
+*.bak_*

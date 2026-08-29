@@ -1,0 +1,27 @@
+{
+  "description": "伊莎贝拉·调香室 小程序项目配置",
+  "miniprogramRoot": "dist/build/mp-weixin/",
+  "cloudfunctionRoot": "cloudfunctions/",
+  "compileType": "miniprogram",
+  "appid": "wx348e6814a06444db",
+  "projectname": "isabella-mini",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "minified": true,
+    "postcss": true,
+    "ignoreUploadUnusedFiles": true,
+    "uglifyFileName": false,
+    "enhance": true,
+    "useCompilerModule": true,
+    "userConfirmedUseCompilerModuleSwitch": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "ignoreDevUnusedFiles": true
+  },
+  "libVersion": "latest",
+  "condition": {}
+}
