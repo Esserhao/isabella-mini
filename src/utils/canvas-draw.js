@@ -147,14 +147,12 @@ export function drawRadar(ctx, opt) {
       ctx.fill()
     }
 
-    // 叠加标签（图鉴香水名，放在雷达右下角）
-    if (overlay.label) {
-      ctx.fillStyle = overlay.color || theme.gold
-      ctx.font = 'bold 13px sans-serif'
-      ctx.textAlign = 'right'
-      ctx.textBaseline = 'bottom'
-      ctx.fillText(overlay.label, cx + radius, cy + radius + 20)
-    }
+    // 注意：对比名香的「名字」不画进画布。
+    // 原先画在右下角 (cx+radius, cy+radius+20)，两个硬伤：
+    // ① 和正下方的轴标签（清冽感）在 x 上重叠约 7px，两串字糊在一起；
+    // ② 离画布下边缘只剩十几个像素，紧跟其后的文案看着像贴在图上。
+    // 名字改由调用方（工坊调香台）在雷达下方单独一行展示，间距可控。
+    // overlay.label 仍然收着，只是不再负责绘制。
   }
 
   // 标签

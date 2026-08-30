@@ -47,8 +47,17 @@
            聚光灯教程高亮它时遮罩会被它穿透，故 tut.active 时内联 display:none 真正隐藏，
            关闭后 drawLive() 重绘恢复。内联 style 优先级高于 .rcanvas 的 display。 -->
       <view class="canvas-wrap"><canvas type="2d" id="radarCanvas" class="rcanvas" :style="labRadarHidden ? 'display:none' : ''"></canvas></view>
+      <!-- 对比名香：原先这个名字画在画布右下角，和正下方的轴标签重叠、又贴着画布底边。
+           搬到画布外单独成行，间距交给 CSS 控制，既不再打架也有呼吸感。 -->
+      <view v-if="refName" class="ref-perfume">
+        <view class="ref-dash"></view>
+        <text class="ref-name">对比名香 · {{ refName }}</text>
+      </view>
       <view v-if="radarCaption" class="radar-caption">味道偏向：{{ radarCaption }}</view>
-      <view v-if="nearPerfume" class="near-perfume">有点像「{{ nearPerfume }}」呢（相似 {{ nearScore }}%）</view>
+      <!-- 对比名香模式下两者通常是同一瓶，不重复报名字 -->
+      <view v-if="nearPerfume && nearPerfume !== refName" class="near-perfume">
+        <text class="near-perfume-text">有点像「{{ nearPerfume }}」呢（相似 {{ nearScore }}%）</text>
+      </view>
       <view v-if="blendFeedback" class="blend-feedback">{{ blendFeedback }}</view>
     </view>
 
@@ -303,6 +312,8 @@ const radarCaption = ref('')
 const radarMode = ref('relative')
 // 对比名香虚线叠加：冻结时点最近图鉴香水的六维 + 标签
 const overlayRef = ref(null)
+// 对比名香的名字单独成行显示在雷达下方（画布里不再画，见 canvas-draw.js 的说明）
+const refName = ref('')
 
 // ---------- 小白引导：香调释义 / 六维说明 / 实时气味播报 ----------
 const activeAccord = ref('')          // 当前打开释义的香调 key
@@ -596,9 +607,11 @@ function onRadarMode(e) {
     if (best) {
       const overlayVals = computeRadarValues(best.accords, 'absolute')
       overlayRef.value = { values: overlayVals, label: best.name, color: THEME.gold }
+      refName.value = best.name
     }
   } else {
     overlayRef.value = null
+    refName.value = ''
   }
   drawLive()
   syncCard()
@@ -1129,8 +1142,25 @@ onReady(async () => {
 .rm-label { font-size: 22rpx; color: #9a958a; }
 .rm-label.on { color: #2e5c45; font-weight: 600; }
 .rm-switch { transform: scale(0.72); }
-.canvas-wrap { padding-top: 28rpx; }
+/* 画布下方留出呼吸：canvas 底部本身还压着轴标签，间距太小下面的文案会像糊在图上 */
+.canvas-wrap { padding-top: 28rpx; padding-bottom: 6rpx; }
 .rcanvas, .mcanvas { width: 600rpx; height: 600rpx; display: block; margin: 0 auto; }
+
+/* 对比名香：从画布里搬出来单独成行，和雷达图明确分开。
+   前面那段金色虚线与雷达里的虚线多边形呼应，一眼知道这是谁。 */
+/* 不用 flex gap：老版本微信 webview 对 flex 的 gap 支持不齐，用 margin 更稳 */
+.ref-perfume {
+  margin-top: 30rpx;
+  display: flex; align-items: center; justify-content: center;
+}
+.ref-dash {
+  width: 28rpx; height: 0; flex-shrink: 0;
+  border-top: 3rpx dashed #a97826;
+}
+.ref-name {
+  margin-left: 12rpx;
+  font-size: 23rpx; color: #a97826; font-weight: 600; letter-spacing: 1rpx;
+}
 
 /* 极端反馈条（主导香调 >=70 时闪现） */
 .blend-feedback {
@@ -1235,7 +1265,7 @@ onReady(async () => {
 
 /* 工坊雷达下方的气息特征字幕：把六个坐标轴翻译成人话 */
 .radar-caption {
-  margin-top: 14rpx; text-align: center;
+  margin-top: 26rpx; text-align: center;
   font-size: 24rpx; color: #2e5c45; letter-spacing: 1rpx;
 }
 
@@ -1324,8 +1354,15 @@ onReady(async () => {
 .normalize-hint { font-size: 21rpx; color: #9b9b8f; margin-bottom: 12rpx; }
 
 /* 靠近名香提示 */
+/* 「有点像…」：以前只留 8rpx，几乎贴在上一行/雷达图上；提到 18rpx 并给它一层浅底，
+   让它读起来是独立的一句评价，而不是图像的附属物。 */
 .near-perfume {
-  margin-top: 8rpx; text-align: center;
+  margin-top: 18rpx;
+  display: flex; justify-content: center;
+}
+.near-perfume-text {
+  background: rgba(169, 120, 38, 0.09);
+  border-radius: 30rpx; padding: 10rpx 24rpx;
   font-size: 23rpx; color: #a97826; letter-spacing: 1rpx;
 }
 

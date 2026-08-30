@@ -29,7 +29,7 @@
 </template>
 
 <script setup>
-import { onMounted, watch, computed, ref, reactive } from 'vue'
+import { onMounted, watch, computed, ref, reactive, nextTick } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { tut, TUTORIAL_STEPS, nextStep, prevStep, finishTour, goToPage, stepTotal } from '@/utils/tutorial.js'
 
@@ -59,75 +59,161 @@ function measureScreen() {
 // rpx→px：750rpx 约等于屏幕宽
 function rpxToPx(v) { return screen.w * (v / 750) }
 
-// 注解卡片尺寸（估算），用于决定放在目标上方还是下方
+// 注解卡片尺寸（估算），用于决定放在目标上方还是下方。
+// 最后一步多一行「查看详细图文指南」，估算高度要跟着变，否则卡片会溢出屏幕底部。
 const CARD_W_RPX = 600
-const CARD_H_PX = 250
+const CARD_H_BASE = 250
+const cardH = computed(() => (isLast.value ? CARD_H_BASE + 46 : CARD_H_BASE))
+// 亮框外扩：目标贴着视口边缘时也看得全白边，聚光灯不会「切边」
+const RING_PAD = 6
+
+// 挖洞区域：boundingClientRect 给的是视口坐标，遮罩/亮框都是 position:fixed，可以直接用
+const hole = computed(() => {
+  const r = rect.value
+  if (!r) return null
+  return {
+    top: Math.max(0, r.top - RING_PAD),
+    left: Math.max(0, r.left - RING_PAD),
+    width: r.width + RING_PAD * 2,
+    height: r.height + RING_PAD * 2
+  }
+})
 
 const dimStyle = computed(() => {
-  const r = rect.value
-  if (!r) return ''
-  return `top:${r.top}px;left:${r.left}px;width:${r.width}px;height:${r.height}px;`
+  const h = hole.value
+  if (!h) return ''
+  return `top:${h.top}px;left:${h.left}px;width:${h.width}px;height:${h.height}px;`
 })
-const ringStyle = computed(() => {
-  const r = rect.value
-  if (!r) return ''
-  return `top:${r.top}px;left:${r.left}px;width:${r.width}px;height:${r.height}px;`
-})
+const ringStyle = dimStyle
 const cardStyle = computed(() => {
   const wpx = rpxToPx(CARD_W_RPX)
+  const ch = cardH.value
   let top = 16
   let left = (screen.w - wpx) / 2
   if (rect.value) {
     const r = rect.value
-    // 下方放得下就放下方（紧贴目标），否则放上方；都放不下就贴顶
+    // 下方放得下就放下方（紧贴目标），否则放上方；都放不下就贴底
     const below = r.top + r.height + 18
-    if (below + CARD_H_PX <= screen.h) top = below
-    else {
-      const above = r.top - CARD_H_PX - 18
-      top = above > 8 ? above : 8
-    }
+    const above = r.top - ch - 18
+    if (below + ch <= screen.h) top = below
+    else if (above > 8) top = above
+    else top = screen.h - ch - 12
     left = r.left + r.width / 2 - wpx / 2
     left = Math.max(12, Math.min(left, screen.w - wpx - 12))
   }
+  // 夹紧：估算高度和真实高度有出入时，也别让卡片跑出屏幕
+  top = Math.max(8, Math.min(top, Math.max(8, screen.h - ch - 8)))
   return `top:${top}px;left:${left}px;width:${wpx}px;`
 })
 
+// 目标始终量不到时给个兜底框（屏幕中段）。宁可高亮位置不精确，
+// 也不能像以前那样无限重试、把整个引导流程卡死在半路。
+function fallbackRect() {
+  const w = Math.min(screen.w - 48, 300)
+  return {
+    top: Math.round(screen.h * 0.32),
+    left: Math.round((screen.w - w) / 2),
+    width: w,
+    height: 120
+  }
+}
+
+// 一次定位最多重试 6 次（约 1.3s），量不到就走兜底
+const MAX_TRY = 6
+// 每轮定位一个令牌：上一轮残留的重试回调带着旧令牌会被直接丢弃，
+// 否则快速连点「下一步」时，旧步骤的位置会盖掉新步骤的位置。
+let queryToken = 0
+
 function tryQuery() {
+  const token = ++queryToken
   measureScreen()
   const s = TUTORIAL_STEPS[tut.index]
-  if (!s || s.page !== props.page) {
+  // 教程没开、或这一步不属于本页：立刻收起，别留着上一页的旧亮框
+  if (!tut.active || !s || s.page !== props.page) {
     ready.value = false
     rect.value = null
     return
   }
   ready.value = false
-  // 先滚到目标附近（page 级滚动），再测真实位置
-  try { uni.pageScrollTo({ selector: s.target, duration: 160 }) } catch (e) { /* 忽略 */ }
-  setTimeout(() => {
-    uni.createSelectorQuery().select(s.target).boundingClientRect((r) => {
-      if (r && r.width) {
-        rect.value = r
-        ready.value = true
-      } else {
-        // 元素还没渲染好（刚切页），稍后重试
-        setTimeout(tryQuery, 220)
+  // 必须等一帧再测：教程一激活，首页/工坊的雷达 canvas 会被 display:none，
+  // 页面整体上移。早测一帧拿到的就是移动前的旧坐标，亮框直接错位。
+  nextTick(() => {
+    if (token !== queryToken) return
+    scrollIntoView(s, () => measure(s, 0, token))
+  })
+}
+
+// 只把「贴顶 / 沉底」的目标挪到舒服的位置。
+// boundingClientRect 返回的就是视口坐标，不用自己减 scrollTop。
+// 先量再决定要不要滚：目标本来就看得见就别动页面，免得每换一步都白跳一次。
+function scrollIntoView(s, done) {
+  uni.createSelectorQuery()
+    .selectViewport().scrollOffset()
+    .select(s.target).boundingClientRect()
+    .exec((res) => {
+      const so = res && res[0]
+      const r = res && res[1]
+      // 量不到（还没渲染 / 被 v-show 藏了）就交给 measure 去重试
+      if (!r || !r.width) { setTimeout(done, 60); return }
+      const tooHigh = r.top < 56
+      const tooLow = r.top + Math.min(r.height, 220) > screen.h - 48
+      if (!tooHigh && !tooLow) { setTimeout(done, 60); return }
+      // 挪到视口 28% 高度处：上方留得下注解卡片，下方也不至于顶到边
+      const wantTop = Math.round(screen.h * 0.28)
+      const delta = r.top - wantTop
+      // 图鉴页是 scroll-view，pageScrollTo 对它会静默失败——不致命，量得到就行
+      if (so && typeof so.scrollTop === 'number' && Math.abs(delta) > 8) {
+        try { uni.pageScrollTo({ scrollTop: Math.max(0, so.scrollTop + delta), duration: 0 }) } catch (e) { /* 忽略 */ }
       }
-    }).exec()
-  }, 300)
+      setTimeout(done, 160)
+    })
+}
+
+function measure(s, attempt, token) {
+  uni.createSelectorQuery().select(s.target).boundingClientRect((r) => {
+    if (token !== queryToken) return
+    // v-show 隐藏的元素会返回宽高为 0，不能只判 width
+    if (r && r.width > 0 && r.height > 0) {
+      rect.value = r
+      ready.value = true
+      // 复测一次：图片加载完、或 canvas 隐藏引起的二次回流，会把目标再顶一下
+      setTimeout(() => { if (token === queryToken) correct(s, token) }, 200)
+      return
+    }
+    if (attempt < MAX_TRY) {
+      setTimeout(() => measure(s, attempt + 1, token), 220)
+      return
+    }
+    console.warn('[CoachMask] 教程目标不可见，已兜底定位：', s.target)
+    rect.value = fallbackRect()
+    ready.value = true
+  }).exec()
+}
+
+function correct(s, token) {
+  uni.createSelectorQuery().select(s.target).boundingClientRect((r) => {
+    if (token !== queryToken || !r || !r.width) return
+    const old = rect.value
+    if (!old || Math.abs(old.top - r.top) > 2 || Math.abs(old.left - r.left) > 2) rect.value = r
+  }).exec()
 }
 
 function onNext() {
   if (isLast.value) { onFinish(); return }
-  const nextPage = TUTORIAL_STEPS[tut.index + 1].page
+  // 先取「下一步落在哪一页」，再递增——顺序反了就会跳错页
+  const next = TUTORIAL_STEPS[tut.index + 1]
+  if (!next) { onFinish(); return }
   nextStep()
-  if (nextPage !== props.page) goToPage(nextPage)
-  // 同页时 watcher 会触发 tryQuery 重新取位
+  // 跨页：switchTab 会触发目标页的 onShow，由那一页的 CoachMask 接手定位。
+  // 同页：tut.index 变化触发 watcher，本组件自行重新取位。
+  if (next.page !== props.page) goToPage(next.page)
 }
 function onPrev() {
   if (tut.index === 0) return
-  const prevPage = TUTORIAL_STEPS[tut.index - 1].page
+  const prev = TUTORIAL_STEPS[tut.index - 1]
+  if (!prev) return
   prevStep()
-  if (prevPage !== props.page) goToPage(prevPage)
+  if (prev.page !== props.page) goToPage(prev.page)
 }
 function onSkip() { finishTour() }
 function onFinish() {
@@ -142,7 +228,9 @@ function onCaptureTap() { /* 点暗处不动作，避免误跳过 */ }
 
 onMounted(tryQuery)
 onShow(tryQuery)
-watch(() => tut.index, tryQuery)
+// 两个都要听：startTour() 时 index 可能本来就是 0（没变），
+// 只听 index 的话教程开了也不会重新取位，亮框就停在上次那个旧坐标上。
+watch([() => tut.active, () => tut.index], () => { tryQuery() })
 </script>
 
 <style scoped>

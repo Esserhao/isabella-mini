@@ -7,8 +7,10 @@
       <view class="g-tab" :class="{ active: tab === 'notes' }" @tap="tab = 'notes'">手记</view>
     </view>
 
-    <!-- 香水列表 -->
-    <scroll-view v-show="tab === 'perfumes'" scroll-y class="g-scroll" :show-scrollbar="false">
+    <!-- 香水列表。
+         :scroll-top 是给教程留的：聚光灯要亮第一张卡，用户若之前把列表滑到了下面，
+         卡片滚出视口就量不到尺寸。教程开跑时把列表拉回顶部（见下方 watch）。 -->
+    <scroll-view v-show="tab === 'perfumes'" scroll-y class="g-scroll" :show-scrollbar="false" :scroll-top="listScrollTop">
       <button class="g-random" @tap="randomPick">随便来一瓶（懒人福音）</button>
       <view class="p-card" v-for="(p, i) in perfumes" :key="p.id" :id="i === 0 ? 'coachGalleryCard' : ''" @tap="openPerfume(p)">
         <image class="p-thumb" :src="imgSrc(p.id)" mode="aspectFill"
@@ -176,13 +178,15 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { galleryPerfumes, ACCORDS, INGREDIENT_LIBRARY, notesData, RADAR_LABELS, RADAR_DIM_DESC } from '@/utils/data.js'
 import { ACCORD_COLORS, THEME } from '@/utils/theme.js'
 import { computeRadarValues, radarSummary } from '@/utils/mix.js'
 import { drawRadar } from '@/utils/canvas-draw.js'
 import { setPendingBlend } from '@/utils/wxacode.js'
 import { track } from '@/utils/analytics.js'
+import { tut, TUTORIAL_STEPS } from '@/utils/tutorial.js'
 
 function accordColor(key) { return ACCORD_COLORS[key] || '#2e5c45' }
 
@@ -200,6 +204,8 @@ function onImgError(where, id) {
 }
 
 const tab = ref('perfumes')
+// 列表滚动位置，仅供教程复位用（:scroll-top 绑定在香水列表上）
+const listScrollTop = ref(0)
 const perfumes = galleryPerfumes
 const accords = ACCORDS
 const notes = notesData
@@ -208,6 +214,25 @@ const radarHelpOpen = ref(false)
 const radarDimList = RADAR_LABELS.map((lab) => ({ label: lab, desc: RADAR_DIM_DESC[lab] || '' }))
 // 雷达视角：默认「结构」（相对值看名香自身气息）；切「绝对」按全局刻度，方便和别的香横比
 const radarMode = ref('relative')
+
+// scroll-top 只在「值变化」时才触发滚动，所以先给个非 0 值再归 0，确保一定回滚到顶
+function resetListScroll() {
+  listScrollTop.value = 1
+  setTimeout(() => { listScrollTop.value = 0 }, 30)
+}
+
+// 教程第 3 步要亮的是香水列表第一张卡（#coachGalleryCard）。
+// 用户若停在「香调/香料/手记」tab，列表是 v-show 隐藏的 —— 量不到宽高，
+// CoachMask 会一直重试，表现就是引导卡在 2/5 不动了。这里先切回「香水」并复位滚动。
+function ensureCoachTargetVisible() {
+  if (!tut.active) return
+  const s = TUTORIAL_STEPS[tut.index]
+  if (!s || s.page !== 'gallery') return
+  if (tab.value !== 'perfumes') tab.value = 'perfumes'
+  nextTick(resetListScroll)
+}
+onShow(ensureCoachTargetVisible)
+watch([() => tut.active, () => tut.index], ensureCoachTargetVisible)
 
 // 香水详情六维雷达下方的「气息特征」字幕，帮小白读懂雷达
 const selRadarCaption = computed(() => {
