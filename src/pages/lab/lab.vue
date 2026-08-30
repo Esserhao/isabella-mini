@@ -623,7 +623,7 @@ function getAccordValues() {
   return vals
 }
 
-// 「十二味全开」的会话级记录：normalizeFrom 里逐味 add，离开工坊即清零。
+// 「十二味全开」的会话级记录：normalizeFrom 里逐味 add，每次进入工坊（onShow）清零。
 const touchedAccords = new Set()
 
 // 归一化：把 anchorKey 定在 target，剩下的 (100 - target) 在其余各项之间重新分配。
@@ -646,7 +646,7 @@ function normalizeFrom(anchorKey, target) {
   armEgg()
   // 「十二味全开」：同一次会话里 12 个香调都被亲手拉到过非 0。
   // 拖纯水不算（纯水不是气味）；模板/摇一瓶/接力不走这里，天然不计入。
-  // touchedAccords 是会话级 Set，离开工坊即清零，隔次进来自动重开。
+  // touchedAccords 每次进入工坊（onShow）清零，隔次进来自动重开。
   if (anchorKey !== SOLVENT.key && t > 0) {
     touchedAccords.add(anchorKey)
     if (touchedAccords.size >= ACCORDS.length && achieveEgg('full_palette')) {
@@ -1331,6 +1331,10 @@ onShareTimeline(() => {
 
 onShow(() => {
   track('enter_lab')
+  // 「十二味全开」按「同一次进工坊」计：每次进入都从零重新收集。
+  // 注意 onShow 在切回小程序后台时也会触发，收集进度会重开——
+  // 宁可重收一遍也不让条件跨天累积（登记条件写的是哪次就算哪次）。
+  touchedAccords.clear()
   // 「旧作重现」比对源刷新：历史可能被配方库/收藏页的删除按钮改过
   loadSelfHistory()
   // 接力接收：图鉴/随机/调查(running blend) 与 每日挑战。取出即删（storage），

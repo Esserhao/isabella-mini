@@ -4,9 +4,19 @@
 import { suite, test, expect } from './helpers.mjs'
 import {
   computeRadarValues, generateFormula, scoreDailyChallenge,
-  normalizeAccords, findExactMatch
+  normalizeAccords, findExactMatch, getDailyChallenge
 } from '../../src/utils/mix.js'
 import { DAILY_CHALLENGES, ACCORDS } from '../../src/utils/data.js'
+
+suite('每日挑战选题', () => {
+  test('同一天内多次取题稳定，且题目结构完整', () => {
+    const a = getDailyChallenge()
+    const b = getDailyChallenge()
+    expect(a.theme).toBe(b.theme)
+    expect(a.hint).toBeTruthy()
+    expect(a.target).toBeTruthy()
+  })
+})
 
 const fullBlend = () => {
   const v = {}

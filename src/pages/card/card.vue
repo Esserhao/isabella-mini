@@ -63,6 +63,10 @@ const faved = ref(false)
 // 收藏用的主键时间戳。正常封存卡等于 data.time；分享/扫码进来的卡 time 为 0，
 // 首次点收藏时现场生成一个，避免 favorites.js 因缺 time 直接 return false。
 const favTime = ref(0)
+// 卡面封存小字只有「真封存」的卡才带（lab 的 cardData）。
+// 扫码/分享/历史还原的卡没有这个字段——不能拿层级兜底去画「已封存」，
+// 收卡人并没有封存过，卡面小字维持「扫码调香 · 调出你的味道」默认文案。
+const sealLabelFromSeal = ref(false)
 const tempPath = ref('')
 // 分享图：微信要求转发好友 5:4、朋友圈 1:1，直接用 600×900 的卡会被居中裁掉香名和感言
 const tempPathFriend = ref('')
@@ -162,6 +166,7 @@ onLoad((option) => {
   }
   favTime.value = data.value.time || 0
   faved.value = isFaved(data.value.time)
+  sealLabelFromSeal.value = !!parsed.sealLabel
 })
 
 function initCanvas(sel, designW, designH) {
@@ -217,9 +222,9 @@ onReady(async () => {
     theme: THEME,
     rarity: data.value.rarity,
     tierTitle: data.value.tierTitle,
-    // 封存小字（留白/深夜/七日/层级）：lab 封存时随 cardData 带过来，
-    // 之前只入库没上卡，现在真正画到卡面（历史/收藏还原的走层级兜底）
-    sealLabel: data.value.sealLabel,
+    // 只在真封存的卡上画封存小字（留白/深夜/七日/层级）；
+    // 其余进入方式留空，drawCardBase 回退「扫码调香 · 调出你的味道」
+    sealLabel: sealLabelFromSeal.value ? data.value.sealLabel : '',
     // 真实封存时间（data.time）；分享/扫码进来的卡 time 为 0，drawCardBase 回退当天
     sealTime: data.value.time,
     canvas: card.canvas,

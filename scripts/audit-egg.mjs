@@ -38,7 +38,13 @@ const block = extractEggBlock(labSrc)
 const vibrations = []
 const scope = {
   ref: (v) => ({ value: v }),
-  uni: { vibrateShort: (o) => { vibrations.push(o && o.type) } },
+  // getStorageSync/setStorageSync 也备着：块内 loadSelfHistory 会用到，
+  // 场景真调它时不应以「缺替身」这种基础设施原因炸掉
+  uni: {
+    vibrateShort: (o) => { vibrations.push(o && o.type) },
+    getStorageSync: () => '',
+    setStorageSync: () => {}
+  },
   track: () => {},
   galleryPerfumes,
   findExactMatch,
