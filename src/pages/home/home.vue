@@ -88,9 +88,12 @@
       <view class="hooks">
         <view class="daily-card" @tap="goChallenge">
           <!-- 火苗角标：1天小火🔥，2-5天中火🔥🔥，10天+大火🔥🔥🔥 -->
-          <view class="daily-streak-badge" v-if="streak > 0">
-            <text class="streak-flames">{{ streakFlames }}</text>
-            <text class="streak-days">{{ streak }}</text>
+          <view class="daily-streak-badge" v-if="streak > 0" :class="{ risk: sealAtRisk }">
+            <text class="streak-risk" v-if="sealAtRisk">今日未封</text>
+            <block v-else>
+              <text class="streak-flames">{{ streakFlames }}</text>
+              <text class="streak-days">{{ streak }}</text>
+            </block>
           </view>
           <view class="daily-tag">每日挑战</view>
           <view class="daily-theme">{{ daily.theme }}</view>
@@ -113,7 +116,7 @@ import { galleryPerfumes, ACCORDS, RADAR_LABELS } from '@/utils/data.js'
 import { computeRadarValues, generateFormula, getDailyChallenge, isChallengeDone, setDailyChallengeTarget, randomAccords, genPerfumeName } from '@/utils/mix.js'
 import { THEME, ACCORD_COLORS } from '@/utils/theme.js'
 import { track } from '@/utils/analytics.js'
-import { getStreak } from '@/utils/streak.js'
+import { getStreak, todayStr } from '@/utils/streak.js'
 import { setPendingBlend } from '@/utils/wxacode.js'
 import { startTour, tut } from '@/utils/tutorial.js'
 
@@ -213,6 +216,8 @@ let introPlayed = false
 
 // 留存钩子数据
 const streak = ref(0)
+// 断档预警：连签还活着但今天还没封——把「归零」从惊吓变成提醒
+const sealAtRisk = ref(false)
 const daily = computed(() => getDailyChallenge())
 const dailyDone = ref(false)
 
@@ -226,6 +231,10 @@ const streakFlames = computed(() => {
 function refreshHooks() {
   streak.value = getStreak()
   dailyDone.value = isChallengeDone()
+  try {
+    const last = uni.getStorageSync('isabella_last_seal') || ''
+    sealAtRisk.value = streak.value > 0 && last !== todayStr()
+  } catch (e) { sealAtRisk.value = false }
 }
 
 // 静态重绘（从 tabBar 切回首页时用）：直接呈现最终形态，不重播 3 秒入场
@@ -731,6 +740,9 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
 }
 .streak-flames { font-size: 20rpx; line-height: 1; }
 .streak-days { font-size: 22rpx; font-weight: 700; color: #fff; line-height: 1; }
+/* 断档预警态：连签还活着但今天没封——灰底提醒，不恐吓也不装看不见 */
+.daily-streak-badge.risk { background: #b0ae9f; box-shadow: none; }
+.streak-risk { font-size: 20rpx; color: #fff; line-height: 1; }
 .daily-tag {
   font-size: 22rpx;
   color: #a97826;

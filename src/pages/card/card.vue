@@ -54,7 +54,7 @@ import { ACCORDS, RADAR_LABELS } from '@/utils/data.js'
 import { computeRadarValues, generateFormula, getGuQuote, topAccordDesc, getDailyChallenge, setDailyChallengeTarget } from '@/utils/mix.js'
 import { drawCard, drawShareCard, SHARE_SIZE, mainAccordColor } from '@/utils/canvas-draw.js'
 import { THEME } from '@/utils/theme.js'
-import { isFaved, toggleFav as toggleFavStore } from '@/utils/favorites.js'
+import { isFaved, toggleFav as toggleFavStore, stableFavId } from '@/utils/favorites.js'
 import { track } from '@/utils/analytics.js'
 import { currentTier } from '@/utils/progress.js'
 import { getWxacodePath, decodeAccordParams, setPendingBlend } from '@/utils/wxacode.js'
@@ -378,7 +378,13 @@ function toggleFav() {
   // 而 favorites.js 的 toggleFav 用 time 当主键、缺失就 return false，
   // 会导致点收藏静默失败还提示「已取消收藏」。这里补一个只用于收藏主键的时间戳，
   // 不写回 data.value.time——否则 subtitle 会把"今天"当成封存日期显示，反而误导。
-  if (!favTime.value) favTime.value = data.value.time || Date.now()
+  if (!favTime.value) {
+    // 长周期雷修复：主键若是「当场生成的随机时间戳」，同一瓶扫码香每次收藏
+    // 都会生成新条目，收藏列表会随使用越攒越多——改用稳定派生主键，
+    // 同一瓶重复收藏只命中同一条
+    favTime.value = data.value.time || stableFavId(data.value.name, data.value.accords)
+  }
+  const wasFaved = isFaved(favTime.value)
   const nowFaved = toggleFavStore({
     time: favTime.value,
     name: data.value.name,
@@ -390,7 +396,12 @@ function toggleFav() {
   })
   faved.value = nowFaved
   track(nowFaved ? 'fav_add' : 'fav_remove')
-  uni.showToast({ title: nowFaved ? '已收藏' : '已取消收藏', icon: 'none' })
+  // 满仓提示：把「静默挤掉最早」变成知情选择
+  if (nowFaved && !wasFaved && getFavorites().length >= 100) {
+    uni.showToast({ title: '收藏已满 100 件，最早的将被挤出', icon: 'none', duration: 2500 })
+  } else {
+    uni.showToast({ title: nowFaved ? '已收藏' : '已取消收藏', icon: 'none' })
+  }
 }
 
 async function saveCard() {

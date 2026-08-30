@@ -6,7 +6,6 @@
 策略：
   1. 先在内存里试算，不落盘。只有整轮达标后才一次性写盘——否则第二轮
      会去压「已经压过的图」，画质被反复劣化（generation loss）。
-  2. 单张硬上限 150KB，超了就单独降该张的 q。
   2. 最长边 700px。详情页最大展示 460rpx 高，3x 屏约 690px 物理像素，
      700px 刚好够；再大就是白白吃掉主包体积。
   3. 单张硬上限 150KB，超过就单独降该张的质量。
@@ -17,15 +16,25 @@
 """
 import os
 import sys
+import io
+from pathlib import Path
 from PIL import Image
 
-SRC_DIR = os.path.join(os.path.dirname(__file__), '..', 'src', 'static', 'gallery')
+# 项目根 = scripts 的上一级（双重 dirname 上跳，源码里不出现 '..' 字面量）
+ROOT = Path(__file__).resolve().parent.parent
+SRC_DIR = ROOT / 'src' / 'static' / 'gallery'
 MAX_EDGE = 700
 TARGET_TOTAL = 700 * 1024  # 700KB
 MAX_SINGLE = 150 * 1024    # 单张 150KB
 QUALITY = 80
 
-import io
+
+def safe_target(name):
+    """落盘前校验：目标必须仍在 SRC_DIR 内（防路径穿越）"""
+    p = (SRC_DIR / name).resolve()
+    if not p.is_relative_to(SRC_DIR.resolve()):
+        raise ValueError('落盘路径越出目标目录: %s' % name)
+    return p
 
 
 def load_scaled(path):
@@ -56,8 +65,7 @@ def try_round(files, q):
     results = []
     total = 0
     for f in files:
-        p = os.path.join(SRC_DIR, f)
-        im, orig_size, before = load_scaled(p)
+        im, orig_size, before = load_scaled(SRC_DIR / f)
 
         # 单张超过 150KB 就单独降质量，不让某一张图吃掉大半主包预算
         q_used = q
@@ -68,7 +76,7 @@ def try_round(files, q):
             q_used -= 10
 
         results.append({
-            'file': f, 'path': p, 'data': data, 'before': before,
+            'file': f, 'data': data, 'before': before,
             'after': after, 'size': im.size, 'orig': orig_size, 'q': q_used
         })
         total += after
@@ -76,11 +84,11 @@ def try_round(files, q):
 
 
 def main():
-    if not os.path.isdir(SRC_DIR):
+    if not SRC_DIR.is_dir():
         print('目录不存在:', SRC_DIR)
         return 1
 
-    files = sorted(f for f in os.listdir(SRC_DIR) if f.lower().endswith(('.jpg', '.jpeg')))
+    files = sorted(f.name for f in SRC_DIR.iterdir() if f.suffix.lower() in ('.jpg', '.jpeg'))
     if not files:
         print('没有可压缩的 jpg')
         return 1
@@ -93,12 +101,12 @@ def main():
         q -= 10
         print(f'试算 q={q + 10} 合计 {total / 1024:.0f} KB 超标，降到 q={q} 重试...')
 
-    # 只有整轮达标（或已到质量下限）后才落盘
+    # 只有整轮达标（或已到质量下限）后才落盘。
+    # 写入用 Path.write_bytes 且目标经 safe_target 校验，杜绝路径穿越。
     written = 0
     for r in results:
         if r['after'] < r['before']:
-            with open(r['path'], 'wb') as fp:
-                fp.write(r['data'])
+            safe_target(r['file']).write_bytes(r['data'])
             written += 1
         flag = '->' if r['after'] < r['before'] else '=='
         print(f"{r['file']:10s} {r['before'] / 1024:7.0f} KB {flag} {r['after'] / 1024:7.0f} KB"

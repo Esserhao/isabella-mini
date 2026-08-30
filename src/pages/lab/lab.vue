@@ -32,7 +32,7 @@
 
     <view class="name-row">
       <text class="name-label">香名</text>
-      <input class="name-input" :value="name" placeholder="为这瓶香起个名字" @input="onName" @blur="checkName" maxlength="20" />
+      <input class="name-input" :value="name" placeholder="为这瓶香起个名字（8字内）" @input="onName" @blur="checkName" maxlength="8" />
       <text class="name-suggest" @tap="suggestName">帮我起名</text>
     </view>
 
@@ -113,6 +113,7 @@
         <view class="coach-line">① 拖动下方「香调滑块」，上方雷达会实时变化</view>
         <view class="coach-line">② 点香调名旁的 ⓘ，看看它是什么味</view>
         <view class="coach-line">③ 不会调？先点上面的「一键模板」打个底</view>
+        <view class="coach-line">④ 底部还有「进阶」区，可以直接按原料调（可不展开）</view>
         <button class="coach-btn" @tap="closeCoach">开始调香 →</button>
       </view>
     </view>
@@ -189,7 +190,11 @@
         <view class="slider-item" v-for="ing in coreIngredients" :key="ing.key">
           <view class="slider-meta">
             <text class="slider-name">{{ ing.label }}</text>
-            <text class="slider-val">{{ ingValues[ing.key] }}%</text>
+            <view class="slider-stepper">
+              <view class="step-btn" @tap="stepIng(ing.key, -1)">−</view>
+              <text class="slider-val">{{ ingValues[ing.key] }}%</text>
+              <view class="step-btn" @tap="stepIng(ing.key, 1)">+</view>
+            </view>
           </view>
           <slider class="slider" :value="ingValues[ing.key]" min="0" max="100"
             activeColor="#a97826" backgroundColor="#e7e3d5" block-size="18"
@@ -489,6 +494,9 @@ let dragging = false
 function snapshot() {
   const s = {}
   BLEND_KEYS.forEach((k) => { s[k] = values[k] })
+  // 来源印记随快照走：接力入栈→撤销回退后，印记也要跟着退回，
+  // 否则「撤销回自己的旧配方再封存」会印着别人的「改编自 ××」
+  s.__origin = originRef.value
   return s
 }
 function pushHistory() {
@@ -508,6 +516,7 @@ function undo() {
   const s = history.pop()
   if (!s) { uni.showToast({ title: '没有可撤销的操作', icon: 'none' }); return }
   BLEND_KEYS.forEach((k) => { values[k] = s[k] || 0 })
+  originRef.value = s.__origin || ''
   syncIngFromAccord(); drawLive(); syncCard()
   uni.showToast({ title: '已撤销', icon: 'none' })
 }
@@ -848,6 +857,13 @@ function onRadarMode(e) {
       overlayRef.value = { values: overlayVals, label: best.name, color: THEME.gold }
       refName.value = best.name
     }
+    // 第一次切到对比模式：一句话讲清虚线是什么（避免「图形怎么多了条线」的困惑）
+    try {
+      if (!uni.getStorageSync('gu_radar_mode_tip')) {
+        uni.setStorageSync('gu_radar_mode_tip', 1)
+        uni.showToast({ title: '对比模式：虚线是该名香的轮廓，可与你逐维对比', icon: 'none', duration: 2500 })
+      }
+    } catch (err) { /* 忽略 */ }
   } else {
     overlayRef.value = null
     refName.value = ''
@@ -905,6 +921,12 @@ function stepAccord(key, delta) {
   syncCard()
   broadcastAccord(key, delta > 0 ? 'up' : 'down')
   endGesture()
+}
+// 进阶区原料滑块的 ± 步进：原料 ↔ 香调一一对应，步进落在对应香调上，
+// syncIngFromAccord 会把数值同步回原料滑块
+function stepIng(ingKey, delta) {
+  const ing = CORE_INGREDIENTS.find((i) => i.key === ingKey)
+  if (ing) stepAccord(ing.accord, delta)
 }
 // 高级区：改香料等价于改它对应的那个香调，同一份占比双向同步
 function onIngSlide(key, e) {
@@ -1256,6 +1278,7 @@ async function triggerSeal() {
     const key = 'isabella_history'
     const list = uni.getStorageSync(key)
     const arr = Array.isArray(list) ? list : []
+    const wasFull = arr.length >= 50
     arr.unshift({
       time: sealTime,
       name: name.value,
@@ -1266,6 +1289,8 @@ async function triggerSeal() {
       note: note.value  // 调香感言随封存记录入库（已过审查）
     })
     uni.setStorageSync(key, arr.slice(0, 50))
+    // 满仓提示：把「静默挤掉最旧」变成知情选择（真机反馈类——看不见的规则）
+    if (wasFull) uni.showToast({ title: '历史已满 50 条，最旧的记录将被挤出', icon: 'none', duration: 2500 })
   } catch (e) { /* 忽略 */ }
 
   // 本次封存时间戳记入会话并刷新比对缓存：「旧作重现」要剔除刚封的这瓶，

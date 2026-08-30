@@ -16,11 +16,13 @@
           <text class="egg-name">{{ e.name }}</text>
           <text class="egg-time" v-if="e.time">{{ fmt(e.time) }} 达成</text>
         </view>
-        <view class="egg-desc">{{ e.desc }}</view>
+        <!-- 收藏细节只在点亮后揭晓：未点亮的连条件都不给，保持撞见时的惊喜 -->
+        <view class="egg-desc" v-if="e.time">{{ e.desc }}</view>
+        <view class="egg-desc egg-locked" v-else>达成后揭晓</view>
       </view>
     </view>
 
-    <view class="foot">未点亮的只给条件，不给答案。调香台见。</view>
+    <view class="foot">已点亮的会讲出自己的来历；没点亮的，只留下名字。—— 调香台见。</view>
   </view>
 </template>
 
@@ -82,6 +84,7 @@ onShow(() => {
 .egg-time { font-size: 21rpx; color: #a97826; flex-shrink: 0; }
 .egg-desc { font-size: 23rpx; color: #7a7970; line-height: 1.7; margin-top: 6rpx; }
 .egg.on .egg-desc { color: #6b6a6a; }
+.egg-locked { color: #c9c5b4; }
 
 .foot { font-size: 22rpx; color: #b0ae9f; text-align: center; padding: 24rpx 0 6rpx; line-height: 1.7; }
 </style>

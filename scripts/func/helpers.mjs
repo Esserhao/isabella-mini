@@ -50,20 +50,42 @@ export function clearStore() {
 export function peek(k) { return (k in store ? store[k] : '') }
 export function poke(k, v) { store[k] = v }
 
-// —— 断言（失败即抛，由 test 捕获记为失败）——
+// —— 断言（失败即抛，由 test/story 捕获记为失败）。支持 .not 否定 ——
 const fmt = (v) => (typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v))
 export function expect(got) {
-  return {
-    toBe(want) { if (got !== want) throw new Error(`${fmt(got)} 应为 ${fmt(want)}`) },
-    toEqual(want) { if (JSON.stringify(got) !== JSON.stringify(want)) throw new Error(`${fmt(got)} 应为 ${fmt(want)}`) },
-    toBeTruthy() { if (!got) throw new Error(`${fmt(got)} 应为真值`) },
-    toBeGreaterThan(n) { if (!(got > n)) throw new Error(`${fmt(got)} 应大于 ${n}`) },
-    toBeLessThan(n) { if (!(got < n)) throw new Error(`${fmt(got)} 应小于 ${n}`) },
-    toBeAtLeast(n) { if (!(got >= n)) throw new Error(`${fmt(got)} 应 ≥ ${n}`) },
+  const make = (negate) => ({
+    toBe(want) {
+      const ok = got === want
+      if (ok === negate) throw new Error(`期望${negate ? '不' : ''}是 ${fmt(want)}，实际 ${fmt(got)}`)
+    },
+    toEqual(want) {
+      const ok = JSON.stringify(got) === JSON.stringify(want)
+      if (ok === negate) throw new Error(`期望${negate ? '不' : ''}等于 ${fmt(want)}，实际 ${fmt(got)}`)
+    },
+    toBeTruthy() {
+      const ok = !!got
+      if (ok === negate) throw new Error(`期望${negate ? '非' : ''}真值，实际 ${fmt(got)}`)
+    },
+    toBeGreaterThan(n) {
+      const ok = got > n
+      if (ok === negate) throw new Error(`${fmt(got)} ${negate ? '不应' : '应'}大于 ${n}`)
+    },
+    toBeLessThan(n) {
+      const ok = got < n
+      if (ok === negate) throw new Error(`${fmt(got)} ${negate ? '不应' : '应'}小于 ${n}`)
+    },
+    toBeAtLeast(n) {
+      const ok = got >= n
+      if (ok === negate) throw new Error(`${fmt(got)} ${negate ? '不应' : '应'}≥ ${n}`)
+    },
     toHaveLength(n) {
-      if (!got || got.length !== n) throw new Error(`长度应为 ${n}，实际 ${got ? got.length : 'undefined'}`)
+      const ok = !!got && got.length === n
+      if (ok === negate) throw new Error(`长度${negate ? '不应' : '应'}为 ${n}，实际 ${got ? got.length : 'undefined'}`)
     }
-  }
+  })
+  const pos = make(false)
+  pos.not = make(true)
+  return pos
 }
 
 // —— 套件与用例 ——

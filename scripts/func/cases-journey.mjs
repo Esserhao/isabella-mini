@@ -21,6 +21,7 @@ import {
   encodeAccordParams, decodeAccordParams, buildWxacodePath,
   setPendingBlend, takePendingBlend
 } from '../../src/utils/wxacode.js'
+import { stableFavId } from '../../src/utils/favorites.js'
 import { ACCORDS, DAILY_CHALLENGES } from '../../src/utils/data.js'
 
 // 封存一瓶 = lab triggerSeal 的副作用序列（画卡除外），旅程里作为一个「动作」。
@@ -181,5 +182,30 @@ story('一段时间后整理收藏', [
     removeFav(101)
     removeFav(103)
     expect(getFavorites()).toHaveLength(0)
+  }],
+])
+
+story('长期使用才会暴露的账：重复收藏与满仓', [
+  ['同一瓶扫码香，收藏主键每次派生都一致', () => {
+    // 雷的一半：主键若是当场生成的时间戳，同一瓶香每次收藏都是新条目
+    const id1 = stableFavId('雨夜图书馆', { citrus: 100 })
+    const id2 = stableFavId('雨夜图书馆', { citrus: 100 })
+    expect(id1).toBe(id2)
+    expect(stableFavId('雾中情人', { woody: 100 })).not.toBe(id1)
+  }],
+  ['反复收藏同一瓶，列表不越攒越多', () => {
+    const id = stableFavId('雨夜图书馆', { citrus: 100 })
+    toggleFav({ time: id, name: '雨夜图书馆', accords: { citrus: 100 } })
+    toggleFav({ time: id, name: '雨夜图书馆', accords: { citrus: 100 } })
+    toggleFav({ time: id, name: '雨夜图书馆', accords: { citrus: 100 } })
+    expect(getFavorites()).toHaveLength(1)
+  }],
+  ['收藏满 100 件后再添新的：总数封顶、最新在前、最旧被挤', () => {
+    for (let i = 0; i < 105; i++) {
+      toggleFav({ time: i, name: '第' + i + '瓶', accords: {} })
+    }
+    expect(getFavorites()).toHaveLength(100)
+    expect(getFavorites()[0].time).toBe(104)
+    expect(getFavorites()[99].time).toBe(5)
   }],
 ])

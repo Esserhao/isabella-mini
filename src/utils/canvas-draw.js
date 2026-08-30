@@ -308,33 +308,36 @@ export function drawCardBase(ctx, opt) {
   ctx.lineWidth = 3
   ctx.strokeRect(10, 10, width - 20, height - 20)
 
-  // 顶部标题区。香名上限 20 字，固定 28px 会顶出左右安全边距，长名字自动缩小
+  // 顶部标题区：香名居中（8 字上限，旧数据超长截断加省略号），
+  // 称号徽章是额外的叠层——斜贴在香名左侧的一枚小票（右缘轻压名字首字），
+  // 不与香名抢一行（真机反馈：竖排叠放会贴字重叠，同行又会挤占名字宽度）。
+  const displayName = (name && name.length > 8) ? name.slice(0, 8) + '…' : (name || '未命名香氛')
   ctx.fillStyle = theme.primary
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  fitFontSize(ctx, name || '未命名香氛', width - M * 2, 28, 16, true)
-  ctx.fillText(name || '未命名香氛', width / 2, 52)
+  ctx.font = 'bold 26px sans-serif'
+  ctx.fillText(displayName, width / 2, 58)
 
-  // 稀有度徽章 + 层级称号（居中，位于香名与金线之间）
   const badgeParts = [rarity, tierTitle].filter(Boolean)
   if (badgeParts.length) {
     const badgeText = badgeParts.join(' · ')
-    ctx.font = '12px sans-serif'
-    const bw = ctx.measureText(badgeText).width + 28
-    const bx = (width - bw) / 2
-    const by = 66
-    const bh = 22
-    roundRect(ctx, bx, by, bw, bh, 11)
-    ctx.fillStyle = rgba(THEME.gold, 0.14)
+    ctx.font = 'bold 12px sans-serif'
+    const bw = ctx.measureText(badgeText).width + 24
+    const bh = 24
+    const nameW = ctx.measureText(displayName).width
+    const bcx = width / 2 - nameW / 2 - bw / 2 - 2
+    ctx.save()
+    ctx.translate(bcx, 58)
+    ctx.rotate(-8 * Math.PI / 180)
+    roundRect(ctx, -bw / 2, -bh / 2, bw, bh, 12)
+    ctx.fillStyle = rgba(THEME.gold, 0.16)
     ctx.fill()
-    ctx.strokeStyle = rgba(THEME.gold, 0.5)
+    ctx.strokeStyle = rgba(THEME.gold, 0.55)
     ctx.lineWidth = 1
     ctx.stroke()
     ctx.fillStyle = theme.gold
-    ctx.font = 'bold 12px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(badgeText, width / 2, by + bh / 2 + 1)
+    ctx.fillText(badgeText, 0, 1)
+    ctx.restore()
   }
 
   // 香名下的金线：随该香主导香调变色（纯水态回退主题金）——个性从字体转移到图形
