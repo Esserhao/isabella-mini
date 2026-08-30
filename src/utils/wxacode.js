@@ -31,9 +31,9 @@ export function decodeAccordParams(p) {
 // lab 页 onShow 时取出并还原（取完即删，避免下次进工坊被旧配方覆盖）。
 const RESTORE_KEY = 'isabella_restore_blend'
 
-export function setPendingBlend(accordValues, name) {
+export function setPendingBlend(accordValues, name, origin = '') {
   try {
-    uni.setStorageSync(RESTORE_KEY, { accords: accordValues, name: name || '', ts: Date.now() })
+    uni.setStorageSync(RESTORE_KEY, { accords: accordValues, name: name || '', origin: origin || '', ts: Date.now() })
   } catch (e) { /* 忽略 */ }
 }
 
@@ -45,7 +45,7 @@ export function takePendingBlend() {
     if (!d || !d.accords) return null
     if (Date.now() - (d.ts || 0) > 10 * 60 * 1000) return null
     const accords = decodeAccordParams(encodeAccordParams(d.accords))
-    return accords ? { accords, name: d.name || '' } : null
+    return accords ? { accords, name: d.name || '', origin: d.origin || '' } : null
   } catch (e) {
     return null
   }

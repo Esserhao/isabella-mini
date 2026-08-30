@@ -155,7 +155,7 @@ async function submit() {
 .letter-sign { font-size: 24rpx; color: #6b6a6a; }
 
 .tip {
-  font-size: 22rpx; color: #9b9b8f; text-align: center;
+  font-size: 22rpx; color: #7a7970; text-align: center;
   margin: 24rpx 0;
 }
 

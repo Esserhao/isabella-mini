@@ -221,7 +221,7 @@ onShow(() => {
 }
 .stat { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4rpx; }
 .stat-n { font-size: 34rpx; font-weight: 700; color: #2e5c45; }
-.stat-l { font-size: 20rpx; color: #9b9b8f; }
+.stat-l { font-size: 20rpx; color: #7a7970; }
 .streak-stat .stat-n { color: #c45c5c; }
 
 /* 每日挑战（浅色卡片，与stats区分） */
@@ -260,7 +260,7 @@ onShow(() => {
 .entry-body { flex: 1; min-width: 0; }
 .entry-title { font-size: 27rpx; font-weight: 700; color: #2b2b2e; }
 .entry-sub {
-  font-size: 20rpx; color: #9b9b8f; margin-top: 4rpx;
+  font-size: 20rpx; color: #7a7970; margin-top: 4rpx;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .entry-arrow { flex-shrink: 0; font-size: 36rpx; color: #b0ae9f; line-height: 1; }
@@ -268,7 +268,7 @@ onShow(() => {
 /* 留言建议 / 联系我 菜单分组 */
 .menu-group { margin-top: 8rpx; }
 .menu-label {
-  font-size: 22rpx; color: #9b9b8f; letter-spacing: 2rpx;
+  font-size: 22rpx; color: #7a7970; letter-spacing: 2rpx;
   margin-bottom: 12rpx; padding-left: 4rpx;
 }
 .menu {
@@ -284,5 +284,5 @@ onShow(() => {
 .menu-icon { font-size: 34rpx; }
 .egg-icon { color: #a97826; }
 .menu-title { font-size: 28rpx; font-weight: 600; color: #2b2b2e; }
-.menu-sub { font-size: 21rpx; color: #9b9b8f; margin-top: 4rpx; }
+.menu-sub { font-size: 21rpx; color: #7a7970; margin-top: 4rpx; }
 </style>

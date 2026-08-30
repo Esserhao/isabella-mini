@@ -61,10 +61,10 @@ onShow(() => {
   font-size: 40rpx; font-weight: 700; color: #2e5c45;
   font-family: inherit; letter-spacing: 2rpx; display: block;
 }
-.head-sub { font-size: 23rpx; color: #9b9b8f; margin-top: 8rpx; display: block; line-height: 1.6; }
+.head-sub { font-size: 23rpx; color: #7a7970; margin-top: 8rpx; display: block; line-height: 1.6; }
 .head-progress { margin-top: 18rpx; }
 .prog-on { font-size: 44rpx; font-weight: 700; color: #a97826; font-family: inherit; }
-.prog-total { font-size: 26rpx; color: #9b9b8f; font-family: inherit; }
+.prog-total { font-size: 26rpx; color: #7a7970; font-family: inherit; }
 
 .egg {
   display: flex; align-items: flex-start; gap: 18rpx;
@@ -80,7 +80,7 @@ onShow(() => {
 .egg-name { font-size: 30rpx; font-weight: 700; color: #b0ae9f; }
 .egg.on .egg-name { color: #2e5c45; }
 .egg-time { font-size: 21rpx; color: #a97826; flex-shrink: 0; }
-.egg-desc { font-size: 23rpx; color: #9b9b8f; line-height: 1.7; margin-top: 6rpx; }
+.egg-desc { font-size: 23rpx; color: #7a7970; line-height: 1.7; margin-top: 6rpx; }
 .egg.on .egg-desc { color: #6b6a6a; }
 
 .foot { font-size: 22rpx; color: #b0ae9f; text-align: center; padding: 24rpx 0 6rpx; line-height: 1.7; }

@@ -314,7 +314,7 @@ watch([() => tut.active, () => tut.index], () => { tryQuery() })
   display: flex; align-items: center; justify-content: space-between;
   margin-top: 22rpx;
 }
-.coach-skip { font-size: 24rpx; color: #9b9b8f; }
+.coach-skip { font-size: 24rpx; color: #7a7970; }
 .coach-nav { display: flex; gap: 14rpx; }
 .coach-btn {
   font-size: 26rpx; border-radius: 14rpx; padding: 14rpx 28rpx; margin: 0;

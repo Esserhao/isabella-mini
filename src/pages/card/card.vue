@@ -12,6 +12,13 @@
       <text class="cp-rarity-desc" v-if="data.rarityText">{{ data.rarityText }}</text>
     </view>
 
+    <!-- 对决条：从「发起对决」分享进来的好友可见——同一天打开即同一道题 -->
+    <view class="duel-banner" v-if="duelInfo">
+      <text class="duel-line"><text class="duel-name">{{ duelInfo.name }}</text> 在「{{ duelInfo.theme }}」拿下</text>
+      <text class="duel-score">{{ duelInfo.score }}<text class="duel-unit"> 分</text></text>
+      <button class="cp-duel-accept" @tap="acceptDuel">用今天的题目应战 →</button>
+    </view>
+
     <!-- 封存卡：与工坊同一份 drawCard，避免三处复制 canvas 代码 -->
     <view class="cp-canvas-wrap">
       <canvas type="2d" id="cardPageCanvas" class="cp-canvas"></canvas>
@@ -23,12 +30,7 @@
       <canvas type="2d" id="shareTimelineCanvas" class="cp-share-canvas"></canvas>
     </view>
 
-    <!-- 调香感言（有则显示，卡面暫不承载） -->
-    <view class="cp-note" v-if="data.note">
-      <text class="cp-note-label">调香感言</text>
-      <text class="cp-note-text">{{ data.note }}</text>
-    </view>
-
+    <!-- 感言只印在卡面画布上（金线下方），页面不再重复展示——同一屏两遍是噪音 -->
     <view class="cp-btn-row">
       <button class="cp-btn fav" :class="{ on: faved }" @tap="toggleFav">
         {{ faved ? '♥ 已收藏' : '♡ 收藏' }}
@@ -36,6 +38,10 @@
       <button class="cp-btn primary" @tap="saveCard">保存到相册</button>
       <button class="cp-btn gold" open-type="share" @tap="onShareTap">分享</button>
     </view>
+    <!-- 发起对决：挑战完成的卡才有——分享出去的卡带分数与题名，好友同题应战 -->
+    <button class="cp-duel-btn" v-if="data.challenge" open-type="share" @tap="onDuelShareTap">
+      ⚔ 发起对决 · 让好友用同一道题应战
+    </button>
     <!-- 扫码进入的人：把这瓶香搬到工坊里接着调 -->
     <button class="cp-blend" @tap="blendThis">我也调一瓶 · 去工坊</button>
   </view>
@@ -45,8 +51,8 @@
 import { ref, computed } from 'vue'
 import { onLoad, onReady, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { ACCORDS, RADAR_LABELS } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, getGuQuote, topAccordDesc } from '@/utils/mix.js'
-import { drawCard, drawShareCard, SHARE_SIZE } from '@/utils/canvas-draw.js'
+import { computeRadarValues, generateFormula, getGuQuote, topAccordDesc, getDailyChallenge, setDailyChallengeTarget } from '@/utils/mix.js'
+import { drawCard, drawShareCard, SHARE_SIZE, mainAccordColor } from '@/utils/canvas-draw.js'
 import { THEME } from '@/utils/theme.js'
 import { isFaved, toggleFav as toggleFavStore } from '@/utils/favorites.js'
 import { track } from '@/utils/analytics.js'
@@ -57,8 +63,11 @@ import { getWxacodePath, decodeAccordParams, setPendingBlend } from '@/utils/wxa
 // accords 是唯一必需项，其余缺失时现场补算，保证任何调用方（历史/收藏/封存）都能画出卡
 const data = ref({
   name: '', accords: {}, quote: '', formula: [], note: '',
-  time: 0, rarity: '', rarityText: '', tierTitle: '', tierKey: 'novice', sealLabel: '已封存'
+  time: 0, rarity: '', rarityText: '', tierTitle: '', tierKey: 'novice', sealLabel: '已封存',
+  origin: '', challenge: null
 })
+// 对决视图：从「发起对决」分享卡进来的好友可见（分数/题名/发起人走 query 参数）
+const duelInfo = ref(null)
 const faved = ref(false)
 // 收藏用的主键时间戳。正常封存卡等于 data.time；分享/扫码进来的卡 time 为 0，
 // 首次点收藏时现场生成一个，避免 favorites.js 因缺 time 直接 return false。
@@ -162,11 +171,22 @@ onLoad((option) => {
     rarityText: parsed.rarityText || '',
     tierTitle: parsed.tierTitle || tier.title,
     tierKey: parsed.tierKey || tier.key,
-    sealLabel: parsed.sealLabel || tier.sealLabel
+    sealLabel: parsed.sealLabel || tier.sealLabel,
+    origin: parsed.origin || '',
+    challenge: parsed.challenge || null
   }
   favTime.value = data.value.time || 0
   faved.value = isFaved(data.value.time)
   sealLabelFromSeal.value = !!parsed.sealLabel
+  // 对决参数（发起人分数/名字/题名走 query，配方走 s 参数）：
+  // 同一天打开是同一道题（按日期取模选题），跨天则题名仅作参照
+  if (option.ds) {
+    duelInfo.value = {
+      score: Number(option.ds) || 0,
+      name: option.dn ? safeDecode(option.dn) : '',
+      theme: option.dt ? safeDecode(option.dt) : ''
+    }
+  }
 })
 
 function initCanvas(sel, designW, designH) {
@@ -225,6 +245,9 @@ onReady(async () => {
     // 只在真封存的卡上画封存小字（留白/深夜/七日/层级）；
     // 其余进入方式留空，drawCardBase 回退「扫码调香 · 调出你的味道」
     sealLabel: sealLabelFromSeal.value ? data.value.sealLabel : '',
+    // 接力链印记 + 主调金线
+    origin: data.value.origin,
+    accent: mainAccordColor(data.value.accords),
     // 真实封存时间（data.time）；分享/扫码进来的卡 time 为 0，drawCardBase 回退当天
     sealTime: data.value.time,
     canvas: card.canvas,
@@ -274,6 +297,10 @@ async function ensureShareTemp() {
     accords: ACCORDS,
     accordValues: data.value.accords,
     theme: THEME
+  }
+  // 挑战完成的卡：分享图标题下印对决行（图自己会喊话），普通分享不带
+  if (data.value.challenge) {
+    base.duel = { score: data.value.challenge.score, theme: data.value.challenge.theme }
   }
   const friend = await initCanvas('#shareFriendCanvas', SHARE_SIZE.friend.w, SHARE_SIZE.friend.h)
   if (friend) {
@@ -358,7 +385,8 @@ function toggleFav() {
     accords: data.value.accords,
     quote: data.value.quote,
     formula: data.value.formula,
-    note: data.value.note
+    note: data.value.note,
+    origin: data.value.origin
   })
   faved.value = nowFaved
   track(nowFaved ? 'fav_add' : 'fav_remove')
@@ -402,7 +430,8 @@ async function saveCard() {
 
 // 「我也调一瓶」：把当前配方暂存后跳工坊（lab 是 tab 页，参数走 storage 接力）
 function blendThis() {
-  setPendingBlend(data.value.accords, data.value.name)
+  // 来源印记 = 这张卡自己的名字：好友改编后再封存，卡面会印「改编自 ××」
+  setPendingBlend(data.value.accords, data.value.name, data.value.name)
   track('blend_from_card')
   uni.switchTab({ url: '/pages/lab/lab' })
 }
@@ -411,6 +440,19 @@ function blendThis() {
 async function onShareTap() {
   await ensureTemp()
   track('share')
+}
+
+// 对决分享点击：埋点（open-type="share" 自动触发对决分支的 onShareAppMessage）
+function onDuelShareTap() {
+  track('duel_share')
+}
+
+// 好友应战：接受今天的题目进工坊（选题按日期取模，同一天打开即同一道题）
+function acceptDuel() {
+  setDailyChallengeTarget(getDailyChallenge())
+  track('duel_accept')
+  uni.showToast({ title: '去工坊应战', icon: 'none' })
+  uni.switchTab({ url: '/pages/lab/lab' })
 }
 
 // 分享标题：未起名时改用主香调描述（如「柑橘调·木质调」），
@@ -425,6 +467,17 @@ function shareTitleOf() {
 // 只传递核心数据（name, accords, radarMode），其他数据在接收端重新计算
 // 注意：path 不能以 / 开头，否则部分微信版本会丢弃 query 参数
 onShareAppMessage(() => {
+  // 对决模式：挑战完成的卡分享出去自带分数与题名，好友同题应战
+  if (data.value.challenge) {
+    const c = data.value.challenge
+    const duelShare = { name: data.value.name, accords: data.value.accords, radarMode: data.value.radarMode }
+    const obj = {
+      title: `我在「${c.theme}」拿下 ${c.score} 分，敢来应战吗`,
+      path: `pages/card/card?s=${encodeURIComponent(JSON.stringify(duelShare))}&ds=${c.score}&dn=${encodeURIComponent(data.value.name)}&dt=${encodeURIComponent(c.theme)}`
+    }
+    if (tempPathFriend.value) obj.imageUrl = tempPathFriend.value
+    return obj
+  }
   const shareData = {
     name: data.value.name,
     accords: data.value.accords,
@@ -489,13 +542,6 @@ onShareTimeline(() => {
   border-radius: 8rpx; box-shadow: 0 12rpx 36rpx rgba(46,92,69,0.12);
 }
 
-.cp-note {
-  margin-top: 24rpx; background: #f6f3ea; border-left: 6rpx solid #a97826;
-  border-radius: 12rpx; padding: 20rpx 24rpx;
-}
-.cp-note-label { font-size: 21rpx; color: #a97826; letter-spacing: 2rpx; display: block; }
-.cp-note-text { font-size: 26rpx; color: #3a3a38; line-height: 1.7; margin-top: 8rpx; display: block; }
-
 .cp-btn-row { display: flex; gap: 16rpx; margin-top: 30rpx; }
 .cp-btn {
   flex: 1; font-size: 26rpx; border-radius: 14rpx; padding: 18rpx 0; margin: 0; line-height: 1.4;
@@ -505,6 +551,37 @@ onShareTimeline(() => {
 .cp-btn.fav.on { background: #a97826; color: #fff; border-color: #a97826; }
 .cp-btn.primary { background: #2e5c45; color: #fff; }
 .cp-btn.gold { background: #a97826; color: #fff; }
+
+/* 对决条：好友从「发起对决」分享进来时的应战入口 */
+.duel-banner {
+  margin-bottom: 20rpx;
+  background: linear-gradient(120deg, #eef3ee, #f6f3ea);
+  border: 2rpx solid rgba(169,120,38,0.45);
+  border-left: 8rpx solid #a97826;
+  border-radius: 16rpx; padding: 20rpx 24rpx;
+  display: flex; flex-direction: column; gap: 8rpx;
+}
+.duel-line { font-size: 25rpx; color: #3a3a38; line-height: 1.5; }
+.duel-name { font-weight: 700; color: #2e5c45; }
+.duel-score { font-size: 40rpx; font-weight: 700; color: #a97826; }
+.duel-unit { font-size: 22rpx; font-weight: 400; color: #7a7970; }
+.cp-duel-accept {
+  margin: 0; font-size: 27rpx; font-weight: 600; color: #fff;
+  background: #a97826; border-radius: 14rpx; padding: 18rpx 0; line-height: 1.4;
+}
+.cp-duel-accept::after { border: none; }
+.cp-duel-accept:active { background: #8f651c; }
+
+/* 发起对决：挑战完成的卡独有，金色次级按钮（open-type=share 走对决分支） */
+.cp-duel-btn {
+  margin-top: 16rpx; width: 100%; box-sizing: border-box;
+  font-size: 26rpx; font-weight: 600; color: #a97826;
+  background: rgba(169,120,38,0.08);
+  border: 2rpx solid rgba(169,120,38,0.45); border-radius: 14rpx;
+  padding: 18rpx 0; line-height: 1.4; letter-spacing: 1rpx;
+}
+.cp-duel-btn::after { border: none; }
+.cp-duel-btn:active { background: #f3ead8; }
 
 /* 扫码者复刻入口：弱化的第二行动，不与分享按钮抢焦点 */
 .cp-blend {

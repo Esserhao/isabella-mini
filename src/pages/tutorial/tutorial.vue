@@ -80,7 +80,7 @@ function redoSurvey() {
 }
 .tut-head { margin-bottom: 36rpx; }
 .tut-title { font-size: 42rpx; font-weight: 700; color: #2e5c45; display: block; }
-.tut-sub { font-size: 24rpx; color: #9b9b8f; margin-top: 8rpx; display: block; }
+.tut-sub { font-size: 24rpx; color: #7a7970; margin-top: 8rpx; display: block; }
 
 .tut-step {
   display: flex; gap: 22rpx; background: #f6f3ea;

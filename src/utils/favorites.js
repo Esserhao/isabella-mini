@@ -38,7 +38,8 @@ export function toggleFav(item) {
     accords: { ...(item.accords || {}) },
     quote: item.quote || '',
     formula: item.formula || [],
-    note: item.note || ''
+    note: item.note || '',
+    origin: item.origin || ''
   })
   save(list)
   return true

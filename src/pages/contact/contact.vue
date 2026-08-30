@@ -80,5 +80,5 @@ function copy() {
 }
 .copy-btn::after { border: none; }
 
-.hint { font-size: 21rpx; color: #9b9b8f; margin-top: 16rpx; }
+.hint { font-size: 21rpx; color: #7a7970; margin-top: 16rpx; }
 </style>

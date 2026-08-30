@@ -102,6 +102,7 @@
         <text class="dim-name">{{ d.label }}</text>
         <text class="dim-text">{{ d.desc }}</text>
       </view>
+      <view class="sheet-note">每个香调天生带着 2~3 种气质：比如柑橘同时贡献「明亮度」和「轻盈感」。所以只拉一根滑块，雷达也会亮起不止一个角；没拉到的轴缩在圆心，图形呈三角形甚至一条直线——那是这瓶香的气质形状，不是画错了。</view>
       <button class="sheet-close" @tap="radarHelpOpen = false">知道了</button>
     </view>
 
@@ -143,7 +144,11 @@
             <text class="slider-name">{{ solvent.label }}</text>
             <text class="slider-info">i</text>
           </view>
-          <text class="slider-val">{{ values[solvent.key] }}%</text>
+          <view class="slider-stepper">
+            <view class="step-btn" @tap="stepAccord(solvent.key, -1)">−</view>
+            <text class="slider-val">{{ values[solvent.key] }}%</text>
+            <view class="step-btn" @tap="stepAccord(solvent.key, 1)">+</view>
+          </view>
         </view>
         <slider class="slider" :value="values[solvent.key]" min="0" max="100"
           activeColor="#b6c4bd" backgroundColor="#e7e3d5" block-size="18"
@@ -162,7 +167,12 @@
               <text class="slider-name">{{ a.label }}</text>
               <text class="slider-info">i</text>
             </view>
-            <text class="slider-val">{{ values[a.key] }}%</text>
+            <!-- ± 步进：滑块拖不准个位数，点按 ±1 精修（与拖动同一出口 normalizeFrom） -->
+            <view class="slider-stepper">
+              <view class="step-btn" @tap="stepAccord(a.key, -1)">−</view>
+              <text class="slider-val">{{ values[a.key] }}%</text>
+              <view class="step-btn" @tap="stepAccord(a.key, 1)">+</view>
+            </view>
           </view>
           <slider class="slider" :value="values[a.key]" min="0" max="100"
             activeColor="#2e5c45" backgroundColor="#e7e3d5" block-size="18"
@@ -191,7 +201,7 @@
 
     <view class="panel quote-panel">
       <text class="quote">「{{ quote }}」</text>
-      <text class="formula">配方：{{ formulaText }}</text>
+      <text class="formula" v-if="formulaText">配方：{{ formulaText }}</text>
     </view>
 
     <view class="panel card-panel">
@@ -225,7 +235,7 @@ import { ref, reactive, nextTick, computed, watch } from 'vue'
 import { onLoad, onShow, onReady, onUnload, onPageScroll, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { ACCORDS, SOLVENT, BLEND_KEYS, RADAR_LABELS, CORE_INGREDIENTS, galleryPerfumes, RADAR_DIM_DESC, SCENT_TEMPLATES } from '@/utils/data.js'
 import { computeRadarValues, generateFormula, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, isChallengeDone, topAccordDesc, randomAccords, findExactMatch, blankBlend, strengthOf } from '@/utils/mix.js'
-import { drawRadar, drawRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE } from '@/utils/canvas-draw.js'
+import { drawRadar, drawRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE, mainAccordColor } from '@/utils/canvas-draw.js'
 import { THEME } from '@/utils/theme.js'
 import { recordSeal, getStreak } from '@/utils/streak.js'
 import { achieveEgg, sealLabelOf } from '@/utils/eggs.js'
@@ -244,6 +254,8 @@ const strength = computed(() => strengthOf(values))
 const name = ref('未命名香氛')
 const note = ref('')  // 调香感言（20 字内），随封存记录入库，card 页展示
 let nameTouched = false  // 用户是否手动起名（未起名则封存时自动生成）
+// 接力链印记：当前配方的上一代名字（卡面印「改编自 ××」），非接力创作时为空
+const originRef = ref('')
 // 高级区（单方香料）默认收起：首屏只暴露香调这一套滑块
 const advOpen = ref(false)
 
@@ -281,7 +293,7 @@ onLoad((option) => {
 // 注意：每日挑战的 target 只写了部分香调键（如 {green:70,woody:55,...}），
 // 缺键时 accords[k] 是 undefined，undefined/sum 会算出 NaN 并污染整排滑块，
 // 所以这里必须逐键兜 0；同时用最大余数法保证总和恰好 100。
-function applyRestore({ accords, name: n, fromScan }) {
+function applyRestore({ accords, name: n, fromScan, origin }) {
   // 接力覆盖前的自保：当前配比压入撤销栈——四个接力入口（我也调一瓶/
   // 图鉴基调/摇一瓶/扫码还原）都是无提示覆盖，被顶掉的调整此前
   // 在撤销栈里找不回（applyRestore 不入栈），等于真丢（用户拍板）。
@@ -318,6 +330,8 @@ function applyRestore({ accords, name: n, fromScan }) {
     name.value = n
     nameTouched = true
   }
+  // 来源印记随接力传入（卡页/图鉴传上一代名字；摇一瓶/扫码不带 = 无来源）
+  originRef.value = origin || ''
   // 只有真扫码/带参分享进来才记 scan_restore。图鉴接力、首页摇一瓶、
   // 「我也调一瓶」也走本函数，但各有源头埋点（gallery_blend / home_random /
   // blend_from_card），这里再记一遍会把漏斗里的「扫码还原」灌水。
@@ -343,6 +357,7 @@ function applyIncomingIfReady() {
     // 不走 applyRestore 是因为它会记 scan_restore 埋点，而这是挑战不是扫码还原。
     // 重接 = 覆盖当前配比，与接力同一自保：先把当前状态压入撤销栈。
     pushHistory()
+    originRef.value = ''
     const blank = blankBlend()
     BLEND_KEYS.forEach((k) => { values[k] = blank[k] })
     disarmEgg()
@@ -459,6 +474,7 @@ function applyTemplateVals(accordsObj) {
 function applyTemplate(t) {
   pushHistory()
   applyTemplateVals(t.accords)
+  originRef.value = ''  // 套模板是新创作，无接力来源
   // 模板是现成配方，套用不算「调出来」；用户在这基础上拖滑块才会重新置闸
   disarmEgg()
   syncIngFromAccord()
@@ -497,6 +513,7 @@ function undo() {
 }
 function resetBlend() {
   pushHistory()
+  originRef.value = ''
   const blank = blankBlend()
   BLEND_KEYS.forEach((k) => { values[k] = blank[k] })
   // 重置回的是一杯纯水，不是任何一瓶现成的香，不构成复刻
@@ -555,8 +572,10 @@ function celebrateEgg(p) {
   eggHit.value = p
   // 达成登记（eggs.js，幂等）：首次达成才弹「新彩蛋」提示
   const isNew = achieveEgg(p.self ? 'self_replica' : 'replica')
-  // 震动是「惊喜」的一半；部分机型/模拟器不支持，失败就算了不能让它炸
-  try { uni.vibrateShort({ type: 'light' }) } catch (e) { /* 忽略 */ }
+  // 震动是「惊喜」的一半；部分机型/模拟器不支持，失败就算了不能让它炸。
+  // type（light/medium/heavy）分级仅部分平台支持，不支持的机型传参会整次 fail
+  // （表现为无震动 + 控制台 unhandled rejection）——不传 type 全平台行为一致。
+  try { uni.vibrateShort({ fail: () => {} }) } catch (e) { /* 忽略 */ }
   track(p.self ? 'exact_match_self' : 'exact_match')
   if (isNew) {
     setTimeout(() => { uni.showToast({ title: '✦ 新彩蛋已收入「我的 · 彩蛋收藏」', icon: 'none' }) }, 1200)
@@ -592,6 +611,7 @@ function randomBlend() {
   // 走 applyTemplateVals 而不是逐键赋值：那样会漏掉纯水，把「总和恒 100」的
   // 约定打破（纯水还停在拖动前的值上）。归一化后纯水归 0，摇出来的是纯香精。
   applyTemplateVals(randomAccords())
+  originRef.value = ''  // 现摇的新配方，无接力来源
   syncIngFromAccord()
   armEgg()
   drawLive()
@@ -843,7 +863,9 @@ function drawLive() {
     cx: radar.w / 2, cy: radar.h / 2,
     radius: Math.min(radar.w, radar.h) * 0.34,
     values: radarValues, labels: RADAR_LABELS, theme: THEME,
-    overlay: overlayRef.value
+    overlay: overlayRef.value,
+    // 纯水态（全 0）：画虚线圆的「留白邀请」，替代空多边形
+    ghost: radarValues.every((v) => !v)
   })
 }
 
@@ -867,6 +889,21 @@ function onSlideEnd(key, e) {
   drawLive()
   syncCard()
   broadcastAccord(key, dir)
+  endGesture()
+}
+// ± 步进：点按 ±1 精修个位数（滑块拖不准 1%）。与拖动走同一出口 normalizeFrom——
+// 恒和 100 / 纯水优先让位 / 彩蛋置闸全部自动一致；每次点按是一次独立手势，
+// 各自入撤销栈，可逐步回退。
+function stepAccord(key, delta) {
+  const next = Math.max(0, Math.min(100, (values[key] || 0) + delta))
+  if (next === values[key]) return
+  beginGesture(key)
+  normalizeFrom(key, next)
+  syncIngFromAccord()
+  drawLive()
+  flashFeedback()
+  syncCard()
+  broadcastAccord(key, delta > 0 ? 'up' : 'down')
   endGesture()
 }
 // 高级区：改香料等价于改它对应的那个香调，同一份占比双向同步
@@ -1012,6 +1049,8 @@ async function renderCard(opts = {}) {
     note: note.value,
     // 预览阶段尚无真实封存时间，用当前（重绘那天就是「今天」，符合预期）
     sealTime: Date.now(),
+    origin: originRef.value,
+    accent: mainAccordColor(vals),
     accords: ACCORDS, accordValues: vals, theme: THEME
   }
   if (stamp) {
@@ -1196,6 +1235,8 @@ async function triggerSeal() {
       tierTitle: tier.title,
       // 封存小字（留白/深夜/七日/层级）：cardData 会带到 card 页重绘，两处一致
       sealLabel: sealLabelText,
+      origin: originRef.value,
+      accent: mainAccordColor(vals),
       // 真实封存时间，旧卡片重绘不会变（drawCardBase 优先用它，否则回退当天）
       sealTime,
       canvas: card.canvas,
@@ -1221,6 +1262,7 @@ async function triggerSeal() {
       accords: { ...vals },
       quote: quote.value,
       formula: generateFormula(vals),
+      origin: originRef.value || '',
       note: note.value  // 调香感言随封存记录入库（已过审查）
     })
     uni.setStorageSync(key, arr.slice(0, 50))
@@ -1247,6 +1289,9 @@ async function triggerSeal() {
     tierTitle: tier.title,
     tierKey: tier.key,
     sealLabel: sealLabelText,
+    // 接力链印记与挑战成绩：卡页据此印「改编自 ××」并给出「发起对决」入口
+    origin: originRef.value || '',
+    challenge: challengeJustDone ? { score: challengeDoneScore, theme: challengeInfo.value ? challengeInfo.value.theme : '' } : null,
     radarMode: radarMode.value  // 跨页一致：card 页读它重算雷达，不再回退默认 relative
   }
   try { uni.setStorageSync('isabella_card_data', cardData) } catch (e) { /* 忽略 */ }
@@ -1537,10 +1582,19 @@ onReady(async () => {
   border: 2rpx solid rgba(46, 92, 69, 0.35); border-radius: 20rpx;
   padding: 2rpx 14rpx; margin-right: 12rpx; flex-shrink: 0;
 }
-.strength-desc { font-size: 20rpx; color: #9b9b8f; }
+.strength-desc { font-size: 20rpx; color: #7a7970; }
 .slider-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rpx; }
 .slider-name { font-size: 26rpx; color: #2b2b2e; font-family: inherit; }
-.slider-val { font-size: 24rpx; color: #a97826; font-weight: 600; font-family: inherit; }
+.slider-val { font-size: 24rpx; color: #a97826; font-weight: 600; font-family: inherit; min-width: 70rpx; text-align: center; }
+/* ± 步进：44rpx 触控目标（全站触控标准），数值列定宽，位数变化不左右顶腾 */
+.slider-stepper { display: flex; align-items: center; gap: 10rpx; flex-shrink: 0; }
+.step-btn {
+  width: 44rpx; height: 44rpx; line-height: 40rpx; text-align: center;
+  border: 2rpx solid rgba(46,92,69,0.35); border-radius: 50%;
+  font-size: 30rpx; font-weight: 600; color: #2e5c45; background: #fff;
+  box-sizing: border-box;
+}
+.step-btn:active { background: #e7ede9; }
 .slider { margin: 0; }
 .ing-desc { display: block; font-size: 20rpx; color: #a08b6a; margin-top: 4rpx; }
 
@@ -1556,7 +1610,7 @@ onReady(async () => {
   display: flex; align-items: center; justify-content: space-between;
 }
 .adv-title { font-size: 26rpx; color: #a97826; letter-spacing: 1rpx; }
-.adv-toggle { font-size: 24rpx; color: #9b9b8f; }
+.adv-toggle { font-size: 24rpx; color: #7a7970; }
 .adv-list { margin-top: 16rpx; }
 
 .quote-panel { display: flex; flex-direction: column; gap: 14rpx; }
@@ -1614,7 +1668,7 @@ onReady(async () => {
 .cb-num { font-size: 30rpx; font-weight: 700; color: #a97826; margin: 0 4rpx; }
 .cb-tip { color: #2e5c45; }
 .cb-close {
-  font-size: 40rpx; color: #9b9b8f; flex-shrink: 0;
+  font-size: 40rpx; color: #7a7970; flex-shrink: 0;
   width: 48rpx; height: 48rpx; line-height: 44rpx; text-align: center;
 }
 
@@ -1650,7 +1704,7 @@ onReady(async () => {
 }
 .cb-sticky-score { font-size: 28rpx; font-weight: 700; color: #a97826; flex-shrink: 0; }
 .cb-sticky-close {
-  font-size: 36rpx; color: #9b9b8f; flex-shrink: 0;
+  font-size: 36rpx; color: #7a7970; flex-shrink: 0;
   width: 44rpx; height: 44rpx; line-height: 44rpx; text-align: center;
 }
 
@@ -1682,6 +1736,11 @@ onReady(async () => {
   background: rgba(169, 120, 38, 0.09);
   border-radius: 30rpx; padding: 6rpx 24rpx;
 }
+.sheet-note {
+  margin-top: 20rpx; padding: 14rpx 18rpx;
+  background: rgba(46, 92, 69, 0.06); border-radius: 12rpx;
+  font-size: 22rpx; color: #7a7970; line-height: 1.7;
+}
 
 /* 标题行里的「六维说明」入口 */
 .title-group { display: flex; align-items: baseline; gap: 14rpx; }
@@ -1694,9 +1753,9 @@ onReady(async () => {
 /* 香调滑块 label 可点开释义 */
 .slider-name-wrap { display: flex; align-items: center; gap: 6rpx; }
 .slider-info {
-  font-size: 20rpx; color: #a97826; border: 2rpx solid rgba(169,120,38,0.4);
-  border-radius: 50%; width: 30rpx; height: 30rpx; line-height: 28rpx;
-  text-align: center; flex-shrink: 0; font-family: inherit;
+  font-size: 22rpx; color: #a97826; border: 2rpx solid rgba(169,120,38,0.4);
+  border-radius: 50%; width: 44rpx; height: 44rpx; line-height: 40rpx;
+  box-sizing: border-box; text-align: center; flex-shrink: 0; font-family: inherit;
   font-style: italic;
 }
 
@@ -1724,7 +1783,7 @@ onReady(async () => {
 }
 .sheet-title { font-size: 32rpx; font-weight: 700; color: #2b2b2e; margin-bottom: 16rpx; }
 .sheet-desc { font-size: 27rpx; color: #3a3a38; line-height: 1.8; }
-.sheet-sub { font-size: 24rpx; color: #9b9b8f; margin: 22rpx 0 12rpx; }
+.sheet-sub { font-size: 24rpx; color: #7a7970; margin: 22rpx 0 12rpx; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .chip {
   font-size: 24rpx; color: #2e5c45; background: #fff;
@@ -1761,7 +1820,7 @@ onReady(async () => {
 
 /* 一键气味模板 */
 .tpl-tip {
-  font-size: 22rpx; color: #9b9b8f; line-height: 1.5; margin-bottom: 10rpx;
+  font-size: 22rpx; color: #7a7970; line-height: 1.5; margin-bottom: 10rpx;
   text-align: center;
 }
 .tpl-row { display: flex; gap: 14rpx; margin-bottom: 12rpx; }
@@ -1774,7 +1833,7 @@ onReady(async () => {
 .tpl-label { font-size: 22rpx; color: #2b2b2e; font-family: inherit; }
 
 /* 归一化解释 */
-.normalize-hint { font-size: 21rpx; color: #9b9b8f; margin-bottom: 12rpx; }
+.normalize-hint { font-size: 21rpx; color: #7a7970; margin-bottom: 12rpx; }
 
 /* 靠近名香提示 / 复刻名香彩蛋横幅：已合并进常驻状态行 .panel-status（防抖动） */
 

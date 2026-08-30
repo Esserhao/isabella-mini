@@ -85,10 +85,10 @@ function goContact() {
 }
 .b-email:active { background: #f3ead8; }
 .b-email-id { font-size: 26rpx; font-weight: 700; color: #a97826; }
-.b-email-go { font-size: 23rpx; color: #9b9b8f; flex-shrink: 0; }
+.b-email-go { font-size: 23rpx; color: #7a7970; flex-shrink: 0; }
 
 .updated {
-  font-size: 20rpx; color: #9b9b8f; text-align: center;
+  font-size: 20rpx; color: #7a7970; text-align: center;
   margin-top: 32rpx; padding-top: 20rpx;
   border-top: 2rpx solid rgba(26,26,30,0.06);
 }

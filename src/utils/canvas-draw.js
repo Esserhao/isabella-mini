@@ -1,10 +1,22 @@
 // 小程序 canvas 2d 手绘库（替代网页版 Chart.js / html2canvas）
 // 调用方负责根据 dpr 对 ctx 做 scale，本文件统一使用「逻辑像素」坐标。
 import { THEME, ACCORD_COLORS } from './theme.js'
+import { ACCORDS } from './data.js'
 import { topAccordDesc } from './mix.js'
 
 function accordColor(key) {
   return ACCORD_COLORS[key] || THEME.primary
+}
+
+// 主导香调颜色：卡面金线等「个性元素」随主调变色用；纯水态（全 0）回退主题金
+export function mainAccordColor(accordValues) {
+  let topKey = ''
+  let topVal = -1
+  ACCORDS.forEach((a) => {
+    const v = (accordValues && accordValues[a.key]) || 0
+    if (v > topVal) { topVal = v; topKey = a.key }
+  })
+  return topKey ? accordColor(topKey) : THEME.gold
 }
 
 // 封存卡的小程序码：x 与正文左边界对齐，size 固定。
@@ -41,7 +53,7 @@ function raf(canvas, cb) {
 // ---------- 雷达图（通用，页面实时 / 卡片内嵌共用） ----------
 export function drawRadar(ctx, opt) {
   const { cx, cy, radius, values, labels, max = 100,
-    theme = THEME, showLabels = true, overlay = null } = opt
+    theme = THEME, showLabels = true, overlay = null, ghost = false } = opt
   const n = values.length
   const angle = (i) => (i / n) * Math.PI * 2 - Math.PI / 2
 
@@ -84,32 +96,49 @@ export function drawRadar(ctx, opt) {
   }
 
   // 数据多边形
-  ctx.beginPath()
-  for (let i = 0; i < n; i++) {
-    const v = Math.max(0, Math.min(max, values[i] || 0)) / max
-    const x = cx + Math.cos(angle(i)) * radius * v
-    const y = cy + Math.sin(angle(i)) * radius * v
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
-  }
-  ctx.closePath()
-  ctx.fillStyle = theme.radarFill
-  ctx.fill()
-  ctx.strokeStyle = theme.radarLine
-  ctx.lineWidth = 2
-  ctx.stroke()
-
-  // 数据点
-  for (let i = 0; i < n; i++) {
-    const v = Math.max(0, Math.min(max, values[i] || 0)) / max
-    const x = cx + Math.cos(angle(i)) * radius * v
-    const y = cy + Math.sin(angle(i)) * radius * v
+  if (ghost) {
+    // 纯水态：没有任何香调，画一圈虚线圆当作「等你来填」的留白邀请，
+    // 拖动第一根滑块后被真实多边形取代（不引入动画帧，静态虚线即可）
+    ctx.setLineDash([6, 6])
     ctx.beginPath()
-    ctx.arc(x, y, 3, 0, Math.PI * 2)
-    ctx.fillStyle = theme.radarLine
-    ctx.fill()
-    ctx.strokeStyle = '#f6f3ea'
-    ctx.lineWidth = 1
+    ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2)
+    ctx.strokeStyle = theme.radarLine
+    ctx.globalAlpha = 0.35
+    ctx.lineWidth = 2
     ctx.stroke()
+    ctx.globalAlpha = 1
+    ctx.setLineDash([])
+  } else {
+    ctx.beginPath()
+    for (let i = 0; i < n; i++) {
+      const v = Math.max(0, Math.min(max, values[i] || 0)) / max
+      const x = cx + Math.cos(angle(i)) * radius * v
+      const y = cy + Math.sin(angle(i)) * radius * v
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
+    }
+    ctx.closePath()
+    ctx.fillStyle = theme.radarFill
+    ctx.fill()
+    ctx.strokeStyle = theme.radarLine
+    ctx.lineWidth = 2
+    ctx.stroke()
+  }
+
+  // 数据点（虚影态没有数据点）
+  if (!ghost) {
+    for (let i = 0; i < n; i++) {
+      const v = Math.max(0, Math.min(max, values[i] || 0)) / max
+      if (v <= 0) continue  // 零值不画点：相对模式下零轴全部坍缩在圆心，
+      const x = cx + Math.cos(angle(i)) * radius * v   // 三个零点叠成一团像画错的脏点（真机反馈）
+      const y = cy + Math.sin(angle(i)) * radius * v
+      ctx.beginPath()
+      ctx.arc(x, y, 3, 0, Math.PI * 2)
+      ctx.fillStyle = theme.radarLine
+      ctx.fill()
+      ctx.strokeStyle = '#f6f3ea'
+      ctx.lineWidth = 1
+      ctx.stroke()
+    }
   }
 
   // 叠加虚线多边形（对比名香）：不填充，仅虚线描边 + 小三角标记
@@ -268,7 +297,8 @@ export function drawRadarGrow(ctx, opt, onDone) {
 export function drawCardBase(ctx, opt) {
   const { width, height, name, radarValues, labels,
     quote, formula, accords, accordValues, theme = THEME,
-    rarity = '', tierTitle = '', sealLabel = '', qrCode = false, note = '', sealTime = 0 } = opt
+    rarity = '', tierTitle = '', sealLabel = '', qrCode = false, note = '', sealTime = 0,
+    accent = '', origin = '' } = opt
   const M = 60
   // 背景
   ctx.fillStyle = theme.paper
@@ -307,7 +337,8 @@ export function drawCardBase(ctx, opt) {
     ctx.fillText(badgeText, width / 2, by + bh / 2 + 1)
   }
 
-  ctx.strokeStyle = theme.gold
+  // 香名下的金线：随该香主导香调变色（纯水态回退主题金）——个性从字体转移到图形
+  ctx.strokeStyle = accent || theme.gold
   ctx.lineWidth = 1
   ctx.beginPath()
   ctx.moveTo(M, 100)
@@ -387,6 +418,15 @@ export function drawCardBase(ctx, opt) {
   ctx.textBaseline = 'middle'
   ctx.font = 'bold 14px sans-serif'
   ctx.fillText('配方', ingX + 12, cursor)
+  // 传播链印记：接力改编的配方在配方区右缘印「改编自 ××」，
+  // 每一代改编者都有再传动机（印记只记上一代，族谱不无限深）
+  if (origin) {
+    ctx.font = '11px sans-serif'
+    ctx.textAlign = 'right'
+    ctx.fillStyle = '#a97826'
+    ctx.fillText(`改编自 ${origin}`, width - M, cursor)
+    ctx.textAlign = 'left'
+  }
   cursor += 20
 
   ctx.textAlign = 'left'
@@ -410,27 +450,27 @@ export function drawCardBase(ctx, opt) {
   const guX = colX + infoW                // 右栏起点
   const guW = (width - M) - guX           // 右栏宽度，到右边界为止
 
-  // 左栏：品牌信息
+  // 左栏：品牌信息（真机反馈：字号偏小、与下方感言的留白过大——放大字号并让金线下沉靠拢感言）
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = theme.ink
-  ctx.font = 'bold 13px sans-serif'
-  ctx.fillText('调香日记', colX, qrY + 14)
+  ctx.font = 'bold 16px sans-serif'
+  ctx.fillText('调香日记', colX, qrY + 16)
   // 封存日期优先用真实的 sealTime（data.time），不再画「今天」——
   // 否则 8 月封存的香，隔几周重开卡片页会印出重绘当天的日期，信息错误。
   const d = new Date(sealTime ? sealTime : Date.now())
   const ds = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0')
   ctx.fillStyle = 'rgba(107,106,106,0.9)'
-  ctx.font = '12px sans-serif'
-  ctx.fillText('封存于 ' + ds, colX, qrY + 38)
+  ctx.font = '13px sans-serif'
+  ctx.fillText('封存于 ' + ds, colX, qrY + 44)
   ctx.fillStyle = theme.gold
-  ctx.font = '12px sans-serif'
-  ctx.fillText(sealLabel || '扫码调香 · 调出你的味道', colX, qrY + 60)
+  ctx.font = '13px sans-serif'
+  ctx.fillText(sealLabel || '扫码调香 · 调出你的味道', colX, qrY + 68)
 
   // 右栏：古先生的话（顶端与左栏首行对齐；中文不用斜体——伪斜跨机型不一致）
-  // 先按 14px 量行数，再按实际高度决定这一块的总高。
-  const guLineH = 20
-  ctx.font = '14px sans-serif'
+  // 先按 15px 量行数，再按实际高度决定这一块的总高。
+  const guLineH = 22
+  ctx.font = '15px sans-serif'
   const guFull = String(quote || '')
   const guLines = wrapLines(ctx, guFull, guW, 3)
   // 三行装不下时给末行加省略号。wrapLines 会把装不下的部分整个丢弃，
@@ -447,7 +487,7 @@ export function drawCardBase(ctx, opt) {
 
   // 整块高度取「码 / 左栏三行 / 右栏感言」三者最大值，保证谁都不被裁掉
   // 注意不能叫 blockH —— 上面「主要香调」区块已经用掉这个名字了
-  const qrBlockH = Math.max(qrSize, 60, guH)
+  const qrBlockH = Math.max(qrSize, 76, guH)
   const qrBottom = qrY + qrBlockH
 
   // ---------- 页脚金线（上述区块下方）----------
@@ -464,7 +504,8 @@ export function drawCardBase(ctx, opt) {
   // 没填就整块留白——金线位置不变，保证填与不填的卡片结构一致。
   const noteText = String(note || '').trim()
   if (noteText) {
-    const nAreaTop = footerY + 20
+    // 真机反馈：感言与上方金线距离偏远——贴近金线排，不再在剩余空间里垂直居中
+    const nAreaTop = footerY + 14
     const nAreaBottom = height - 30
     const nAreaH = nAreaBottom - nAreaTop
     const nLineH = 26
@@ -478,7 +519,7 @@ export function drawCardBase(ctx, opt) {
     ctx.font = '12px sans-serif'
     const nLines = wrapLines(ctx, noteText, width - M * 2, nMaxLines)
     const nH = nLabelH + nLines.length * nLineH
-    const nTop = nAreaTop + Math.max(0, (nAreaH - nH) / 2)
+    const nTop = nAreaTop
 
     ctx.fillStyle = theme.gold
     ctx.fillText('调香感言', width / 2, nTop + 8)
@@ -626,7 +667,7 @@ function drawShareRadar(ctx, opt) {
 export function drawShareCard(ctx, opt) {
   const {
     width, height, name = '', radarValues = [], quote = '',
-    accords = [], accordValues = {}, theme = THEME
+    accords = [], accordValues = {}, theme = THEME, duel = null
   } = opt
 
   const cx = width / 2
@@ -657,6 +698,14 @@ export function drawShareCard(ctx, opt) {
   ctx.textBaseline = 'middle'
   fitFontSize(ctx, titleName, width * 0.84, width * 0.075, Math.round(width * 0.03), true)
   ctx.fillText(titleName, cx, height * 0.14)
+
+  // 对决行：发起对决的分享图把分数与题名印在标题正下方——
+  // 好友在聊天里第一眼看到的是图，图自己得会「喊话」
+  if (duel) {
+    ctx.fillStyle = theme.gold
+    ctx.font = `${Math.round(width * 0.026)}px sans-serif`
+    ctx.fillText(`⚔ 今日挑战「${duel.theme}」 · ${duel.score} 分`, cx, height * 0.14 + Math.round(width * 0.055))
+  }
 
   // 2) 雷达色块：画面中心，直径约占短边 42%
   const radarR = Math.min(width, height) * 0.21

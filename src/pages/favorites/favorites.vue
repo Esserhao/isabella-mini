@@ -7,7 +7,6 @@
       <view class="row-main">
         <view class="row-name">{{ f.name }}</view>
         <view class="row-quote" v-if="f.quote">「{{ f.quote }}」</view>
-        <view class="row-note" v-if="f.note">感言：{{ f.note }}</view>
         <view class="bars">
           <view class="bar" v-for="a in topOf(f.accords)" :key="a.k">
             <text class="bar-label">{{ accordLabel(a.k) }}</text>
@@ -101,7 +100,7 @@ onShow(() => {
 
 <style scoped>
 .page { min-height: 100vh; background: #f0eee5; padding: 24rpx 28rpx 60rpx; box-sizing: border-box; }
-.empty { font-size: 25rpx; color: #9b9b8f; text-align: center; padding: 120rpx 40rpx; line-height: 1.7; }
+.empty { font-size: 25rpx; color: #7a7970; text-align: center; padding: 120rpx 40rpx; line-height: 1.7; }
 
 .row {
   display: flex; align-items: flex-start; gap: 16rpx;
@@ -111,13 +110,12 @@ onShow(() => {
 .row-main { flex: 1; min-width: 0; }
 .row-name { font-size: 30rpx; font-weight: 700; color: #2b2b2e; }
 .row-quote { font-size: 24rpx; color: #6b6a6a; line-height: 1.6; margin: 8rpx 0 4rpx; }
-.row-note { font-size: 23rpx; color: #a97826; line-height: 1.6; margin-bottom: 10rpx; }
 .bars { display: flex; flex-direction: column; gap: 6rpx; margin-top: 8rpx; }
 .bar { display: flex; align-items: center; gap: 10rpx; }
 .bar-label { font-size: 20rpx; color: #6b6a6a; width: 60rpx; flex-shrink: 0; }
 .bar-track { flex: 1; height: 8rpx; background: rgba(26,26,30,0.08); border-radius: 4rpx; overflow: hidden; }
 .bar-fill { height: 100%; background: #2e5c45; border-radius: 4rpx; }
-.row-time { font-size: 21rpx; color: #9b9b8f; margin-top: 12rpx; }
+.row-time { font-size: 21rpx; color: #7a7970; margin-top: 12rpx; }
 
 .row-fav {
   flex-shrink: 0; width: 64rpx; height: 64rpx; border-radius: 50%;

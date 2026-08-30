@@ -287,7 +287,7 @@ function delSection(si) {
   margin-top: 28rpx; font-size: 32rpx; color: #6b6a6a;
   line-height: 1.7;
 }
-.cover-meta { margin-top: 28rpx; font-size: 24rpx; color: #9b9b8f; }
+.cover-meta { margin-top: 28rpx; font-size: 24rpx; color: #7a7970; }
 .cover-rule { width: 96rpx; height: 4rpx; background: #a97826; border-radius: 2rpx; margin-top: 36rpx; }
 .cover-start {
   margin-top: 44rpx;
@@ -308,7 +308,7 @@ function delSection(si) {
 
 .note-head { margin-bottom: 40rpx; }
 .note-title { font-size: 38rpx; font-weight: 700; color: #2b2b2e; line-height: 1.5; }
-.note-meta { font-size: 24rpx; color: #9b9b8f; margin-top: 14rpx; }
+.note-meta { font-size: 24rpx; color: #7a7970; margin-top: 14rpx; }
 .note-rule { width: 96rpx; height: 4rpx; background: #a97826; border-radius: 2rpx; margin-top: 30rpx; }
 .note-section { margin-bottom: 48rpx; }
 .sec-head { font-size: 29rpx; font-weight: 600; color: #2e5c45; margin-bottom: 12rpx; letter-spacing: 1rpx; }

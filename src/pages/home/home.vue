@@ -805,7 +805,7 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
 .onb-reco-img { width: 96rpx; height: 120rpx; border-radius: 10rpx; flex-shrink: 0; }
 .onb-reco-info { flex: 1; min-width: 0; }
 .onb-reco-name { font-size: 28rpx; font-weight: 700; color: #2b2b2e; display: block; }
-.onb-reco-sub { font-size: 22rpx; color: #9b9b8f; display: block; margin-top: 6rpx; }
+.onb-reco-sub { font-size: 22rpx; color: #7a7970; display: block; margin-top: 6rpx; }
 .onb-reco-go { font-size: 24rpx; color: #a97826; font-weight: 600; flex-shrink: 0; }
 .onb-result-tip { font-size: 22rpx; color: #6b6a6a; line-height: 1.7; margin-top: 6rpx; }
 .onb-result-actions { display: flex; gap: 16rpx; margin-top: 8rpx; }

@@ -169,6 +169,7 @@
         <text class="dim-name">{{ d.label }}</text>
         <text class="dim-text">{{ d.desc }}</text>
       </view>
+      <view class="sheet-note">每个香调天生带着 2~3 种气质：比如柑橘同时贡献「明亮度」和「轻盈感」。所以香方只覆盖少数香调时，雷达会呈三角形甚至一条直线——那是气质形状，不是画错了。</view>
       <button class="sheet-close" @tap="radarHelpOpen = false">知道了</button>
     </view>
 
@@ -353,7 +354,8 @@ function onRadarMode(e) {
 
 // 以图鉴某瓶为基调去工坊调香：暂存配方 → 跳工坊（lab 页 onShow 接住）
 function blendFromGallery(p) {
-  setPendingBlend(p.accords, p.name)
+  // 来源印记 = 图鉴香名：改编后再封存，卡面会印「改编自 ××」
+  setPendingBlend(p.accords, p.name, p.name)
   track('gallery_blend')
   // showToast 必须在 switchTab 之前调用，否则页面被卸载后 toast 被拒绝
   uni.showToast({ title: '已载入基调，去工坊微调', icon: 'none' })
@@ -405,7 +407,7 @@ function ingMainKey(accords) {
 }
 .p-info { flex: 1; min-width: 0; }
 .p-name { font-size: 32rpx; font-weight: 700; color: #2b2b2e; }
-.p-sub { font-size: 22rpx; color: #9b9b8f; margin: 4rpx 0 8rpx; }
+.p-sub { font-size: 22rpx; color: #7a7970; margin: 4rpx 0 8rpx; }
 .p-hook { font-size: 23rpx; color: #a97826; line-height: 1.5; margin-bottom: 12rpx; }
 .p-bars { display: flex; flex-direction: column; gap: 6rpx; }
 .p-bar { display: flex; align-items: center; gap: 10rpx; }
@@ -432,13 +434,13 @@ function ingMainKey(accords) {
   margin: 0 auto 24rpx;
 }
 
-.g-footer { font-size: 22rpx; color: #9b9b8f; text-align: center; padding: 20rpx 0 10rpx; }
+.g-footer { font-size: 22rpx; color: #7a7970; text-align: center; padding: 20rpx 0 10rpx; }
 
 /* 香料子栏目 */
 .ing-group { background: #f6f3ea; border-radius: 18rpx; padding: 22rpx; margin-bottom: 20rpx; }
 .ing-group-head { display: flex; align-items: center; gap: 14rpx; margin-bottom: 18rpx; }
 .ing-group-label { font-size: 28rpx; font-weight: 700; color: #2e5c45; flex: 1; }
-.ing-group-count { font-size: 22rpx; color: #9b9b8f; }
+.ing-group-count { font-size: 22rpx; color: #7a7970; }
 .ing-grid { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .ing-pill {
   background: #fff; border-radius: 30rpx; padding: 12rpx 24rpx;
@@ -463,7 +465,7 @@ function ingMainKey(accords) {
 .detail-back::after { border: none; }
 .detail-scroll { flex: 1; min-height: 0; height: 0; padding: 28rpx 32rpx 60rpx; box-sizing: border-box; }
 .d-title { font-size: 40rpx; font-weight: 700; color: #2b2b2e; }
-.d-sub { font-size: 24rpx; color: #9b9b8f; margin: 8rpx 0 14rpx; }
+.d-sub { font-size: 24rpx; color: #7a7970; margin: 8rpx 0 14rpx; }
 .d-hook { font-size: 26rpx; color: #a97826; line-height: 1.6; margin-bottom: 22rpx; }
 .d-section-title {
   font-size: 26rpx; font-weight: 600; color: #2e5c45; margin: 26rpx 0 14rpx;
@@ -519,7 +521,7 @@ function ingMainKey(accords) {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
 }
 .n-foot { display: flex; align-items: baseline; justify-content: space-between; margin-top: 16rpx; gap: 16rpx; }
-.n-date { font-size: 21rpx; color: #9b9b8f; flex: 1; min-width: 0; }
+.n-date { font-size: 21rpx; color: #7a7970; flex: 1; min-width: 0; }
 .n-count { font-size: 21rpx; color: #b0ae9f; flex-shrink: 0; }
 
 /* 手记详情（复用图鉴详情弹层） */
@@ -560,6 +562,11 @@ function ingMainKey(accords) {
 .dim-row { display: flex; gap: 16rpx; padding: 14rpx 0; border-bottom: 2rpx solid rgba(0,0,0,0.05); }
 .dim-name { font-size: 27rpx; font-weight: 700; color: #2e5c45; width: 130rpx; flex-shrink: 0; }
 .dim-text { font-size: 25rpx; color: #3a3a38; line-height: 1.6; flex: 1; }
+.sheet-note {
+  margin-top: 20rpx; padding: 14rpx 18rpx;
+  background: rgba(46, 92, 69, 0.06); border-radius: 12rpx;
+  font-size: 22rpx; color: #7a7970; line-height: 1.7;
+}
 .sheet-close {
   margin-top: 28rpx; width: 100%; font-size: 30rpx; font-weight: 600;
   background: #2e5c45; color: #fff; border-radius: 16rpx; padding: 22rpx 0;
