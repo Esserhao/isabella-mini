@@ -16,7 +16,10 @@
         </view>
         <view class="row-time">{{ formatTime(f.time) }}</view>
       </view>
-      <view class="row-fav on" @tap.stop="unfav(f)">♥</view>
+      <view class="row-actions">
+        <view class="row-fav on" @tap.stop="unfav(f)">♥</view>
+        <view class="row-del" @tap.stop="del(f)">🗑</view>
+      </view>
     </view>
   </view>
 </template>
@@ -73,6 +76,24 @@ function unfav(f) {
   uni.showToast({ title: '已取消收藏', icon: 'none' })
 }
 
+// 删除收藏：与右侧 ♥ 同一存储操作，但走确认弹窗——
+// ♥ 是「顺手取消」，🗑 是「明确删掉」，语义分开，误触代价不同。
+function del(f) {
+  uni.showModal({
+    title: '删除这条收藏？',
+    content: `「${f.name || '未命名香氛'}」将从收藏中移除，历史记录不受影响。`,
+    confirmText: '删除',
+    confirmColor: '#c45c5c',
+    success: (m) => {
+      if (!m.confirm) return
+      removeFav(f.time)
+      favorites.value = getFavorites()
+      track('fav_remove')
+      uni.showToast({ title: '已删除', icon: 'none' })
+    }
+  })
+}
+
 onShow(() => {
   favorites.value = getFavorites()
 })
@@ -106,4 +127,19 @@ onShow(() => {
 }
 .row-fav.on { color: #a97826; border-color: rgba(169,120,38,0.55); }
 .row-fav:active { background: #f0eee5; }
+
+/* 收藏 + 删除纵向并排 */
+.row-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+.row-del {
+  width: 64rpx; height: 64rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30rpx; color: #c45c5c; background: #fff;
+  border: 2rpx solid rgba(196, 92, 92, 0.25);
+}
+.row-del:active { background: #f7e9e9; }
 </style>

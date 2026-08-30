@@ -23,8 +23,13 @@
 
       <view class="block">
         <view class="b-title">4. 联系我们</view>
-        <view class="b-text">如对本声明或本项目有任何疑问，请通过以下邮箱联系：</view>
-        <view class="b-email" @tap="copy">{{ EMAIL }}</view>
+        <!-- 这句与下面的邮箱行都可点，统一跳「联系我」页；
+             复制按钮只保留在联系页一处，避免出现两个复制入口 -->
+        <view class="b-text b-link" @tap="goContact">如对本声明或本项目有任何疑问，请通过以下邮箱联系：</view>
+        <view class="b-email" @tap="goContact">
+          <text class="b-email-id">{{ EMAIL }}</text>
+          <text class="b-email-go">前往联系我 ›</text>
+        </view>
       </view>
 
       <view class="updated">最后更新：2026 年 8 月 20 日</view>
@@ -33,12 +38,14 @@
 </template>
 
 <script setup>
-function copy() {
-  uni.setClipboardData({
-    data: 'zhangxm_411@163.com',
-    success: () => uni.showToast({ title: '邮箱已复制', icon: 'success' }),
-    fail: () => uni.showToast({ title: '复制失败', icon: 'none' })
-  })
+import { track } from '@/utils/analytics.js'
+
+// 邮箱与 contact 页保持同源；复制入口只在那边，这里负责把人带过去
+const EMAIL = 'zhangxm_411@163.com'
+
+function goContact() {
+  track('open_contact')
+  uni.navigateTo({ url: '/pages/contact/contact' })
 }
 </script>
 
@@ -68,10 +75,17 @@ function copy() {
 .block { margin-bottom: 26rpx; }
 .b-title { font-size: 26rpx; font-weight: 700; color: #2b2b2e; margin-bottom: 8rpx; }
 .b-text { font-size: 24rpx; color: #6b6a6a; line-height: 1.85; }
+.b-link:active { opacity: 0.6; }
+/* 邮箱入口行：样式与 contact 页的邮箱行同源，点按跳转该页 */
 .b-email {
-  font-size: 26rpx; font-weight: 700; color: #a97826;
-  margin-top: 8rpx; text-decoration: underline;
+  margin-top: 10rpx;
+  display: flex; align-items: center; justify-content: space-between;
+  background: #fff; border: 2rpx solid rgba(169,120,38,0.30);
+  border-radius: 12rpx; padding: 20rpx 24rpx;
 }
+.b-email:active { background: #f3ead8; }
+.b-email-id { font-size: 26rpx; font-weight: 700; color: #a97826; }
+.b-email-go { font-size: 23rpx; color: #9b9b8f; flex-shrink: 0; }
 
 .updated {
   font-size: 20rpx; color: #9b9b8f; text-align: center;

@@ -27,8 +27,14 @@ const exists = (p) => fs.existsSync(path.join(root, p))
 // WXML 里的自闭合 / 空元素，不能压栈等闭合标签
 const VOID = new Set(['image', 'input', 'icon', 'br', 'hr', 'import', 'include', 'wxs', 'slot', 'switch'])
 
+// 取根 <template> 块。
+// 不能写 /<template>([\s\S]*?)<\/template>/ —— 非贪婪会在「第一个」</template>
+// 处就收工，而模板里一旦出现嵌套的 <template v-if>（工坊的释义弹窗就用了一个），
+// 截出来的内容会在那里断掉，后面的 id 全查不到，误报成「目标找不到」。
+// SFC 的根级开闭标签顶格写、嵌套的有缩进，所以锚定列首来取。
+// \r? 必须留着：Windows 工作区检出是 CRLF，^<template> 后面跟的是 \r\n。
 function templateOf(src) {
-  const m = /<template>([\s\S]*?)<\/template>/.exec(src)
+  const m = /^<template>\r?\n([\s\S]*?)\r?\n<\/template>/m.exec(src)
   return m ? m[1] : ''
 }
 function stripComments(s) {

@@ -43,6 +43,18 @@ const TIERS = [
     stampScale: 3.8, stampRotate: -3, sealLabel: '同行封存',
     voice: 'peer',
     unlock: '第 20 瓶：我不当你是客人了。你是同行。'
+  },
+  {
+    thresh: 50, key: 'regular', title: '老朋友',
+    stampScale: 4.0, stampRotate: -1, sealLabel: '老友封存',
+    voice: 'peer',
+    unlock: '第 50 瓶：这间屋子已经有你的味道了。老朋友，不用敲门。'
+  },
+  {
+    thresh: 100, key: 'half_owner', title: '半个主人',
+    stampScale: 4.2, stampRotate: 0, sealLabel: '百瓶封存',
+    voice: 'peer',
+    unlock: '第 100 瓶：这家店的钥匙分你一把。别弄丢。'
   }
 ]
 

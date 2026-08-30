@@ -2,7 +2,7 @@
 // 调香核心算法（从原 lab.js 抽出的纯函数，零 DOM 依赖）
 // 阶段1 工坊组件直接 import 使用
 // ============================================================
-import { ACCORDS, RADAR_LABELS, INGREDIENT_LIBRARY, GU_QUOTES, PERSON_QUOTES, PEER_QUOTES, DAILY_CHALLENGES } from './data.js';
+import { ACCORDS, SOLVENT, RADAR_LABELS, INGREDIENT_LIBRARY, GU_QUOTES, PERSON_QUOTES, PEER_QUOTES, DAILY_CHALLENGES } from './data.js';
 
 // 12 香调比例 → 6 维雷达值（明亮度/温暖度/甜美度/清冽感/深邃度/轻盈感）
 // mode: 'relative'（默认）= 除以自身 6 维最大值，看「这瓶气息的内部结构」；
@@ -54,7 +54,9 @@ export function generateFormula(accordValues) {
         const v = Number(src[k]);
         if (Number.isFinite(v) && v > 0) total += v;
     }
-    if (total <= 0) total = 1;
+    // 纯水态（全 0）：瓶里没有任何香调，配方留空（封存卡显示「—」），
+    // 不能凭空印 6 味香料 —— 名字按分数排序全为 0 时取的是库序前六，纯属幻觉。
+    if (total <= 0) return [];
     const ratio = {};
     for (const k in src) {
         const v = Number(src[k]);
@@ -100,29 +102,6 @@ export function getGuQuote(radarValues, opts = {}) {
 
     const quotes = GU_QUOTES[primaryKey] || GU_QUOTES.brightness;
     return quotes[Math.floor(Math.random() * quotes.length)];
-}
-
-// 配方编解码（用于分享参数 / 本地复刻）。优先用 btoa，小程序不支持时降级
-export function encodeFormula(accordValues) {
-    const parts = ACCORDS.map(a => accordValues[a.key] || 0);
-    const str = parts.join(',');
-    if (typeof btoa !== 'undefined') {
-        try { return btoa(str); } catch (e) { /* fallthrough */ }
-    }
-    return encodeURIComponent(str);
-}
-
-export function decodeFormula(encoded) {
-    let str;
-    if (typeof atob !== 'undefined') {
-        try { str = atob(encoded); } catch (e) { str = decodeURIComponent(encoded); }
-    } else {
-        str = decodeURIComponent(encoded);
-    }
-    const parts = str.split(',').map(Number);
-    const result = {};
-    ACCORDS.forEach((a, i) => { result[a.key] = parts[i] || 0; });
-    return result;
 }
 
 // 日期键（每日挑战用）
@@ -190,20 +169,38 @@ export function markChallengeDone() {
 }
 
 // 每日挑战评分：用户配方与目标配方余弦相似度
-export function scoreDailyChallenge(accordValues, dailyChallenge) {
-    if (!dailyChallenge || !dailyChallenge.target) return null;
-    const target = dailyChallenge.target;
-    const keys = ['citrus', 'floral', 'fruity', 'woody', 'oriental', 'fougere', 'green'];
+const CHALLENGE_KEYS = ['citrus', 'floral', 'fruity', 'woody', 'oriental', 'fougere', 'green'];
+// 「随手乱调」的参照向量：七味各来一点。用来给分数定 0 分位，见下面 baseline 的说明。
+const NEUTRAL = {};
+CHALLENGE_KEYS.forEach(k => { NEUTRAL[k] = 1 });
+
+function challengeSimilarity(accordValues, target) {
     let dot = 0, normA = 0, normB = 0;
-    keys.forEach(k => {
-        const tv = target[k] || 10;
+    CHALLENGE_KEYS.forEach(k => {
+        // 目标里没提到的香调按 0 算，不按 10。
+        // 写 10 的时候，「绿意与木质为主」这种主题会暗地里要求用户加果香和东方调——
+        // 只按提示加绿意的人反而比七味各来一点的人分低，明显不合理。
+        const tv = target[k] || 0;
         const av = accordValues[k] || 0;
         dot += tv * av;
         normA += tv * tv;
         normB += av * av;
     });
-    const similarity = (normA > 0 && normB > 0) ? dot / (Math.sqrt(normA) * Math.sqrt(normB)) : 0;
-    const score = Math.round(Math.min(95, Math.max(10, similarity * 100)));
+    return (normA > 0 && normB > 0) ? dot / (Math.sqrt(normA) * Math.sqrt(normB)) : 0;
+}
+
+export function scoreDailyChallenge(accordValues, dailyChallenge) {
+    if (!dailyChallenge || !dailyChallenge.target) return null;
+    const target = dailyChallenge.target;
+    const similarity = challengeSimilarity(accordValues, target);
+    // 余弦相似度对「每味都来一点」的向量天生偏心：即便什么都不像，
+    // 七味均分对着任意主题也有 0.55~0.85。直接乘 100 当分数，
+    // 用户一进页面就 68~84 分、提示语直接跳到「方向对了，继续调」。
+    // 所以把「中性态」重标定成 0 分位（10 分），满分仍是 95：
+    // 分数的含义从「有多像」变成「比随手乱调好多少」。
+    const baseline = challengeSimilarity(NEUTRAL, target);
+    const norm = baseline < 1 ? (similarity - baseline) / (1 - baseline) : 0;
+    const score = Math.round(Math.min(95, Math.max(10, 10 + norm * 85)));
     return { score, theme: dailyChallenge.theme };
 }
 
@@ -261,17 +258,40 @@ export function normalizeAccords(rawObj) {
     return out;
 }
 
-// 平均基底：12 个香调各占一份，用同一套最大余数法，保证整数且总和恰好 100。
+// 空白起点：纯水占满 100%，12 个香调全为 0。
+// 首次进工坊、点「重置」、接受每日挑战都用它。
 //
-// 每日挑战进工坊时用它当起点。以前是把挑战目标本身铺进滑块
-// （applyRestore({ accords: c.target })），等于把答案抄上去——
-// 实测 16 个主题进页面一律 95% 相似度，挑战直接送分。
-// 平均基底是「什么都没调」的中性态：每项约 8%，拖哪一味都是从这里往上加，
-// 其余按现有规则等比让位，不会像全 0 那样一拖就给另外 11 味各填 4~5。
-export function evenAccords() {
-    const raw = {};
-    ACCORDS.forEach(a => { raw[a.key] = 1; });
-    return normalizeAccords(raw);
+// 历史上有两个错的版本：
+// 1) 直接把挑战目标铺进滑块（applyRestore({ accords: c.target })），
+//    等于把答案抄上去，16 个主题进页面一律 95%，挑战送分。
+// 2) 平均基底（12 味各 8%）。不会再送分，但起始相似度仍有 68%~84%，
+//    一进门就提示「方向对了」，而且 12 根滑块没有一根是干净的。
+// 纯水起步两者都解决：香调确实全 0，雷达收缩在原点，
+// 而总和仍是 100（水占着），所以拖动时是从水里置换，不是从别的香调里抢。
+export function blankBlend() {
+    const out = {};
+    ACCORDS.forEach(a => { out[a.key] = 0; });
+    out[SOLVENT.key] = 100;
+    return out;
+}
+
+// 浓度：香精占比 = 100 - 纯水。分级沿用真实香水的档位，
+// 让「我兑了多少水」这件原本隐藏的事有个说法。
+export function strengthOf(blend) {
+    const essence = Math.max(0, Math.min(100, 100 - (Number(blend && blend[SOLVENT.key]) || 0)));
+    const table = [
+        { min: 40, name: '香精', desc: '几乎没兑水，一点就够，留香很久' },
+        { min: 25, name: '浓香精', desc: '存在感强，靠近才闻得到全部' },
+        { min: 15, name: '淡香精', desc: '最常见的一档，日常刚好' },
+        { min: 8, name: '淡香水', desc: '清爽，适合白天和夏天' },
+        { min: 1, name: '古龙水', desc: '很淡，一两个小时就散了' }
+    ];
+    const hit = table.find(t => essence >= t.min);
+    return {
+        essence,
+        name: hit ? hit.name : '几乎全是水',
+        desc: hit ? hit.desc : '还没加什么香调，先调起来吧'
+    };
 }
 
 // 纯随机配比：每一瓶都是现摇的，不从图鉴里挑。

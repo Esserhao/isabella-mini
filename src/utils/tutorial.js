@@ -12,7 +12,7 @@ export const TUTORIAL_STEPS = [
   { page: 'gallery', target: '#coachGalleryCard', title: '图鉴',              text: '这里是对香水、香料的简单介绍。挑一款点进去看它的气息结构，喜欢就「以这瓶为基调去调香」。' },
   // 工坊（最重点）：先讲雷达，再讲滑块
   { page: 'lab',     target: '#coachRadar',       title: '这是你的香气画像',  text: '中间这张六维雷达，实时反映你现在的味道。下面滑块一动，它就跟着变。' },
-  { page: 'lab',     target: '#coachSliders',     title: '拖动滑块，调出你的香', text: '上下拖动，加重或减弱某个香调。其它会自动按比例让位，总和一直是 100%，不会调坏。' }
+  { page: 'lab',     target: '#coachSliders',     title: '拖动滑块，调出你的香', text: '最上面是纯水，下面是 12 个香调。上下拖动加香调，就是从纯水里置换——水让完了香调才互让，总和一直是 100%，不会调坏。' }
 ]
 
 // page key → tabBar 页真实路径，用于跨页 switchTab

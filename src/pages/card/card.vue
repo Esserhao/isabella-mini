@@ -199,8 +199,8 @@ function initCanvas(sel, designW, designH) {
 onReady(async () => {
   card = await initCanvas('#cardPageCanvas', 600, 900)
   if (!card) return
-  // 这瓶香专属的真小程序码：扫码直达 pages/lab/lab 并还原配方。
-  // 云开发未开通/失败时内部自动回退静态通用码，不阻塞画卡。
+  // 这瓶香专属的真小程序码：扫码直达封存卡并还原配方。
+  // 云开发未开通/生成失败时 qrSrc 为空串，drawCard 会跳过码图（不阻塞画卡）。
   const qrSrc = await getWxacodePath(data.value.accords, data.value.name)
   // 卡面画稀有度徽章 + 层级称号
   await drawCard(card.ctx, {
@@ -217,6 +217,9 @@ onReady(async () => {
     theme: THEME,
     rarity: data.value.rarity,
     tierTitle: data.value.tierTitle,
+    // 封存小字（留白/深夜/七日/层级）：lab 封存时随 cardData 带过来，
+    // 之前只入库没上卡，现在真正画到卡面（历史/收藏还原的走层级兜底）
+    sealLabel: data.value.sealLabel,
     // 真实封存时间（data.time）；分享/扫码进来的卡 time 为 0，drawCardBase 回退当天
     sealTime: data.value.time,
     canvas: card.canvas,

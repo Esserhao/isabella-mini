@@ -120,7 +120,8 @@ const currentNote = computed(() => {
     title: ed && ed.title ? ed.title : base.title,
     lead: base.lead,
     date: base.date,
-    sections: ed && ed.sections ? ed.sections : base.sections,
+    // 展示也要守：storage 里手写的脏 sections（非数组）会让 v-for 撕掉整页
+    sections: ed && Array.isArray(ed.sections) ? ed.sections : base.sections,
     pyramid: base.pyramid
   }
 })

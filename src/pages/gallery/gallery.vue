@@ -326,7 +326,14 @@ function drawPerfumeRadar(accords, mode = 'relative') {
     const cvs = res[0].node
     const ctx = cvs.getContext('2d')
     if (!ctx) return
-    const dpr = uni.getWindowInfo().pixelRatio || 1
+    // dpr 取像素比：uni.getWindowInfo 在部分旧基础库/开发者工具里不存在，
+    // 必须回退 uni.getSystemInfoSync —— 这里在 exec 回调内裸调会直接抛错，
+    // 详情页雷达静默不画（home/lab/card 三处都有同款降级链，唯独这里漏过）。
+    let dpr = 1
+    try {
+      dpr = (uni.getWindowInfo && uni.getWindowInfo().pixelRatio) ||
+            (uni.getSystemInfoSync && uni.getSystemInfoSync().pixelRatio) || 1
+    } catch (e) { dpr = 1 }
     const w = res[0].width || 300
     const h = res[0].height || 300
     cvs.width = Math.max(1, Math.round(w * dpr))

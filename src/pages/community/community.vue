@@ -41,6 +41,23 @@
       </view>
     </view>
 
+    <!-- 彩蛋收藏：记录各彩蛋达成条件与点亮状态 -->
+    <view class="menu-group">
+      <view class="menu-label">彩蛋</view>
+      <view class="menu">
+        <view class="menu-item" @tap="goEggs">
+          <view class="menu-left">
+            <text class="menu-icon egg-icon">✦</text>
+            <view class="menu-text">
+              <view class="menu-title">彩蛋收藏</view>
+              <view class="menu-sub">{{ eggSummary }}</view>
+            </view>
+          </view>
+          <text class="entry-arrow">›</text>
+        </view>
+      </view>
+    </view>
+
     <!-- 留言建议 / 联系我：点击进入独立页面 -->
     <view class="menu-group">
       <view class="menu-label">关于</view>
@@ -97,11 +114,17 @@ import { getDailyChallenge, setDailyChallengeTarget } from '@/utils/mix.js'
 import { getStreak } from '@/utils/streak.js'
 import { getStats, track } from '@/utils/analytics.js'
 import { getFavorites } from '@/utils/favorites.js'
+import { getEggs } from '@/utils/eggs.js'
 
 const favCount = ref(0)
 const historyCount = ref(0)
 const streak = ref(0)
 const stats = ref({})
+// 彩蛋总数随 eggs.js 登记表走，别写死
+const initEggs = getEggs()
+const eggSummary = ref(initEggs.achieved >= initEggs.total
+  ? `全部点亮 ${initEggs.total}/${initEggs.total} ✦`
+  : `已点亮 ${initEggs.achieved}/${initEggs.total}`)
 
 const challenge = computed(() => getDailyChallenge())
 
@@ -128,6 +151,11 @@ function goContact() {
 function goDisclaimer() {
   track('open_disclaimer')
   uni.navigateTo({ url: '/pages/disclaimer/disclaimer' })
+}
+
+function goEggs() {
+  track('open_eggs')
+  uni.navigateTo({ url: '/pages/eggs/eggs' })
 }
 
 // 重做开屏小调查：清掉「已完成」标记并让首页 onShow 立即重弹三题。
@@ -162,6 +190,10 @@ onShow(() => {
   }
   streak.value = getStreak()
   stats.value = getStats()
+  const eggs = getEggs()
+  eggSummary.value = eggs.achieved >= eggs.total
+    ? `全部点亮 ${eggs.total}/${eggs.total} ✦`
+    : `已点亮 ${eggs.achieved}/${eggs.total}`
 })
 </script>
 
@@ -236,6 +268,7 @@ onShow(() => {
 .menu-item + .menu-item { border-top: 2rpx solid rgba(26,26,30,0.06); }
 .menu-left { display: flex; align-items: center; gap: 18rpx; min-width: 0; }
 .menu-icon { font-size: 34rpx; }
+.egg-icon { color: #a97826; }
 .menu-title { font-size: 28rpx; font-weight: 600; color: #2b2b2e; }
 .menu-sub { font-size: 21rpx; color: #9b9b8f; margin-top: 4rpx; }
 </style>

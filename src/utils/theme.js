@@ -13,18 +13,20 @@ export const THEME = {
   radarLine: '#2e5c45'
 }
 
-// 香调条配色（取自 ACCORDS 的 color，fallback 用主绿）
+// 香调条配色。键集必须与 ACCORDS 的 12 个 key 一一对应——
+// 缺键会走 fallback 主绿：果香/东方/馥奇主导的瓶，彩条和分享图主色会全变成绿色。
+// （旧表的 spice/gourmand/leather 等键来自更早的香调体系，项目里已无此 key，已清除。）
 export const ACCORD_COLORS = {
-  floral: '#c46b8f',
-  citrus: '#e0a32e',
-  woody: '#8a6a3b',
-  green: '#5b8a4e',
-  spice: '#b5542f',
-  musk: '#9a8fb0',
-  aquatic: '#3f86a8',
-  gourmand: '#a9663f',
-  leather: '#7a5a3a',
-  powdery: '#c9a0b8',
-  smoky: '#5a5550',
-  resinous: '#9a7b2e'
+  citrus: '#e0a32e',   // 柑橘：明黄
+  floral: '#c46b8f',   // 花香：玫瑰粉
+  fruity: '#e07856',   // 果香：蜜桃珊瑚
+  woody: '#8a6a3b',    // 木质：老木棕
+  oriental: '#b5542f', // 东方：香料红棕
+  fougere: '#8f86ad',  // 馥奇：薰衣草灰紫
+  green: '#5b8a4e',    // 绿意：草绿
+  musk: '#b79ab0',     // 麝香：皮肤感粉紫
+  amber: '#c08a3e',    // 琥珀：金树脂
+  vanilla: '#d2b48c',  // 香草：奶油棕
+  tobacco: '#6b4a2f',  // 烟草：深烟棕
+  aquatic: '#3f86a8'   // 水生：海蓝
 }

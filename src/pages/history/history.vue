@@ -16,8 +16,11 @@
         </view>
         <view class="row-time">{{ formatTime(h.time) }}</view>
       </view>
-      <view class="row-fav" :class="{ on: favedMap[h.time] }" @tap.stop="fav(h)">
-        {{ favedMap[h.time] ? '♥' : '♡' }}
+      <view class="row-actions">
+        <view class="row-fav" :class="{ on: favedMap[h.time] }" @tap.stop="fav(h)">
+          {{ favedMap[h.time] ? '♥' : '♡' }}
+        </view>
+        <view class="row-del" @tap.stop="del(h)">🗑</view>
       </view>
     </view>
   </view>
@@ -83,6 +86,29 @@ function fav(h) {
   uni.showToast({ title: nowFaved ? '已收藏' : '已取消收藏', icon: 'none' })
 }
 
+// 删除单条历史：以封存时间戳（唯一键）filter 移除，不动收藏。
+// 删除不可逆，先弹确认；storage 里若被写坏成非数组，filter 前先兜成 []，
+// 不能把脏结构原样写回去。
+function del(h) {
+  uni.showModal({
+    title: '删除这条配方？',
+    content: `「${h.name || '未命名香氛'}」将从历史中移除，收藏不受影响。`,
+    confirmText: '删除',
+    confirmColor: '#c45c5c',
+    success: (m) => {
+      if (!m.confirm) return
+      try {
+        const list = uni.getStorageSync('isabella_history')
+        const arr = Array.isArray(list) ? list : []
+        uni.setStorageSync('isabella_history', arr.filter((x) => x.time !== h.time))
+      } catch (e) { /* 忽略 */ }
+      history.value = history.value.filter((x) => x.time !== h.time)
+      track('history_delete')
+      uni.showToast({ title: '已删除', icon: 'none' })
+    }
+  })
+}
+
 onShow(() => {
   // storage 可能被外部写坏成非数组，直接赋给 v-for 会渲染异常
   try {
@@ -123,4 +149,19 @@ onShow(() => {
 }
 .row-fav.on { color: #a97826; border-color: rgba(169,120,38,0.55); }
 .row-fav:active { background: #f0eee5; }
+
+/* 收藏 + 删除纵向并排 */
+.row-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+.row-del {
+  width: 64rpx; height: 64rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30rpx; color: #c45c5c; background: #fff;
+  border: 2rpx solid rgba(196, 92, 92, 0.25);
+}
+.row-del:active { background: #f7e9e9; }
 </style>

@@ -14,8 +14,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { galleryPerfumes, ACCORDS, DAILY_CHALLENGES } from '../src/utils/data.js'
-import { findExactMatch, randomAccords, evenAccords, scoreDailyChallenge } from '../src/utils/mix.js'
+import { galleryPerfumes, ACCORDS, SOLVENT, BLEND_KEYS, DAILY_CHALLENGES } from '../src/utils/data.js'
+import { findExactMatch, randomAccords, blankBlend, strengthOf, scoreDailyChallenge } from '../src/utils/mix.js'
+import { achieveEgg, getEggs, sealLabelOf } from '../src/utils/eggs.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const labSrc = fs.readFileSync(path.join(root, 'src/pages/lab/lab.vue'), 'utf8')
@@ -40,16 +41,21 @@ const scope = {
   uni: { vibrateShort: (o) => { vibrations.push(o && o.type) } },
   track: () => {},
   galleryPerfumes,
-  findExactMatch
+  findExactMatch,
+  // 彩蛋登记在 Node 里没有 storage，注入恒否替身；eggs.js 本体在文末单测。
+  // selfHistoryCache 不注入 —— 块内自带 let 声明，注入会撞名；工厂把它导出后取引用。
+  achieveEgg: () => false
 }
 
 // 把 const/let 声明变成可导出的返回值，用 new Function 包一层
 const factory = new Function(
   ...Object.keys(scope),
   `${block}
-   return { eggHit, armEgg, disarmEgg, checkEgg, celebrateEgg }`
+   return { eggHit, armEgg, disarmEgg, checkEgg, celebrateEgg, selfHistoryCache }`
 )
 const egg = factory(...Object.values(scope))
+// 「旧作重现」比对源：与 lab.vue 内部共享同一个数组（loadSelfHistory 原地更新它）
+const selfHistoryCache = egg.selfHistoryCache
 
 const problems = []
 const KEYS = ACCORDS.map((a) => a.key)
@@ -105,6 +111,26 @@ run('手调但没调对，不该弹',
 run('横幅展示期间调离，横幅应立刻收起',
   [() => egg.armEgg(), feed(P3), feedRandom], { vibrations: 1, shown: false })
 
+// ---- 旧作重现：命中源换成自己的历史 ----
+// 命中配比必须不在图鉴里（checkEgg 图鉴优先，图鉴中了就轮不到旧作分支）
+const mine = {}
+KEYS.forEach((k) => { mine[k] = 0 })
+mine.citrus = 33
+mine.vanilla = 67
+const SELF = { id: 'self_777', name: '雨夜图书馆', accords: mine, self: true }
+
+run('亲手调出自己历史里的旧作（图鉴没这瓶），该弹',
+  [() => { selfHistoryCache.push(SELF) }, () => egg.armEgg(), () => egg.checkEgg(mine)],
+  { vibrations: 1, shown: true })
+
+run('刚封存的那瓶已从比对源剔除，不该弹',
+  [() => { selfHistoryCache.length = 0 }, () => egg.armEgg(), () => egg.checkEgg(mine)],
+  { vibrations: 0, shown: false })
+
+run('旧作经接力还原（系统铺的）不置闸，不该弹',
+  [() => { selfHistoryCache.push(SELF) }, () => egg.disarmEgg(), () => egg.checkEgg(mine)],
+  { vibrations: 0, shown: false })
+
 // 顺带盯住随机的质量：总和必须恰好 100，且要出得来主调
 let sumBad = 0
 let weakMain = 0
@@ -133,27 +159,52 @@ console.log(`  ${randomHit === 0 ? '✅' : '⚠️ '} 随机 20 万次撞上彩�
 // ---- 每日挑战的入场地基线 ----
 // 曾经把挑战目标本身铺进滑块（applyRestore({ accords: c.target })），
 // 等于把答案抄上去：16 个主题进页面一律 95%，挑战直接送分。
-// 起点改回平均基底后，起始分必须落在「还没到、但也不至于毫无关系」的区间。
+// 现在起点是一杯纯水（12 个香调全 0），起始分必须全部落在最低档 10。
 console.log('')
-const even = evenAccords()
-const evenSum = KEYS.reduce((s, k) => s + even[k], 0)
-const evenSpread = Math.max(...KEYS.map((k) => even[k])) - Math.min(...KEYS.map((k) => even[k]))
-const evenOK = evenSum === 100 && evenSpread <= 1
-console.log(`  ${evenOK ? '✅' : '❌'} 平均基底总和 ${evenSum}、极差 ${evenSpread}（应 100 / ≤1）`)
-if (!evenOK) problems.push(`平均基底不平均：总和 ${evenSum}，极差 ${evenSpread}`)
+const blank = blankBlend()
+const blankSum = BLEND_KEYS.reduce((s, k) => s + blank[k], 0)
+const blankOK = blankSum === 100 && blank[SOLVENT.key] === 100 && KEYS.every((k) => blank[k] === 0)
+console.log(`  ${blankOK ? '✅' : '❌'} 空白起点：香调全 0、纯水 ${blank[SOLVENT.key]}、总和 ${blankSum}`)
+if (!blankOK) problems.push(`空白起点不是一杯纯水：${JSON.stringify(blank)}`)
 
-let tooHigh = []
-let tooLow = []
-for (const c of DAILY_CHALLENGES) {
-  const s = scoreDailyChallenge(even, { target: c.target }).score
-  if (s >= 85) tooHigh.push(`${c.theme} ${s}%`)
-  if (s <= 10) tooLow.push(`${c.theme} ${s}%`)
+const startScores = DAILY_CHALLENGES.map((c) => scoreDailyChallenge(blank, { target: c.target }).score)
+const notFloor = startScores.filter((s) => s !== 10).length
+console.log(`  ${notFloor === 0 ? '✅' : '❌'} ${DAILY_CHALLENGES.length} 个挑战主题，起始分均为最低档 10（越界 ${notFloor} 个）`)
+if (notFloor) problems.push(`${notFloor} 个主题一进工坊就不是最低分，答案又被抄进滑块了`)
+
+// 反向兜底：把正解喂进去，必须能拿到接近满分的分数，否则说明重标定把曲线压死了
+const perfectScores = DAILY_CHALLENGES.map((c) => scoreDailyChallenge(c.target, { target: c.target }).score)
+const lowestPerfect = Math.min(...perfectScores)
+console.log(`  ${lowestPerfect >= 90 ? '✅' : '❌'} 正解喂进去最低得 ${lowestPerfect} 分（应 ≥90）`)
+if (lowestPerfect < 90) problems.push(`重标定把满分压没了：正解最低只有 ${lowestPerfect} 分`)
+
+// ---- 彩蛋收藏登记（eggs.js）：幂等性 + 状态聚合 ----
+// eggs.js 里裸调 uni 读写 storage，这里注入内存替身到全局
+globalThis.uni = {
+  _s: {},
+  getStorageSync(k) { return this._s[k] },
+  setStorageSync(k, v) { this._s[k] = v }
 }
-const startOK = tooHigh.length === 0 && tooLow.length === 0
-const scores = DAILY_CHALLENGES.map((c) => scoreDailyChallenge(even, { target: c.target }).score)
-console.log(`  ${startOK ? '✅' : '❌'} ${DAILY_CHALLENGES.length} 个挑战主题，起始相似度 ${Math.min(...scores)}%~${Math.max(...scores)}%（应全部 <85 且 >10）`)
-if (tooHigh.length) problems.push(`这些主题一进工坊就满分（答案被抄进滑块了）：${tooHigh.join('、')}`)
-if (tooLow.length) problems.push(`这些主题起始分触底，提示会一直说「试试加重主导香调」：${tooLow.join('、')}`)
+const firstHit = achieveEgg('replica')
+const secondHit = achieveEgg('replica')
+const unknownHit = achieveEgg('no_such_egg')
+const eggStatus = getEggs()
+const eggsOK = firstHit === true && secondHit === false && unknownHit === false &&
+  eggStatus.achieved === 1 && eggStatus.total === 8 &&
+  eggStatus.list.every((e) => (e.key === 'replica') === (e.time > 0))
+console.log(`  ${eggsOK ? '✅' : '❌'} 彩蛋登记：首次 ${firstHit} / 重复 ${secondHit} / 未知 ${unknownHit}，进度 ${eggStatus.achieved}/${eggStatus.total}`)
+if (!eggsOK) problems.push('eggs.js 登记或聚合逻辑不对')
+
+// ---- 封存小字优先级（eggs.js sealLabelOf）：留白 > 深夜 > 七日 > 层级 ----
+const labelOf = (o) => sealLabelOf({ tierLabel: '已封存', streak: 0, hour: 12, pureWater: false, ...o })
+const labelOK =
+  labelOf({}) === '已封存' &&
+  labelOf({ streak: 7 }) === '七日封存' &&
+  labelOf({ hour: 3 }) === '深夜封存' &&
+  labelOf({ hour: 3, streak: 7 }) === '深夜封存' &&
+  labelOf({ pureWater: true, hour: 3, streak: 7 }) === '留白封存'
+console.log(`  ${labelOK ? '✅' : '❌'} 封存小字优先级：层级 < 七日 < 深夜 < 留白`)
+if (!labelOK) problems.push('sealLabelOf 优先级不对')
 
 console.log('')
 if (problems.length) {

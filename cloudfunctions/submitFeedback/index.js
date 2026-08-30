@@ -40,6 +40,24 @@ async function secCheck(content, openid) {
   }
 }
 
+// 简单频控：同一 openid 10 秒内只放行一条 submit，防止脚本灌库。
+// 用最近一条留言的 createdAt 判断，不需要额外集合；查询失败不阻塞正常提交。
+async function tooFrequent(openid) {
+  if (!openid) return false
+  try {
+    const recent = await db.collection('feedbacks')
+      .where({ openid })
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get()
+    const last = recent && recent.data && recent.data[0]
+    if (!last || !last.createdAt) return false
+    return Date.now() - new Date(last.createdAt).getTime() < 10 * 1000
+  } catch (e) {
+    return false
+  }
+}
+
 exports.main = async (event = {}) => {
   const { action = 'submit', content = '' } = event
   const openid = cloud.getWXContext().OPENID || ''
@@ -47,6 +65,11 @@ exports.main = async (event = {}) => {
   const text = String(content || '').trim()
   if (!text) return { ok: false, errCode: 400, errMsg: '内容为空' }
   if (text.length > 500) return { ok: false, errCode: 414, errMsg: '内容过长（最多 500 字）' }
+
+  // 写入前频控（check 不落库，不限）
+  if (action === 'submit' && await tooFrequent(openid)) {
+    return { ok: false, errCode: 429, errMsg: '发送太频繁，歇口气再寄' }
+  }
 
   // 无论 check 还是 submit，都先过官方审查
   const check = await secCheck(text, openid)

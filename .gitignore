@@ -15,3 +15,5 @@ _retired_20260820/
 *.bak_*
 # 本地原图备份（压缩前的图鉴原图，不进版本库）
 .gallery-original/
+# 本地工具目录
+.mimosa/

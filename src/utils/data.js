@@ -18,6 +18,21 @@ export const ACCORDS = [
     },
 ];
 
+// 纯水（溶剂）。刻意不放进 ACCORDS——一旦放进去，六维雷达、配方文案、
+// 名香比对、随机配比全都会把它当成一个「气味」，整套逻辑都要改。
+// 现在它只占「总量」，作用是让 12 个香调可以从 0 起步：
+// 加香调是从纯水里置换，而不是从别的香调里抢。
+// 真实调香也是这样——香精兑酒精，兑得越少越浓，所以它顺带定义了这瓶香的浓度。
+export const SOLVENT = {
+    key: 'solvent',
+    label: '纯水',
+    description: '没有气味的溶剂。加香调就是把它置换掉，剩下的越少，这瓶香越浓。'
+};
+
+// 调香台滑块的总集合：12 个香调 + 纯水，恒和 100。
+// 凡是「整瓶怎么分」的地方用它；凡是「闻起来怎样」的地方仍用 ACCORDS。
+export const BLEND_KEYS = ACCORDS.map((a) => a.key).concat(SOLVENT.key);
+
 // 六维雷达释义：小白向，解释每个抽象维度代表什么（按 RADAR_LABELS 的中文标签索引）
 export const RADAR_DIM_DESC = {
   '明亮度': '一鼻子上去就「亮」起来的感觉，像柑橘、清晨阳光，让人精神。',
@@ -31,21 +46,7 @@ export const RADAR_DIM_DESC = {
 };
 
 // ============================================================
-// 香料库（65种）， 按需加载结构
-// ============================================================
-export var _ingredientLibCache = null;
-export function getIngredientLibrary() {
-    if (_ingredientLibCache) return _ingredientLibCache;
-    try {
-        _ingredientLibCache = INGREDIENT_LIBRARY;
-    } catch(e) { _ingredientLibCache = []; }
-    return _ingredientLibCache;
-}
-// 按香调筛选香料
-export function getIngredientsByAccord(accordKey) {
-    var lib = getIngredientLibrary();
-    return lib.filter(function(ing) { return ing.accords[accordKey]; });
-}
+// 香料库（65种）
 // ============================================================
 export const INGREDIENT_LIBRARY = [
     // 柑橘 (12)
@@ -336,20 +337,6 @@ export const PEER_QUOTES = {
     ]
 };
 
-export const INSPIRATIONS = [
-    { name: '春日踏青', filter: 'spring', accords: { citrus: 50, floral: 60, green: 40, fruity: 20, woody: 10, fougere: 15 }, hint: '花香与绿意，像刚下过雨的草地' },
-    { name: '樱花树下', filter: 'spring', accords: { floral: 70, fruity: 30, citrus: 20, musk: 15, woody: 5 }, hint: '粉色的、柔软的、让人想恋爱' },
-    { name: '夏日海滩', filter: 'summer', accords: { aquatic: 60, citrus: 45, green: 20, fruity: 25, woody: 10 }, hint: '海风、椰子、防晒霜和西瓜' },
-    { name: '仲夏夜之梦', filter: 'summer', accords: { floral: 55, fruity: 40, citrus: 30, musk: 20, oriental: 10 }, hint: '夜晚的花园，萤火虫和茉莉' },
-    { name: '秋日果园', filter: 'autumn', accords: { fruity: 55, woody: 35, oriental: 25, citrus: 20, floral: 15 }, hint: '熟透的苹果、肉桂和落叶' },
-    { name: '深秋森林', filter: 'autumn', accords: { woody: 60, oriental: 35, green: 25, fougere: 20, musk: 15 }, hint: '苔藓、松针和远处篝火' },
-    { name: '冬日壁炉', filter: 'winter', accords: { oriental: 65, woody: 50, amber: 30, vanilla: 25, musk: 20 }, hint: '柴火、热红酒和旧毛衣' },
-    { name: '雪后清晨', filter: 'winter', accords: { citrus: 40, green: 30, musk: 35, woody: 25, aquatic: 20 }, hint: '冷冽的空气、松果和白麝香' },
-    { name: '独处时刻', filter: 'mood', accords: { woody: 45, musk: 40, oriental: 20, floral: 15, green: 10 }, hint: '不需要被理解的时候' },
-    { name: '约会之夜', filter: 'mood', accords: { floral: 50, oriental: 35, fruity: 30, musk: 25, amber: 20 }, hint: '想被记住的那个晚上' },
-    { name: '通勤日常', filter: 'mood', accords: { citrus: 35, fougere: 30, woody: 20, floral: 15, green: 15 }, hint: '得体、不冒犯、让人想靠近' },
-    { name: '周末微醺', filter: 'mood', accords: { fruity: 40, oriental: 30, vanilla: 25, woody: 20, citrus: 15 }, hint: '周六下午，阳光和鸡尾酒' }
-];
 // ============================================================
 export const DAILY_CHALLENGES = [
     { theme: '雨后森林的泥土气息', hint: '绿意与木质为主，一点花香', target: { green: 70, woody: 55, floral: 20, citrus: 10, fougere: 15 } },
@@ -369,23 +356,6 @@ export const DAILY_CHALLENGES = [
     { theme: '旅行箱里的异国记忆', hint: '东方神秘，柑橘明亮', target: { oriental: 55, citrus: 40, fruity: 30, woody: 15 } },
     { theme: '祖母的梳妆台', hint: '花香温柔，东方古典', target: { floral: 55, oriental: 45, woody: 30, fruity: 10 } }
 ];
-
-// ============================================================
-// 示例配方（开屏展示）
-// ============================================================
-export const HERO_EXAMPLE = {
-    name: "雨林晨曦",
-    accords: {
-        citrus: 55,
-        floral: 20,
-        fruity: 15,
-        woody: 30,
-        oriental: 5,
-        fougere: 10,
-        green: 50
-    },
-    quote: "绿意与柑橘的清晨，像雨林里第一缕光穿过叶隙。"
-};
 
 // ============================================================
 // 图鉴（配真实香氛图片）

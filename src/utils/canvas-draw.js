@@ -37,11 +37,6 @@ function raf(canvas, cb) {
   if (typeof requestAnimationFrame === 'function') return requestAnimationFrame(cb)
   return setTimeout(() => cb(Date.now()), 16)
 }
-function caf(canvas, id) {
-  if (canvas && typeof canvas.cancelAnimationFrame === 'function') return canvas.cancelAnimationFrame(id)
-  if (typeof cancelAnimationFrame === 'function') return cancelAnimationFrame(id)
-  return clearTimeout(id)
-}
 
 // ---------- 雷达图（通用，页面实时 / 卡片内嵌共用） ----------
 export function drawRadar(ctx, opt) {
@@ -170,52 +165,6 @@ export function drawRadar(ctx, opt) {
   }
 }
 
-// ---------- 未完成雷达（首页赌注剪影：虚线网格 + 轴线 + 中央问号，制造"等你来填"的残缺感） ----------
-export function drawEmptyRadar(ctx, opt) {
-  const { cx, cy, radius, n = 6, theme = THEME } = opt
-  const angle = (i) => (i / n) * Math.PI * 2 - Math.PI / 2
-
-  // 网格层（虚线，未完成感）
-  const layers = 4
-  ctx.setLineDash([4, 4])
-  for (let layer = 1; layer <= layers; layer++) {
-    const r = radius * (layer / layers)
-    ctx.beginPath()
-    for (let i = 0; i < n; i++) {
-      const x = cx + Math.cos(angle(i)) * r
-      const y = cy + Math.sin(angle(i)) * r
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
-    }
-    ctx.closePath()
-    ctx.strokeStyle = theme.line
-    ctx.lineWidth = 1
-    ctx.stroke()
-  }
-  // 轴线
-  for (let i = 0; i < n; i++) {
-    const x = cx + Math.cos(angle(i)) * radius
-    const y = cy + Math.sin(angle(i)) * radius
-    ctx.beginPath()
-    ctx.moveTo(cx, cy)
-    ctx.lineTo(x, y)
-    ctx.strokeStyle = theme.line
-    ctx.lineWidth = 1
-    ctx.stroke()
-  }
-  ctx.setLineDash([])
-
-  // 中央问号（金色大号）
-  ctx.fillStyle = theme.gold
-  ctx.font = 'bold 72px sans-serif'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText('?', cx, cy - 10)
-  // 小字提示
-  ctx.fillStyle = theme.inkSoft
-  ctx.font = '15px sans-serif'
-  ctx.fillText('你的香气轮廓', cx, cy + 46)
-}
-
 // ---------- 雷达生长动画（点「开始调香」：骨架先现，多边形 0.5s 从中心长出来） ----------
 export function drawRadarGrow(ctx, opt, onDone) {
   const { cx, cy, radius, values, labels, max = 100,
@@ -313,67 +262,6 @@ export function drawRadarGrow(ctx, opt, onDone) {
     rafId = raf(canvas, frame)
   }
   rafId = raf(canvas, frame)
-}
-
-// ---------- 分子结构图（香调网络） ----------
-export function drawMolecule(ctx, opt) {
-  const { cx, cy, radius, accords, accordValues, theme = THEME } = opt
-  // accords: [{key,label}], accordValues: {key:val}
-  const nodes = accords.length ? accords : []
-  const count = nodes.length
-  if (count === 0) return
-
-  // 连线
-  ctx.strokeStyle = theme.line
-  ctx.lineWidth = 1
-  for (let i = 0; i < count; i++) {
-    for (let j = i + 1; j < count; j++) {
-      const a1 = (i / count) * Math.PI * 2 - Math.PI / 2
-      const a2 = (j / count) * Math.PI * 2 - Math.PI / 2
-      ctx.beginPath()
-      ctx.moveTo(cx + Math.cos(a1) * radius, cy + Math.sin(a1) * radius)
-      ctx.lineTo(cx + Math.cos(a2) * radius, cy + Math.sin(a2) * radius)
-      ctx.stroke()
-    }
-  }
-
-  // 节点
-  for (let i = 0; i < count; i++) {
-    const a = (i / count) * Math.PI * 2 - Math.PI / 2
-    const x = cx + Math.cos(a) * radius
-    const y = cy + Math.sin(a) * radius
-    const pct = accordValues[nodes[i].key] || 0
-    const nr = 12 + (pct / 100) * 10
-    ctx.beginPath()
-    ctx.arc(x, y, nr, 0, Math.PI * 2)
-    ctx.fillStyle = accordColor(nodes[i].key)
-    ctx.fill()
-    ctx.fillStyle = '#fff'
-    ctx.font = '11px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(pct + '%', x, y)
-    // 标签
-    ctx.fillStyle = theme.ink
-    ctx.font = '11px sans-serif'
-    const ly = y < cy ? y - nr - 8 : y + nr + 8
-    ctx.fillText(nodes[i].label, x, ly)
-  }
-
-  // 中心主调
-  let main = nodes[0]
-  for (const a of nodes) {
-    if ((accordValues[a.key] || 0) > (accordValues[main.key] || 0)) main = a
-  }
-  ctx.beginPath()
-  ctx.arc(cx, cy, 20, 0, Math.PI * 2)
-  ctx.fillStyle = theme.primary
-  ctx.fill()
-  ctx.fillStyle = '#fff'
-  ctx.font = '12px sans-serif'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText('主调', cx, cy)
 }
 
 // ---------- 封存卡主体（不含签名，同步绘制） ----------
@@ -543,7 +431,14 @@ export function drawCardBase(ctx, opt) {
   // 先按 14px 斜体量行数，再按实际高度决定这一块的总高。
   const guLineH = 20
   ctx.font = 'italic 14px sans-serif'
-  const guLines = wrapLines(ctx, quote || '', guW, 3)
+  const guFull = String(quote || '')
+  const guLines = wrapLines(ctx, guFull, guW, 3)
+  // 三行装不下时给末行加省略号。wrapLines 会把装不下的部分整个丢弃，
+  // 不补的话句子会突然断在半截，看着像渲染 bug（分享图同款处理）
+  if (guFull && guLines.join('').length < guFull.length) {
+    const last = guLines.length - 1
+    guLines[last] = guLines[last].slice(0, -1) + '…'
+  }
   const guH = guLines.length * guLineH
   ctx.fillStyle = theme.inkSoft
   guLines.forEach((l, i) => {
@@ -795,57 +690,6 @@ export function drawShareCard(ctx, opt) {
   ctx.fillText('调香日记', cx, height * 0.945)
 }
 
-// 卡片右下角印章位置（相对卡片宽高的偏移与半径），供 drawCard 与 drawStampAnimated 共用
-export const CARD_STAMP = { dx: 84, dy: 84, r: 42 }
-
-// ---------- 印章「落印」动画（程序化，不依赖图片） ----------
-// 每帧重绘卡片主体（drawCardBase），再用 globalAlpha + 轻微缩放模拟「盖章」渐显。
-// opt.cardOpt 为 drawCardBase 所需的完整参数（不含 stamp/canvas）。
-// 返回 Promise：动画完成 resolve(true)。
-export function drawStampAnimated(ctx, canvas, opt) {
-  const {
-    sx, sy, sr, cardOpt,
-    duration = 1000,
-    rotate = -18 * Math.PI / 180,
-    stampScale = 3,
-    label = '封存'
-  } = opt
-  const r = sr * stampScale
-
-  return new Promise((resolve) => {
-    const start = Date.now()
-    let rafId = null
-    let done = false
-    const finish = (ok) => {
-      if (done) return
-      done = true
-      if (rafId) caf(canvas, rafId)
-      resolve(ok)
-    }
-    const frame = () => {
-      const t = Math.min(1, (Date.now() - start) / duration)
-      // ease-out cubic：落印先快后稳
-      const eased = 1 - Math.pow(1 - t, 3)
-      // 1) 每帧先干净重绘卡片主体，避免残影
-      drawCardBase(ctx, cardOpt)
-      // 2) 印章从 1.12 倍缩放 + 低透明，渐变到原尺寸、不透明（像被按下）
-      ctx.save()
-      ctx.globalAlpha = eased
-      drawSeal(ctx, {
-        sx, sy,
-        r: r * (1.12 - 0.12 * eased),
-        rotate,
-        theme: THEME,
-        label
-      })
-      ctx.restore()
-      if (t >= 1) { finish(true); return }
-      rafId = raf(canvas, frame)
-    }
-    rafId = raf(canvas, frame)
-  })
-}
-
 // hex → rgba 辅助（用于晕染渐变）
 function rgba(hex, a) {
   let h = String(hex || '#a97826').replace('#', '')
@@ -864,25 +708,6 @@ function loadImage(canvas, src) {
     img.onerror = () => reject(new Error('stamp image load fail'))
     img.src = src
   })
-}
-
-// 文字换行
-function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-  if (!text) return
-  const chars = String(text).split('')
-  let line = ''
-  let yy = y
-  for (const ch of chars) {
-    const test = line + ch
-    if (ctx.measureText(test).width > maxWidth && line) {
-      ctx.fillText(line, x, yy)
-      line = ch
-      yy += lineHeight
-    } else {
-      line = test
-    }
-  }
-  if (line) ctx.fillText(line, x, yy)
 }
 
 // 换行并居中绘制，返回实际占用高度。

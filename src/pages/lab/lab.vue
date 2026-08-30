@@ -20,7 +20,7 @@
 
     <view class="name-row">
       <text class="name-label">香名</text>
-      <input class="name-input" :value="name" placeholder="为这瓶香起个名字" @input="onName" maxlength="20" />
+      <input class="name-input" :value="name" placeholder="为这瓶香起个名字" @input="onName" @blur="checkName" maxlength="20" />
       <text class="name-suggest" @tap="suggestName">帮我起名</text>
     </view>
 
@@ -58,7 +58,7 @@
            随机撞上的概率实测 200 万次 0 命中，靠用户手动调出来。 -->
       <view v-if="eggHit" class="egg-banner">
         <text class="egg-star">✦</text>
-        <text class="egg-text">恭喜调出「{{ eggHit.name }}」！</text>
+        <text class="egg-text">{{ eggHit.self ? '你调回了旧作' : '恭喜调出' }}「{{ eggHit.name }}」！</text>
         <text class="egg-star">✦</text>
       </view>
       <!-- 对比名香模式下两者通常是同一瓶，不重复报名字。
@@ -74,10 +74,12 @@
     <view class="sheet" v-if="activeAccord">
       <view class="sheet-title">{{ activeAccordInfo.label }} · 这是什么香</view>
       <view class="sheet-desc">{{ activeAccordInfo.description }}</view>
-      <view class="sheet-sub">常见原料</view>
-      <view class="chip-row">
-        <text class="chip" v-for="(ing, i) in (activeAccordInfo.typicalIngredients || [])" :key="i">{{ ing }}</text>
-      </view>
+      <template v-if="activeAccordInfo.typicalIngredients">
+        <view class="sheet-sub">常见原料</view>
+        <view class="chip-row">
+          <text class="chip" v-for="(ing, i) in activeAccordInfo.typicalIngredients" :key="i">{{ ing }}</text>
+        </view>
+      </template>
       <button class="sheet-close" @tap="closeAccordDesc">知道了</button>
     </view>
 
@@ -119,10 +121,29 @@
           <text class="tpl-label">{{ t.label }}</text>
         </view>
       </view>
-      <view class="normalize-hint">拖动某个香调，其它会按比例自动让位，总和始终是 100%</view>
+      <view class="normalize-hint">加香调就是从纯水里置换，纯水让完了才轮到香调互让，总和始终是 100%</view>
       <view v-if="scentBroadcast" class="scent-broadcast">{{ scentBroadcast }}</view>
 
-      <!-- 香调滑块：拖动即实时重绘雷达，其余各项等比让位 -->
+      <!-- 纯水：单独一根放在最上面。它是「瓶子里的空位」，不是一种气味，
+           所以它不进 ACCORDS，也就不参与雷达、配方和名香比对 -->
+      <view class="slider-item solvent-item">
+        <view class="slider-meta">
+          <view class="slider-name-wrap" @tap="openAccordDesc(solvent.key)">
+            <text class="slider-name">{{ solvent.label }}</text>
+            <text class="slider-info">i</text>
+          </view>
+          <text class="slider-val">{{ values[solvent.key] }}%</text>
+        </view>
+        <slider class="slider" :value="values[solvent.key]" min="0" max="100"
+          activeColor="#b6c4bd" backgroundColor="#e7e3d5" block-size="18"
+          @changing="onSlide(solvent.key, $event)" @change="onSlideEnd(solvent.key, $event)" />
+        <view class="strength-line">
+          <text class="strength-name">{{ strength.name }}</text>
+          <text class="strength-desc">香精 {{ strength.essence }}% · {{ strength.desc }}</text>
+        </view>
+      </view>
+
+      <!-- 香调滑块：拖动即实时重绘雷达 -->
       <view class="slider-list">
         <view class="slider-item" v-for="a in accords" :key="a.key" :id="a.key === accords[0].key ? 'coachSliders' : ''">
           <view class="slider-meta">
@@ -191,11 +212,12 @@
 <script setup>
 import { ref, reactive, nextTick, computed, watch } from 'vue'
 import { onLoad, onShow, onReady, onUnload, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
-import { ACCORDS, RADAR_LABELS, CORE_INGREDIENTS, galleryPerfumes, RADAR_DIM_DESC, SCENT_TEMPLATES } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, topAccordDesc, randomAccords, findExactMatch, evenAccords } from '@/utils/mix.js'
+import { ACCORDS, SOLVENT, BLEND_KEYS, RADAR_LABELS, CORE_INGREDIENTS, galleryPerfumes, RADAR_DIM_DESC, SCENT_TEMPLATES } from '@/utils/data.js'
+import { computeRadarValues, generateFormula, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, isChallengeDone, topAccordDesc, randomAccords, findExactMatch, blankBlend, strengthOf } from '@/utils/mix.js'
 import { drawRadar, drawRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE } from '@/utils/canvas-draw.js'
 import { THEME } from '@/utils/theme.js'
-import { recordSeal } from '@/utils/streak.js'
+import { recordSeal, getStreak } from '@/utils/streak.js'
+import { achieveEgg, sealLabelOf } from '@/utils/eggs.js'
 import { track } from '@/utils/analytics.js'
 import { bumpSealCount } from '@/utils/progress.js'
 import { getRarity } from '@/utils/rarity.js'
@@ -205,32 +227,23 @@ import { tut } from '@/utils/tutorial.js'
 
 const accords = ACCORDS
 const coreIngredients = CORE_INGREDIENTS
+const solvent = SOLVENT
+// 浓度：纯水剩多少决定这瓶香有多浓。纯水不是气味，所以这几个数字不计入香调。
+const strength = computed(() => strengthOf(values))
 const name = ref('未命名香氛')
 const note = ref('')  // 调香感言（20 字内），随封存记录入库，card 页展示
 let nameTouched = false  // 用户是否手动起名（未起名则封存时自动生成）
 // 高级区（单方香料）默认收起：首屏只暴露香调这一套滑块
 const advOpen = ref(false)
 
-// 初始配方 = 图鉴第一瓶（尼罗河花园），与首页 Hook 卡同源。
-// 用户进来看到的就是首页那瓶「已经不错的香」，改 1-2 个滑块即成为自己的。
-const PRESET = galleryPerfumes[0].accords
-
-const values = reactive({})
-ACCORDS.forEach((a) => { values[a.key] = 0 })
-// 预设值归一化到总和 100
-;(function initPreset() {
-  const raw = {}
-  let sum = 0
-  ACCORDS.forEach((a) => { raw[a.key] = PRESET[a.key] || 0; sum += raw[a.key] })
-  if (sum <= 0) { values.floral = 100; return }
-  let acc = 0
-  const keys = ACCORDS.map((a) => a.key)
-  keys.forEach((k, i) => {
-    if (i === keys.length - 1) { values[k] = 100 - acc; return }
-    values[k] = Math.round((raw[k] / sum) * 100)
-    acc += values[k]
-  })
-})()
+// 起点是「一杯纯水」：12 个香调全 0，纯水占满 100%。
+//
+// 以前初始是图鉴第一瓶（尼罗河花园），理由是降低新手门槛。但代价有两个：
+// 一是用户看到的是别人调好的香，动手前先得想「我要改什么」；
+// 二是每日挑战一来就被判 95 分（见 applyIncomingIfReady）。
+// 纯水起步把这两个都解决了：加香调是从水里置换，不是从别的香调里抢，
+// 「我没动它却变了」的困惑从根上消失；总和仍恒为 100，雷达从原点长出来。
+const values = reactive(blankBlend())
 
 // 香料滑块值（12 种核心香料，与 12 个香调一一对应，见 CORE_INGREDIENTS.accord）
 const ingValues = reactive({})
@@ -250,26 +263,27 @@ onLoad((option) => {
   const accords = decodeAccordParams(safeDecode(p))
   if (!accords) return
   const n = option && option.n ? safeDecode(option.n) : ''
-  restoreData = { accords, name: n }
+  restoreData = { accords, name: n, fromScan: true }
 })
 
 // 把还原数据写回滑块与香名。
 // 注意：每日挑战的 target 只写了部分香调键（如 {green:70,woody:55,...}），
 // 缺键时 accords[k] 是 undefined，undefined/sum 会算出 NaN 并污染整排滑块，
 // 所以这里必须逐键兜 0；同时用最大余数法保证总和恰好 100。
-function applyRestore({ accords, name: n }) {
+function applyRestore({ accords, name: n, fromScan }) {
   const raw = {}
   let sum = 0
-  ACCORDS.forEach((a) => {
-    const v = Number(accords && accords[a.key]) || 0
-    raw[a.key] = v < 0 ? 0 : v
-    sum += raw[a.key]
+  // 走 BLEND_KEYS（12 香调 + 纯水）。图鉴香水、模板这些没有纯水键，
+  // 取 0 后归一化仍把 100 全部分给 12 个香调，与改动前逐键一致。
+  BLEND_KEYS.forEach((k) => {
+    const v = Number(accords && accords[k]) || 0
+    raw[k] = v < 0 ? 0 : v
+    sum += raw[k]
   })
   if (sum <= 0) {
-    ACCORDS.forEach((a) => { values[a.key] = 0 })
-    values.floral = 100
+    BLEND_KEYS.forEach((k) => { values[k] = k === SOLVENT.key ? 100 : 0 })
   } else {
-    const exact = ACCORDS.map((a) => (raw[a.key] / sum) * 100)
+    const exact = BLEND_KEYS.map((k) => (raw[k] / sum) * 100)
     const floors = exact.map((v) => Math.floor(v))
     let remainder = 100 - floors.reduce((s, v) => s + v, 0)
     const order = exact
@@ -278,7 +292,7 @@ function applyRestore({ accords, name: n }) {
     for (let j = 0; j < order.length && remainder > 0; j++, remainder--) {
       floors[order[j].i] += 1
     }
-    ACCORDS.forEach((a, i) => { values[a.key] = floors[i] })
+    BLEND_KEYS.forEach((k, i) => { values[k] = floors[i] })
   }
   // 扫码 / 图鉴接力 / 每日挑战都是系统铺好的配方。
   // 尤其图鉴接力：原值总和本就是 100 的整数，归一化后与那瓶逐键相等（已实测），
@@ -289,7 +303,10 @@ function applyRestore({ accords, name: n }) {
     name.value = n
     nameTouched = true
   }
-  track('scan_restore')
+  // 只有真扫码/带参分享进来才记 scan_restore。图鉴接力、首页摇一瓶、
+  // 「我也调一瓶」也走本函数，但各有源头埋点（gallery_blend / home_random /
+  // blend_from_card），这里再记一遍会把漏斗里的「扫码还原」灌水。
+  if (fromScan) track('scan_restore')
 }
 
 // 接力落地：图鉴/随机/调查(running blend) 与 每日挑战(challenge) 经 storage 暂存后跳工坊。
@@ -305,10 +322,14 @@ function applyIncomingIfReady() {
   }
   if (incoming.challenge) {
     const c = incoming.challenge
-    // 起点是「平均基底」，不是目标本身。
-    // 以前把 c.target 铺进滑块，等于把答案抄上去：16 个主题进页面一律 95%，挑战送分。
-    // 目标只作为评分基准和雷达参考，用户从平均态往上调。
-    applyRestore({ accords: evenAccords(), name: '' })
+    // 起点是一杯纯水：12 个香调全 0。
+    // 以前把 c.target 本身铺进滑块，等于把答案抄上去：16 个主题进页面一律 95%，挑战送分。
+    // 目标只作为评分基准留着，用户从水里一样一样加出来。
+    // 不走 applyRestore 是因为它会记 scan_restore 埋点，而这是挑战不是扫码还原。
+    const blank = blankBlend()
+    BLEND_KEYS.forEach((k) => { values[k] = blank[k] })
+    disarmEgg()
+    syncIngFromAccord()
     challengeTarget.value = c.target
     challengeInfo.value = { theme: c.theme, hint: c.hint }
     incoming.challenge = null
@@ -336,12 +357,14 @@ const activeAccord = ref('')          // 当前打开释义的香调 key
 const radarHelpOpen = ref(false)      // 六维说明 sheet
 const scentBroadcast = ref('')        // 拖动时的实时气味播报
 const activeAccordInfo = computed(() =>
-  ACCORDS.find((a) => a.key === activeAccord.value) || null
+  ACCORDS.find((a) => a.key === activeAccord.value) ||
+  (activeAccord.value === SOLVENT.key ? SOLVENT : null)
 )
 // 六维说明（转为数组供 v-for）
 const radarDimList = RADAR_LABELS.map((lab) => ({ label: lab, desc: RADAR_DIM_DESC[lab] || '' }))
 const ACCORD_LABEL = {}
 ACCORDS.forEach((a) => { ACCORD_LABEL[a.key] = a.label })
+ACCORD_LABEL[SOLVENT.key] = SOLVENT.label   // 纯水也要有名字，拖它时提示语要用
 function openAccordDesc(key) { activeAccord.value = key }
 function closeAccordDesc() { activeAccord.value = '' }
 
@@ -358,7 +381,9 @@ const EMOTIONAL_HINT = {
   musk:     { up: '麝香浮现，像第二层皮肤', down: '麝香隐去，更清透' },
   amber:    { up: '琥珀在升温，适合夜晚', down: '琥珀降温，白天也能穿' },
   vanilla:  { up: '香草更甜了，像在宠自己', down: '香草淡了，甜度刚好' },
-  tobacco:  { up: '烟草味重了，有故事', down: '烟草淡化，轻快了一些' }
+  tobacco:  { up: '烟草味重了，有故事', down: '烟草淡化，轻快了一些' },
+  // 纯水不是气味，台词说的是浓淡而不是香
+  solvent:  { up: '兑了水，这瓶香淡下来了', down: '水被置换掉，味道更浓了' }
 }
 
 // 每个香调主导拉动的雷达维度（复算一次，用于「实时气味播报」把动作翻译成大白话）
@@ -386,13 +411,23 @@ function broadcastAccord(key, dir) {
 
 // ---------- T1 一键气味模板 ----------
 const templates = SCENT_TEMPLATES
-// 把一份 12 键配方铺到滑块（归一到 100），模板/重置/撤销共用
+// 把一份配方铺到滑块（归一到 100），模板/重置/撤销共用。
+// 走 BLEND_KEYS 是为了把纯水也纳进来：模板和图鉴配方里没有纯水，
+// 归一后 100 全给香调、纯水归 0（也就是纯香精）。想淡一点自己拖纯水那根滑块。
 function applyTemplateVals(accordsObj) {
-  const raw = {}
-  let sum = 0
-  ACCORDS.forEach((a) => { raw[a.key] = accordsObj[a.key] || 0; sum += raw[a.key] })
+  const raw = BLEND_KEYS.map((k) => Math.max(0, Number(accordsObj[k]) || 0))
+  const sum = raw.reduce((s, v) => s + v, 0)
   if (sum <= 0) return
-  ACCORDS.forEach((a) => { values[a.key] = Math.round((raw[a.key] / sum) * 100) })
+  const exact = raw.map((v) => (v / sum) * 100)
+  const floors = exact.map(Math.floor)
+  let remainder = 100 - floors.reduce((s, v) => s + v, 0)
+  const order = exact
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac)
+  for (let j = 0; j < order.length && remainder > 0; j++, remainder--) {
+    floors[order[j].i] += 1
+  }
+  BLEND_KEYS.forEach((k, i) => { values[k] = floors[i] })
 }
 function applyTemplate(t) {
   pushHistory()
@@ -410,7 +445,7 @@ const history = []
 let dragging = false
 function snapshot() {
   const s = {}
-  ACCORDS.forEach((a) => { s[a.key] = values[a.key] })
+  BLEND_KEYS.forEach((k) => { s[k] = values[k] })
   return s
 }
 function pushHistory() {
@@ -429,17 +464,18 @@ function endGesture() { dragging = false; gestureBase = {} }
 function undo() {
   const s = history.pop()
   if (!s) { uni.showToast({ title: '没有可撤销的操作', icon: 'none' }); return }
-  ACCORDS.forEach((a) => { values[a.key] = s[a.key] || 0 })
+  BLEND_KEYS.forEach((k) => { values[k] = s[k] || 0 })
   syncIngFromAccord(); drawLive(); syncCard()
   uni.showToast({ title: '已撤销', icon: 'none' })
 }
 function resetBlend() {
   pushHistory()
-  applyTemplateVals(PRESET)
-  // 默认配方就是图鉴第一瓶，恢复后逐键完全相等——不算用户调出来的，撤闸
+  const blank = blankBlend()
+  BLEND_KEYS.forEach((k) => { values[k] = blank[k] })
+  // 重置回的是一杯纯水，不是任何一瓶现成的香，不构成复刻
   disarmEgg()
   syncIngFromAccord(); drawLive(); syncCard()
-  uni.showToast({ title: '已恢复默认', icon: 'none' })
+  uni.showToast({ title: '已倒掉，重新来过', icon: 'none' })
 }
 
 // ---------- T3 靠近名香 ----------
@@ -472,8 +508,16 @@ function disarmEgg() { eggArmed = false; lastHitId = null; eggHit.value = null }
 function checkEgg(vals) {
   const hit = findExactMatch(vals, galleryPerfumes)
   if (!hit) {
-    lastHitId = null
-    eggHit.value = null      // 调离命中状态立刻收起横幅
+    // 图鉴没中再看自己的历史（互斥展示，图鉴优先——原彩蛋让位逻辑不变）
+    const self = findExactMatch(vals, selfHistoryCache)
+    if (!self) {
+      lastHitId = null
+      eggHit.value = null      // 调离命中状态立刻收起横幅
+      return
+    }
+    if (lastHitId === self.id) return   // 同一次命中不重复触发
+    lastHitId = self.id
+    if (eggArmed) celebrateEgg(self)
     return
   }
   if (lastHitId === hit.id) return   // 同一次命中不重复触发
@@ -482,11 +526,35 @@ function checkEgg(vals) {
 }
 function celebrateEgg(p) {
   eggHit.value = p
+  // 达成登记（eggs.js，幂等）：首次达成才弹「新彩蛋」提示
+  const isNew = achieveEgg(p.self ? 'self_replica' : 'replica')
   // 震动是「惊喜」的一半；部分机型/模拟器不支持，失败就算了不能让它炸
   try { uni.vibrateShort({ type: 'light' }) } catch (e) { /* 忽略 */ }
-  track('exact_match')
+  track(p.self ? 'exact_match_self' : 'exact_match')
+  if (isNew) {
+    setTimeout(() => { uni.showToast({ title: '✦ 新彩蛋已收入「我的 · 彩蛋收藏」', icon: 'none' }) }, 1200)
+  }
   if (eggTimer) clearTimeout(eggTimer)
   eggTimer = setTimeout(() => { eggHit.value = null }, 4500)
+}
+
+// 「旧作重现」比对源：历史配方缓存。刚封存的那瓶要剔除——封存完拖回去
+// 等于自己触发自己，隔天（下次进工坊）再调回来才算「重现」。onShow 与封存后刷新。
+let selfHistoryCache = []
+const sessionSealTimes = []
+function loadSelfHistory() {
+  try {
+    const list = uni.getStorageSync('isabella_history')
+    const arr = Array.isArray(list) ? list : []
+    const next = arr
+      .filter((h) => !sessionSealTimes.includes(h.time))
+      .map((h) => ({ id: 'self_' + h.time, name: h.name, accords: h.accords || {}, self: true }))
+    // 原地替换而不是整体重新赋值：checkEgg 闭包与自检脚本拿到的是同一个数组引用
+    selfHistoryCache.length = 0
+    selfHistoryCache.push(...next)
+  } catch (e) {
+    selfHistoryCache.length = 0
+  }
 }
 
 // 懒人福音（工坊版）：现场摇一瓶全新的配比，与首页共用同一个随机函数。
@@ -494,8 +562,9 @@ function celebrateEgg(p) {
 // 但摇出来的配比归他，之后微调命中同样该给彩蛋。
 function randomBlend() {
   pushHistory()
-  const accords = randomAccords()
-  ACCORDS.forEach((a) => { values[a.key] = accords[a.key] || 0 })
+  // 走 applyTemplateVals 而不是逐键赋值：那样会漏掉纯水，把「总和恒 100」的
+  // 约定打破（纯水还停在拖动前的值上）。归一化后纯水归 0，摇出来的是纯香精。
+  applyTemplateVals(randomAccords())
   syncIngFromAccord()
   armEgg()
   drawLive()
@@ -554,9 +623,18 @@ function getAccordValues() {
   return vals
 }
 
-// 归一化：把 anchorKey 定在 target，剩下的 (100 - target) 按其余各项当前比例等比分配。
-// 等比而非均摊 —— 用户调出来的形状是他的创作，不该被摊平。
-// 这样「多加木质」必然「少掉别的」，取舍的张力就在这里。
+// 「十二味全开」的会话级记录：normalizeFrom 里逐味 add，离开工坊即清零。
+const touchedAccords = new Set()
+
+// 归一化：把 anchorKey 定在 target，剩下的 (100 - target) 在其余各项之间重新分配。
+// 让位顺序是「纯水优先」，而且双向：
+//   调大某个香调（需要空间）→ 先扣纯水，水扣光了才按比例动香调；
+//   调小某个香调（腾出空间）→ 先补纯水，水补满了才按比例分给香调（相当于往回兑水稀释）。
+// 于是只要水还够，拖任何一根香调都不会惊动别的香调——
+// 「我明明没碰花香，它却自己变了」这个困惑就是从这儿根治的。
+// 水扣光 / 补满之后才轮到香调互让，那时瓶子确实满了，取舍的张力也就自然出现了。
+//
+// 香调之间的分配是等比而非均摊 —— 用户调出来的形状是他的创作，不该被摊平。
 // 取整用最大余数法：先向下取整，余数按小数部分从大到小逐一补 1。
 // 不能让末位吸收全部余数 —— 末位若为 0 会被减成负数，并沿着后续拖动一路传染。
 function normalizeFrom(anchorKey, target) {
@@ -566,29 +644,65 @@ function normalizeFrom(anchorKey, target) {
   // 复刻名香的彩蛋从此刻起才允许触发。放在函数内而不是四个事件里各写一遍，
   // 是为了以后新增拖动入口时不会漏掉置闸。
   armEgg()
-  const others = ACCORDS.map((a) => a.key).filter((k) => k !== anchorKey)
-  const budget = 100 - t
-  const restSum = others.reduce((s, k) => s + values[k], 0)
+  // 「十二味全开」：同一次会话里 12 个香调都被亲手拉到过非 0。
+  // 拖纯水不算（纯水不是气味）；模板/摇一瓶/接力不走这里，天然不计入。
+  // touchedAccords 是会话级 Set，离开工坊即清零，隔次进来自动重开。
+  if (anchorKey !== SOLVENT.key && t > 0) {
+    touchedAccords.add(anchorKey)
+    if (touchedAccords.size >= ACCORDS.length && achieveEgg('full_palette')) {
+      uni.showToast({ title: '✦ 十二味全开 · 新彩蛋已收入「我的 · 彩蛋收藏」', icon: 'none' })
+    }
+  }
 
+  const budget = 100 - t
   if (budget <= 0) {
-    others.forEach((k) => { values[k] = 0 })
+    BLEND_KEYS.forEach((k) => { if (k !== anchorKey) values[k] = 0 })
     return
   }
 
-  // 其余全为 0：预算平均落到其余项，避免总和不足 100
-  const exact = restSum <= 0
-    ? others.map(() => budget / others.length)
-    : others.map((k) => (values[k] / restSum) * budget)
-
-  const floors = exact.map((v) => Math.floor(v))
-  let remainder = budget - floors.reduce((s, v) => s + v, 0)
-  const order = exact
-    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
-    .sort((a, b) => b.frac - a.frac)
-  for (let j = 0; j < order.length && remainder > 0; j++, remainder--) {
-    floors[order[j].i] += 1
+  // 按 exact 的比例把 total 整分下去（最大余数法），结果写回 keys
+  const assign = (keys, exact, total) => {
+    const floors = exact.map((v) => Math.floor(v))
+    let remainder = total - floors.reduce((s, v) => s + v, 0)
+    const order = exact
+      .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+      .sort((a, b) => b.frac - a.frac)
+    for (let j = 0; j < order.length && remainder > 0; j++, remainder--) {
+      floors[order[j].i] += 1
+    }
+    keys.forEach((k, i) => { values[k] = floors[i] })
   }
-  others.forEach((k, i) => { values[k] = floors[i] })
+
+  const waterIsAnchor = anchorKey === SOLVENT.key
+  const rest = BLEND_KEYS.filter((k) => k !== SOLVENT.key && k !== anchorKey)
+  const restSum = rest.reduce((s, k) => s + values[k], 0)
+
+  let accordBudget
+  if (waterIsAnchor) {
+    // 拖的就是纯水：水的量已定为 t，剩下的 budget 全归香调，彼此比例不变
+    accordBudget = budget
+  } else {
+    const water = values[SOLVENT.key] || 0
+    // delta > 0：其余各项要多拿到这么多（有香调被调小了，腾出空间）
+    // delta < 0：其余各项要让出这么多（有香调被调大了，需要空间）
+    const delta = budget - (restSum + water)
+    if (delta < 0) {
+      // 需要空间 → 先扣纯水，水扣光了才按比例动香调
+      const fromWater = Math.min(water, -delta)
+      values[SOLVENT.key] = water - fromWater
+      accordBudget = restSum - (-delta - fromWater)
+    } else {
+      // 腾出空间 → 先补纯水，水补满了才按比例分给香调（等于往回兑水稀释）
+      const toWater = Math.min(100 - water, delta)
+      values[SOLVENT.key] = water + toWater
+      accordBudget = restSum + (delta - toWater)
+    }
+  }
+
+  // 香调这边全为 0 时均摊，避免总和不足 100
+  assign(rest, restSum <= 0
+    ? rest.map(() => accordBudget / rest.length)
+    : rest.map((k) => (values[k] / restSum) * accordBudget), accordBudget)
 }
 
 // 两套滑块共用同一份底层占比：香料 ←→ 香调按 CORE_INGREDIENTS.accord 映射同步
@@ -799,6 +913,13 @@ const FEEDBACK = {
 function onName(e) {
   name.value = e.detail.value
   nameTouched = true
+  // 「撞名大胆」：亲手把香起成图鉴名香的名字（自动起名来自固定词表，永不撞）。
+  // 放在 input 里而非 blur：按完成名字的最后一个字触发，精确对应用户亲手输入。
+  // achieveEgg 幂等，只有首次达成才返回 true，toast 自然只弹一次。
+  const trimmed = name.value.trim()
+  if (trimmed && galleryPerfumes.some((p) => p.name === trimmed) && achieveEgg('namesake')) {
+    uni.showToast({ title: `大胆，敢跟「${trimmed}」重名`, icon: 'none' })
+  }
   syncCard()  // 香名改动同步到封存卡
 }
 
@@ -814,6 +935,18 @@ function checkNote() {
   if (!r.pass) {
     note.value = ''
     uni.showToast({ title: r.reason || '感言包含不当内容', icon: 'none', duration: 2500 })
+  }
+}
+
+// 香名同待遇：它会印上分享标题和小程序码，是直接的 UGC 出口。
+// 失焦即筛（点分享/封存都会先让输入框失焦），封存时再闸一道兜底。
+function checkName() {
+  if (!name.value) return
+  const r = moderateText(name.value)
+  if (!r.pass) {
+    name.value = ''
+    nameTouched = false
+    uni.showToast({ title: r.reason || '香名包含不当内容', icon: 'none', duration: 2500 })
   }
 }
 
@@ -910,11 +1043,62 @@ async function sealCard(stamped = true) {
 }
 
 // 封存：完成卡片定稿并入库，然后跳转封存卡页（不再原地展示）
+// 层级解锁弹窗（封存层级提升时；挑战完成弹窗确认后也可能接这一条）
+function showUnlockModal(unlock) {
+  uni.showModal({
+    title: '封存成就',
+    content: unlock,
+    showCancel: false,
+    confirmText: '好的'
+  })
+}
+
 async function triggerSeal() {
   // 未起名则自动生成一个香名
   if (!nameTouched) {
     name.value = genPerfumeName()
     nameTouched = true
+  }
+  // 封存闸：香名与感言同等待遇过本地粗筛。自动生成的名字来自固定词表，
+  // 天然安全；手动起的名在这里拦最后一道，不干净就不封。
+  const nameCheck = moderateText(name.value)
+  if (!nameCheck.pass) {
+    name.value = ''
+    nameTouched = false
+    uni.showToast({ title: nameCheck.reason || '香名包含不当内容，换个名字再封存', icon: 'none', duration: 2500 })
+    return
+  }
+
+  // 「一瓶留白」的边界：纯水允许封存（那正是彩蛋），但不能拿来交挑战作业——
+  // 12 香调全 0 时契合度必然垫底，放行等于白送「今日挑战已完成」。
+  const sealVals = getAccordValues()
+  const isPureWater = !ACCORDS.some((a) => (sealVals[a.key] || 0) > 0)
+  if (isPureWater && challengeTarget.value) {
+    uni.showToast({ title: '一杯水可交不了挑战作业，先加点香调吧', icon: 'none', duration: 2500 })
+    return
+  }
+
+  // 副作用先行：埋点与连签提前到画卡之前 —— 记录不该依赖画卡是否成功；
+  // 且连签/层级先算好，卡面上的封存小字才是「封存之后」的准确状态。
+  track('seal')
+  recordSeal()
+  // 静默型彩蛋统一收口：本次封存新达成几枚，合并成一条提示（幂等，重复不计）。
+  // 十二味全开在拖动时就地提示、撞名在起名时提示、复刻类走横幅，都不在此列。
+  let newEggCount = 0
+  const sealEgg = (key) => { if (achieveEgg(key)) newEggCount++ }
+  if (isPureWater) sealEgg('pure_water')
+  // 挑战只在「挑战模式」下计完成：challengeTarget 只有接受挑战的入口会写
+  // （首页 / 我的页的每日挑战卡），平时直接进工坊封存时它是 null，
+  // 正常封存不计入今日挑战。wasDone 保证当天只弹一次完成提示，
+  // 完成后再封存不重复祝贺。
+  let challengeJustDone = false
+  let challengeDoneScore = 0
+  if (challengeTarget.value) {
+    challengeDoneScore = challengeScore.value
+    challengeJustDone = !isChallengeDone()
+    markChallengeDone()
+    // 「主题正解」：以正解级契合（≥95，即评分封顶的满分）完成当日挑战
+    if (challengeDoneScore >= 95) sealEgg('perfect')
   }
 
   // 阶梯递进：封存数 +1，拿到当前层级（印章大小/角度/称号）
@@ -922,6 +1106,20 @@ async function triggerSeal() {
   // 同一次封存共用一个时间戳；提前到这里，让 drawCard 也能拿到真实封存时间
   // （否则旧卡片隔几天重开，卡面会印出重绘当天的日期，信息错误）。
   const sealTime = Date.now()
+  // 时辰 / 连签彩蛋：卡面小字只印优先级最高的一个，登记互不排斥
+  const sealHour = new Date(sealTime).getHours()
+  const streakNow = getStreak()
+  if (sealHour < 5) sealEgg('midnight')
+  if (streakNow >= 7) sealEgg('streak7')
+  const sealLabelText = sealLabelOf({
+    tierLabel: tier.sealLabel, streak: streakNow, hour: sealHour, pureWater: isPureWater
+  })
+  // 合并提示：一枚单数、多枚 ×N。整条封存链路只有这一处静默型彩蛋 toast。
+  if (newEggCount === 1) {
+    uni.showToast({ title: '✦ 新彩蛋已收入「我的 · 彩蛋收藏」', icon: 'none' })
+  } else if (newEggCount > 1) {
+    uni.showToast({ title: `✦ 新彩蛋 ×${newEggCount} 已收入「我的 · 彩蛋收藏」`, icon: 'none' })
+  }
   const rarity = getRarity(computeRadarValues(getAccordValues()))
 
   // 画带印章的封存卡（含稀有度徽章 + 层级称号），用该层级的 stampScale/stampRotate
@@ -929,6 +1127,8 @@ async function triggerSeal() {
     const vals = getAccordValues()
     const formula = generateFormula(vals)
     recompute()
+    // 一瓶留白：卡片台词不用随机语录，念留白专属这句
+    if (isPureWater) quote.value = '你封存了一杯水。留白也是一种配方，我收下了。'
     // 获取这瓶香专属的真小程序码
     const qrSrc = await getWxacodePath(vals, name.value)
     await drawCard(card.ctx, {
@@ -942,6 +1142,8 @@ async function triggerSeal() {
       accords: ACCORDS, accordValues: vals, theme: THEME,
       rarity: rarity.label,
       tierTitle: tier.title,
+      // 封存小字（留白/深夜/七日/层级）：cardData 会带到 card 页重绘，两处一致
+      sealLabel: sealLabelText,
       // 真实封存时间，旧卡片重绘不会变（drawCardBase 优先用它，否则回退当天）
       sealTime,
       canvas: card.canvas,
@@ -952,10 +1154,8 @@ async function triggerSeal() {
     cardSealed.value = true
   }
 
-  // 埋点 + 连签 + 历史持久化
-  track('seal')
-  recordSeal()
-  if (challengeTarget.value) markChallengeDone()  // 挑战模式下封存即视为今日挑战完成
+  // 历史持久化（供配方库页读取）。埋点/连签/挑战判定已提前到画卡之前：
+  // 记录不该依赖画卡是否成功。
   const vals = getAccordValues()
   // 同一次封存必须共用同一个时间戳（已在函数上方统一取过）：历史记录与卡片页都拿它当唯一键，
   // 各调一次 Date.now() 会差出几毫秒，导致卡片页收藏后回历史页显示「未收藏」。
@@ -974,6 +1174,11 @@ async function triggerSeal() {
     uni.setStorageSync(key, arr.slice(0, 50))
   } catch (e) { /* 忽略 */ }
 
+  // 本次封存时间戳记入会话并刷新比对缓存：「旧作重现」要剔除刚封的这瓶，
+  // 否则封存完原地拖回原配方会自己触发自己
+  sessionSealTimes.push(sealTime)
+  loadSelfHistory()
+
   // 确保 tempPath 就绪（card 页直接从本地读，不走 query 传大图）
   await ensureCardTemp()
 
@@ -989,20 +1194,30 @@ async function triggerSeal() {
     rarityText: rarity.line,
     tierTitle: tier.title,
     tierKey: tier.key,
-    sealLabel: tier.sealLabel,
+    sealLabel: sealLabelText,
     radarMode: radarMode.value  // 跨页一致：card 页读它重算雷达，不再回退默认 relative
   }
   try { uni.setStorageSync('isabella_card_data', cardData) } catch (e) { /* 忽略 */ }
   uni.navigateTo({ url: '/pages/card/card?from=seal' })
 
-  // 弹解锁文案（层级提升时）
-  if (leveledUp && unlock) {
+  // 弹提示：挑战完成优先于层级解锁（同一次封存两者都触发时，
+  // 先报挑战成绩，用户确认后再看封存成就，避免两个原生弹窗打架）。
+  if (challengeJustDone) {
+    // 挑战已完成，收起横幅回到自由调香。文案分级：≥85 是漂亮收尾，
+    // 低于 85 诚实说「已提交」——不打击但也不硬夸（85 与提示语「很接近」的档位一致）
+    exitChallenge()
+    const verdict = challengeDoneScore >= 85
+      ? `今日挑战成功完成！你的得分是 ${challengeDoneScore} 分。`
+      : `今日挑战已提交，得分 ${challengeDoneScore} 分。练练手感，明天再来。`
     uni.showModal({
-      title: '封存成就',
-      content: unlock,
+      title: '今日挑战',
+      content: verdict,
       showCancel: false,
-      confirmText: '好的'
+      confirmText: '好的',
+      success: () => { if (leveledUp && unlock) showUnlockModal(unlock) }
     })
+  } else if (leveledUp && unlock) {
+    showUnlockModal(unlock)
   }
 }
 
@@ -1116,6 +1331,8 @@ onShareTimeline(() => {
 
 onShow(() => {
   track('enter_lab')
+  // 「旧作重现」比对源刷新：历史可能被配方库/收藏页的删除按钮改过
+  loadSelfHistory()
   // 接力接收：图鉴/随机/调查(running blend) 与 每日挑战。取出即删（storage），
   // 暂存到 incoming，等画布就绪（onReady 或本帧 nextTick）再落到滑块。
   const pb = takePendingBlend()
@@ -1261,6 +1478,21 @@ onReady(async () => {
 .lab-share-canvas { width: 750px; height: 600px; }
 
 .slider-item { margin-bottom: 10rpx; }
+/* 纯水：单独占一段，用一条淡线把它和下面的香调区分开。
+   它不是一种气味，视觉上也不该被当成第 13 个香调。 */
+.solvent-item {
+  padding-bottom: 16rpx; margin-bottom: 20rpx;
+  border-bottom: 2rpx dashed rgba(46, 92, 69, 0.18);
+}
+.solvent-item .slider-name { color: #6f8a7d; }
+.solvent-item .slider-val { color: #6f8a7d; }
+.strength-line { display: flex; align-items: center; margin-top: 6rpx; }
+.strength-name {
+  font-size: 21rpx; color: #2e5c45; letter-spacing: 1rpx;
+  border: 2rpx solid rgba(46, 92, 69, 0.35); border-radius: 20rpx;
+  padding: 2rpx 14rpx; margin-right: 12rpx; flex-shrink: 0;
+}
+.strength-desc { font-size: 20rpx; color: #9b9b8f; }
 .slider-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rpx; }
 .slider-name { font-size: 26rpx; color: #2b2b2e; font-family: "Georgia", "Palatino", serif; }
 .slider-val { font-size: 24rpx; color: #a97826; font-weight: 600; font-family: "Georgia", "Palatino", serif; }

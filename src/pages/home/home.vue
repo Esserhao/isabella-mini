@@ -114,7 +114,6 @@ import { computeRadarValues, generateFormula, getDailyChallenge, isChallengeDone
 import { THEME, ACCORD_COLORS } from '@/utils/theme.js'
 import { track } from '@/utils/analytics.js'
 import { getStreak } from '@/utils/streak.js'
-import { getSealCount, currentTier } from '@/utils/progress.js'
 import { setPendingBlend } from '@/utils/wxacode.js'
 import { startTour, tut } from '@/utils/tutorial.js'
 
@@ -214,8 +213,6 @@ let introPlayed = false
 
 // 留存钩子数据
 const streak = ref(0)
-const sealCount = ref(0)
-const tier = ref({ title: '初次来访', key: 'novice' })
 const daily = computed(() => getDailyChallenge())
 const dailyDone = ref(false)
 
@@ -228,8 +225,6 @@ const streakFlames = computed(() => {
 
 function refreshHooks() {
   streak.value = getStreak()
-  sealCount.value = getSealCount()
-  tier.value = currentTier()
   dailyDone.value = isChallengeDone()
 }
 
