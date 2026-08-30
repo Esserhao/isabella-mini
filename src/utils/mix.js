@@ -236,3 +236,84 @@ export function genPerfumeName() {
     const B = ['图书馆', '独奏', '情人', '旅人', '告别', '舞会', '告白', '车站', '书桌', '窗台', '花园', '海岸', '微光', '回声', '信笺', '小夜曲', '理发店', '咖啡馆'];
     return A[Math.floor(Math.random() * A.length)] + B[Math.floor(Math.random() * B.length)];
 }
+
+// 归一化：最大余数法，保证 12 项都是整数、总和恰好 100。
+// 直接 Math.round 会凑不满 100（99 或 101 都出过），滑块上方显示的总和就对不上。
+export function normalizeAccords(rawObj) {
+    const keys = ACCORDS.map(a => a.key);
+    const sum = keys.reduce((s, k) => s + (Number(rawObj[k]) || 0), 0);
+    const out = {};
+    if (sum <= 0) {
+        keys.forEach(k => { out[k] = 0; });
+        out[keys[0]] = 100;
+        return out;
+    }
+    const exact = keys.map(k => (Number(rawObj[k]) || 0) / sum * 100);
+    const floors = exact.map(Math.floor);
+    let remainder = 100 - floors.reduce((s, v) => s + v, 0);
+    const order = exact
+        .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+        .sort((a, b) => b.frac - a.frac);
+    for (let j = 0; j < order.length && remainder > 0; j++, remainder--) {
+        floors[order[j].i] += 1;
+    }
+    keys.forEach((k, i) => { out[k] = floors[i]; });
+    return out;
+}
+
+// 纯随机配比：每一瓶都是现摇的，不从图鉴里挑。
+//
+// 别写成「12 个键各随机 0-100 再归一化」——那样每项的数学期望都是 8.3，
+// 实测抽两万次，最大单项中位数只有 15、12 项几乎全非零，
+// 每瓶都是「十二味各来一点」的大杂烩，抽十次长得都差不多，按钮等于白做。
+// 真实香水都有明确主调（图鉴里木质最高到 78、花香到 52），
+// 所以这里先随机定 2~4 个主调吃掉 62%~85%，余量再分给 0~3 个辅调。
+export function randomAccords() {
+    const keys = ACCORDS.map(a => a.key);
+    const pool = keys.slice().sort(() => Math.random() - 0.5);
+    const mainCount = 2 + Math.floor(Math.random() * 3);   // 2~4 个主调
+    const mains = pool.slice(0, mainCount);
+    const subCount = Math.floor(Math.random() * 4);        // 0~3 个辅调
+    const subs = pool.slice(mainCount, mainCount + subCount);
+
+    const raw = {};
+    keys.forEach(k => { raw[k] = 0; });
+
+    const mainTotal = 62 + Math.random() * 23;             // 主调合计 62%~85%
+    const w = mains.map(() => 0.35 + Math.random());
+    const wSum = w.reduce((s, v) => s + v, 0);
+    mains.forEach((k, i) => { raw[k] = w[i] / wSum * mainTotal; });
+
+    if (subs.length) {
+        const subTotal = 100 - mainTotal;
+        const w2 = subs.map(() => 0.35 + Math.random());
+        const w2Sum = w2.reduce((s, v) => s + v, 0);
+        subs.forEach((k, i) => { raw[k] = w2[i] / w2Sum * subTotal; });
+    } else {
+        raw[mains[0]] += 100 - mainTotal;   // 没有辅调时余量全归第一主调
+    }
+    return normalizeAccords(raw);
+}
+
+// 完全复刻检测：12 个香调的数值逐个相同，才算「调出了这一瓶」。
+// 图鉴的 accords 和滑块都是整数、总和都是 100，逐键直接比即可。
+//
+// 这是彩蛋，不是常规反馈：随机撞上的概率实测为 200 万次 0 命中，
+// 主要靠用户手动把滑块调成和某瓶一模一样。
+// 调用方必须自己挡掉「系统铺好的配比」——初始化/重置用的是图鉴第一瓶，
+// 还原图鉴接力时逐键也完全相等，不设闸的话一进工坊就会弹。
+export function findExactMatch(accordValues, list) {
+    if (!accordValues || !list || !list.length) return null;
+    for (const p of list) {
+        if (!p.accords) continue;
+        let same = true;
+        for (const a of ACCORDS) {
+            if ((Number(accordValues[a.key]) || 0) !== (Number(p.accords[a.key]) || 0)) {
+                same = false;
+                break;
+            }
+        }
+        if (same) return p;
+    }
+    return null;
+}

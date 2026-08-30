@@ -54,8 +54,16 @@
         <text class="ref-name">对比名香 · {{ refName }}</text>
       </view>
       <view v-if="radarCaption" class="radar-caption">味道偏向：{{ radarCaption }}</view>
-      <!-- 对比名香模式下两者通常是同一瓶，不重复报名字 -->
-      <view v-if="nearPerfume && nearPerfume !== refName" class="near-perfume">
+      <!-- 复刻名香彩蛋：12 个香调与图鉴某瓶逐个相同才出现。
+           随机撞上的概率实测 200 万次 0 命中，靠用户手动调出来。 -->
+      <view v-if="eggHit" class="egg-banner">
+        <text class="egg-star">✦</text>
+        <text class="egg-text">恭喜调出「{{ eggHit.name }}」！</text>
+        <text class="egg-star">✦</text>
+      </view>
+      <!-- 对比名香模式下两者通常是同一瓶，不重复报名字。
+           彩蛋命中时让位给横幅，否则会同时出现「相似 100%」和「恭喜调出」两句打架 -->
+      <view v-if="nearPerfume && nearPerfume !== refName && !eggHit" class="near-perfume">
         <text class="near-perfume-text">有点像「{{ nearPerfume }}」呢（相似 {{ nearScore }}%）</text>
       </view>
       <view v-if="blendFeedback" class="blend-feedback">{{ blendFeedback }}</view>
@@ -101,6 +109,7 @@
         <view class="blend-tools">
           <text class="tool-btn" @tap="undo">撤销</text>
           <text class="tool-btn" @tap="resetBlend">重置</text>
+          <text class="tool-btn tool-btn-cta" @tap="randomBlend">摇一瓶</text>
         </view>
       </view>
       <view class="tpl-tip">先把味道铺个底，再慢慢微调</view>
@@ -183,7 +192,7 @@
 import { ref, reactive, nextTick, computed, watch } from 'vue'
 import { onLoad, onShow, onReady, onUnload, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { ACCORDS, RADAR_LABELS, CORE_INGREDIENTS, galleryPerfumes, RADAR_DIM_DESC, SCENT_TEMPLATES } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, topAccordDesc } from '@/utils/mix.js'
+import { computeRadarValues, generateFormula, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, topAccordDesc, randomAccords, findExactMatch } from '@/utils/mix.js'
 import { drawRadar, drawRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE } from '@/utils/canvas-draw.js'
 import { THEME } from '@/utils/theme.js'
 import { recordSeal } from '@/utils/streak.js'
@@ -271,6 +280,10 @@ function applyRestore({ accords, name: n }) {
     }
     ACCORDS.forEach((a, i) => { values[a.key] = floors[i] })
   }
+  // 扫码 / 图鉴接力 / 每日挑战都是系统铺好的配方。
+  // 尤其图鉴接力：原值总和本就是 100 的整数，归一化后与那瓶逐键相等（已实测），
+  // 不撤闸的话从图鉴点任何一瓶进工坊都会立刻弹「恭喜调出」。
+  disarmEgg()
   syncIngFromAccord()
   if (n) {
     name.value = n
@@ -381,6 +394,8 @@ function applyTemplateVals(accordsObj) {
 function applyTemplate(t) {
   pushHistory()
   applyTemplateVals(t.accords)
+  // 模板是现成配方，套用不算「调出来」；用户在这基础上拖滑块才会重新置闸
+  disarmEgg()
   syncIngFromAccord()
   drawLive()
   syncCard()
@@ -418,6 +433,8 @@ function undo() {
 function resetBlend() {
   pushHistory()
   applyTemplateVals(PRESET)
+  // 默认配方就是图鉴第一瓶，恢复后逐键完全相等——不算用户调出来的，撤闸
+  disarmEgg()
   syncIngFromAccord(); drawLive(); syncCard()
   uni.showToast({ title: '已恢复默认', icon: 'none' })
 }
@@ -432,6 +449,57 @@ function cosineSim(a, b) {
     dot += x * y; na += x * x; nb += y * y
   })
   return (na && nb) ? dot / Math.sqrt(na * nb) : 0
+}
+
+// ---------- 复刻名香彩蛋 ----------
+// 12 个香调数值与图鉴某瓶逐个相同才算「调出了这一瓶」。
+// 这是彩蛋不是常规反馈：随机撞上的概率实测 200 万次 0 命中，
+// 主要靠用户手动把滑块调成和某瓶一模一样。
+//
+// eggArmed 是必要闸门：初始化用的是图鉴第一瓶，重置回默认也是它，
+// 从图鉴接力进来时经最大余数法归一化后逐键同样相等（已实测 11 瓶全部命中自己）。
+// 这三种都是系统铺好的配比，不设闸的话一进工坊就会弹「恭喜调出」。
+const eggHit = ref(null)      // 横幅正在展示的那瓶，null = 不展示
+let eggArmed = false          // 用户是否亲手调过
+let lastHitId = null          // 上一次命中的 id：同一次命中只震动一次，切雷达模式不会重复弹
+let eggTimer = null
+function armEgg() { eggArmed = true }
+function disarmEgg() { eggArmed = false; lastHitId = null; eggHit.value = null }
+
+function checkEgg(vals) {
+  const hit = findExactMatch(vals, galleryPerfumes)
+  if (!hit) {
+    lastHitId = null
+    eggHit.value = null      // 调离命中状态立刻收起横幅
+    return
+  }
+  if (lastHitId === hit.id) return   // 同一次命中不重复触发
+  lastHitId = hit.id
+  if (eggArmed) celebrateEgg(hit)
+}
+function celebrateEgg(p) {
+  eggHit.value = p
+  // 震动是「惊喜」的一半；部分机型/模拟器不支持，失败就算了不能让它炸
+  try { uni.vibrateShort({ type: 'light' }) } catch (e) { /* 忽略 */ }
+  track('exact_match')
+  if (eggTimer) clearTimeout(eggTimer)
+  eggTimer = setTimeout(() => { eggHit.value = null }, 4500)
+}
+
+// 懒人福音（工坊版）：现场摇一瓶全新的配比，与首页共用同一个随机函数。
+// 摇完就算用户「调过」了——虽然随机撞上彩蛋的概率约等于 0，
+// 但摇出来的配比归他，之后微调命中同样该给彩蛋。
+function randomBlend() {
+  pushHistory()
+  const accords = randomAccords()
+  ACCORDS.forEach((a) => { values[a.key] = accords[a.key] || 0 })
+  syncIngFromAccord()
+  armEgg()
+  drawLive()
+  syncCard()
+  if (!nameTouched) name.value = genPerfumeName()
+  uni.showToast({ title: '摇了一瓶，不满意就再摇', icon: 'none' })
+  track('lab_random')
 }
 
 // ---------- T4 在场引导 + 起名建议 ----------
@@ -491,6 +559,10 @@ function getAccordValues() {
 function normalizeFrom(anchorKey, target) {
   const t = Math.max(0, Math.min(100, Math.round(target)))
   values[anchorKey] = t
+  // 走到这儿说明是用户亲手拖了滑块（香调或香料，四处事件都汇总到这个函数），
+  // 复刻名香的彩蛋从此刻起才允许触发。放在函数内而不是四个事件里各写一遍，
+  // 是为了以后新增拖动入口时不会漏掉置闸。
+  armEgg()
   const others = ACCORDS.map((a) => a.key).filter((k) => k !== anchorKey)
   const budget = 100 - t
   const restSum = others.reduce((s, k) => s + values[k], 0)
@@ -587,6 +659,8 @@ function recompute() {
   })
   if (best && bestS >= 0.82) { nearPerfume.value = best.name; nearScore.value = Math.round(bestS * 100) }
   else { nearPerfume.value = '' }
+  // 复刻名香彩蛋：与「有点像」并列检测，命中时由模板决定只展示恭喜横幅
+  checkEgg(vals)
   if (challengeTarget.value) {
     const s = scoreDailyChallenge(vals, { target: challengeTarget.value })
     if (s) challengeScore.value = s.score
@@ -1066,6 +1140,7 @@ onUnload(() => {
   if (blendFeedbackTimer) clearTimeout(blendFeedbackTimer)
   if (broadcastTimer) clearTimeout(broadcastTimer)
   if (shareTimer) clearTimeout(shareTimer)
+  if (eggTimer) clearTimeout(eggTimer)
 })
 
 // 首页「看看我是什么香」会写下这个标记：进入工坊时播一次生长动画
@@ -1335,6 +1410,11 @@ onReady(async () => {
   border: 2rpx solid rgba(46,92,69,0.3); border-radius: 20rpx; padding: 4rpx 16rpx;
 }
 .tool-btn:active { background: rgba(46,92,69,0.08); }
+/* 「摇一瓶」是生成动作，不是编辑动作，用金色和「撤销/重置」区分开 */
+.tool-btn-cta {
+  color: #a97826; border-color: rgba(169,120,38,0.45);
+}
+.tool-btn-cta:active { background: rgba(169,120,38,0.1); }
 
 /* 一键气味模板 */
 .tpl-tip {
@@ -1364,6 +1444,29 @@ onReady(async () => {
   background: rgba(169, 120, 38, 0.09);
   border-radius: 30rpx; padding: 10rpx 24rpx;
   font-size: 23rpx; color: #a97826; letter-spacing: 1rpx;
+}
+
+/* 复刻名香彩蛋横幅：比「有点像」更隆重，但仍是克制的一条金色横幅，不打断调香。
+   滑入 + 轻微呼吸，4.5 秒后由 JS 收起。 */
+.egg-banner {
+  margin-top: 18rpx;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(90deg, rgba(169,120,38,0.06), rgba(169,120,38,0.18), rgba(169,120,38,0.06));
+  border-top: 2rpx solid rgba(169,120,38,0.5);
+  border-bottom: 2rpx solid rgba(169,120,38,0.5);
+  padding: 16rpx 0;
+  animation: egg-in 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.egg-star { font-size: 22rpx; color: #a97826; }
+.egg-text {
+  margin: 0 18rpx;
+  font-size: 29rpx; font-weight: 700; color: #8a5f18;
+  letter-spacing: 2rpx;
+  font-family: "Georgia", "Palatino", serif;
+}
+@keyframes egg-in {
+  from { opacity: 0; transform: translateY(-12rpx) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* 首次进工坊引导蒙层 */

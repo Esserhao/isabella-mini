@@ -110,7 +110,7 @@ import { ref, computed, reactive, watch, nextTick } from 'vue'
 import { onReady, onShow } from '@dcloudio/uni-app'
 import { drawRadar, drawRadarGrow } from '@/utils/canvas-draw.js'
 import { galleryPerfumes, ACCORDS, RADAR_LABELS } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, getDailyChallenge, isChallengeDone, setDailyChallengeTarget } from '@/utils/mix.js'
+import { computeRadarValues, generateFormula, getDailyChallenge, isChallengeDone, setDailyChallengeTarget, randomAccords, genPerfumeName } from '@/utils/mix.js'
 import { THEME, ACCORD_COLORS } from '@/utils/theme.js'
 import { track } from '@/utils/analytics.js'
 import { getStreak } from '@/utils/streak.js'
@@ -312,13 +312,17 @@ function goLab() {
   uni.switchTab({ url: '/pages/lab/lab' })
 }
 
-// 懒人福音：随机挑一瓶图鉴香水载入工坊，让选择困难户直接上手
+// 懒人福音：现场摇一瓶全新的配比载入工坊，让选择困难户直接上手。
+// 与工坊的「摇一瓶」共用 randomAccords，两处行为一致。
+// 旧逻辑是从图鉴挑一瓶，配比就那固定的 11 种；现在是每次都现摇，
+// 且配比带主次结构（见 mix.js 的说明），不然摇出来的都是「十二味各来一点」。
 function randomPick() {
-  const p = galleryPerfumes[Math.floor(Math.random() * galleryPerfumes.length)]
-  setPendingBlend(p.accords, p.name)
+  const accords = randomAccords()
+  const nm = genPerfumeName()
+  setPendingBlend(accords, nm)
   track('home_random')
   // showToast 必须在 switchTab 之前调用，否则页面被卸载后 toast 会被拒绝
-  uni.showToast({ title: '帮你挑了「' + p.name + '」，去工坊微调', icon: 'none' })
+  uni.showToast({ title: '给你摇了「' + nm + '」，去工坊微调', icon: 'none' })
   uni.switchTab({ url: '/pages/lab/lab' })
 }
 
