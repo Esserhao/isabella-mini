@@ -179,12 +179,12 @@ const fuzzOK = fuzzBad === 0
 console.log(`  ${fuzzOK ? '✅' : '❌'} 随机模糊测试 ${fuzzSteps} 步拖拽，总和始终为 100（异常 ${fuzzBad} 次${worst ? '，最大偏差 ' + worst : ''}）`)
 if (!fuzzOK) problems.push(`模糊测试 ${fuzzBad} 次破坏总和约束`)
 
-// 浓度分级：纯水 100 应当是「几乎全是水」，纯水 0 应当是香精档
+// 浓淡档位词：纯水 100 应当是「还是清水」，纯水 0 应当是「浓郁」档
 const s0 = strengthOf(blankBlend())
 const sFull = strengthOf({ [W]: 0 })
 const sMid = strengthOf({ [W]: 82 })
-const strengthOK = s0.essence === 0 && s0.name === '几乎全是水' && sFull.essence === 100 && sMid.essence === 18
-console.log(`  ${strengthOK ? '✅' : '❌'} 浓度分级：纯水100→${s0.name} / 纯水0→香精 ${sFull.essence}% / 纯水82→香精 ${sMid.essence}%`)
+const strengthOK = s0.essence === 0 && s0.name === '还是清水' && sFull.essence === 100 && sMid.essence === 18
+console.log(`  ${strengthOK ? '✅' : '❌'} 浓淡档位：纯水100→${s0.name} / 纯水0→${sFull.name} 香气 ${sFull.essence}% / 纯水82→${sMid.name} 香气 ${sMid.essence}%`)
 if (!strengthOK) problems.push('浓度分级取值不对')
 
 console.log('')

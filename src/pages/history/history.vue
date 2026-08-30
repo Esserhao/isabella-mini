@@ -20,7 +20,7 @@
         <view class="row-fav" :class="{ on: favedMap[h.time] }" @tap.stop="fav(h)">
           {{ favedMap[h.time] ? '♥' : '♡' }}
         </view>
-        <view class="row-del" @tap.stop="del(h)">🗑</view>
+        <view class="row-del" @tap.stop="del(h)">✕</view>
       </view>
     </view>
   </view>
@@ -132,7 +132,7 @@ onShow(() => {
 .row:active { background: #efeadd; }
 .row-main { flex: 1; min-width: 0; }
 .row-name { font-size: 30rpx; font-weight: 700; color: #2b2b2e; }
-.row-quote { font-size: 24rpx; color: #6b6a6a; font-style: italic; line-height: 1.6; margin: 8rpx 0 4rpx; }
+.row-quote { font-size: 24rpx; color: #6b6a6a; line-height: 1.6; margin: 8rpx 0 4rpx; }
 .row-note { font-size: 23rpx; color: #a97826; line-height: 1.6; margin-bottom: 10rpx; }
 .bars { display: flex; flex-direction: column; gap: 6rpx; margin-top: 8rpx; }
 .bar { display: flex; align-items: center; gap: 10rpx; }
@@ -160,7 +160,7 @@ onShow(() => {
 .row-del {
   width: 64rpx; height: 64rpx; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 30rpx; color: #c45c5c; background: #fff;
+  font-size: 34rpx; font-weight: 700; color: #c45c5c; background: #fff;
   border: 2rpx solid rgba(196, 92, 92, 0.25);
 }
 .row-del:active { background: #f7e9e9; }

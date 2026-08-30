@@ -427,10 +427,10 @@ export function drawCardBase(ctx, opt) {
   ctx.font = '12px sans-serif'
   ctx.fillText(sealLabel || '扫码调香 · 调出你的味道', colX, qrY + 60)
 
-  // 右栏：古先生的话（斜体，顶端与左栏首行对齐）
-  // 先按 14px 斜体量行数，再按实际高度决定这一块的总高。
+  // 右栏：古先生的话（顶端与左栏首行对齐；中文不用斜体——伪斜跨机型不一致）
+  // 先按 14px 量行数，再按实际高度决定这一块的总高。
   const guLineH = 20
-  ctx.font = 'italic 14px sans-serif'
+  ctx.font = '14px sans-serif'
   const guFull = String(quote || '')
   const guLines = wrapLines(ctx, guFull, guW, 3)
   // 三行装不下时给末行加省略号。wrapLines 会把装不下的部分整个丢弃，
@@ -668,7 +668,7 @@ export function drawShareCard(ctx, opt) {
   // 3) 一句话：最多 2 行，超出截断（分享卡片上它只是氛围，不是信息主体）
   const qSize = Math.round(width * 0.028)
   const qLineH = qSize * 1.5
-  ctx.font = `italic ${qSize}px sans-serif`
+  ctx.font = `${qSize}px sans-serif`
   const qText = String(quote || '')
   const qLines = wrapLines(ctx, qText, width * 0.84, 2)
   // 两行装不下时给末行加省略号。句子突然断在半截，看起来像渲染 bug

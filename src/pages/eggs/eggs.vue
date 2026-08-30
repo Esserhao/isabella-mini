@@ -59,12 +59,12 @@ onShow(() => {
 .head { text-align: center; margin-bottom: 32rpx; }
 .head-title {
   font-size: 40rpx; font-weight: 700; color: #2e5c45;
-  font-family: "Georgia", "Palatino", serif; letter-spacing: 2rpx; display: block;
+  font-family: inherit; letter-spacing: 2rpx; display: block;
 }
 .head-sub { font-size: 23rpx; color: #9b9b8f; margin-top: 8rpx; display: block; line-height: 1.6; }
 .head-progress { margin-top: 18rpx; }
-.prog-on { font-size: 44rpx; font-weight: 700; color: #a97826; font-family: "Georgia", "Palatino", serif; }
-.prog-total { font-size: 26rpx; color: #9b9b8f; font-family: "Georgia", "Palatino", serif; }
+.prog-on { font-size: 44rpx; font-weight: 700; color: #a97826; font-family: inherit; }
+.prog-total { font-size: 26rpx; color: #9b9b8f; font-family: inherit; }
 
 .egg {
   display: flex; align-items: flex-start; gap: 18rpx;

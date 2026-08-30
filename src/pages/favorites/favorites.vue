@@ -18,7 +18,7 @@
       </view>
       <view class="row-actions">
         <view class="row-fav on" @tap.stop="unfav(f)">♥</view>
-        <view class="row-del" @tap.stop="del(f)">🗑</view>
+        <view class="row-del" @tap.stop="del(f)">✕</view>
       </view>
     </view>
   </view>
@@ -77,7 +77,7 @@ function unfav(f) {
 }
 
 // 删除收藏：与右侧 ♥ 同一存储操作，但走确认弹窗——
-// ♥ 是「顺手取消」，🗑 是「明确删掉」，语义分开，误触代价不同。
+// ♥ 是「顺手取消」，✕ 是「明确删掉」，语义分开，误触代价不同。
 function del(f) {
   uni.showModal({
     title: '删除这条收藏？',
@@ -110,7 +110,7 @@ onShow(() => {
 .row:active { background: #efeadd; }
 .row-main { flex: 1; min-width: 0; }
 .row-name { font-size: 30rpx; font-weight: 700; color: #2b2b2e; }
-.row-quote { font-size: 24rpx; color: #6b6a6a; font-style: italic; line-height: 1.6; margin: 8rpx 0 4rpx; }
+.row-quote { font-size: 24rpx; color: #6b6a6a; line-height: 1.6; margin: 8rpx 0 4rpx; }
 .row-note { font-size: 23rpx; color: #a97826; line-height: 1.6; margin-bottom: 10rpx; }
 .bars { display: flex; flex-direction: column; gap: 6rpx; margin-top: 8rpx; }
 .bar { display: flex; align-items: center; gap: 10rpx; }
@@ -138,7 +138,7 @@ onShow(() => {
 .row-del {
   width: 64rpx; height: 64rpx; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 30rpx; color: #c45c5c; background: #fff;
+  font-size: 34rpx; font-weight: 700; color: #c45c5c; background: #fff;
   border: 2rpx solid rgba(196, 92, 92, 0.25);
 }
 .row-del:active { background: #f7e9e9; }

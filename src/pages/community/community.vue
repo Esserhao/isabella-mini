@@ -16,7 +16,7 @@
       <view class="ch-body">
         <view class="ch-tag">每日挑战</view>
         <view class="ch-theme">{{ challenge.theme }}</view>
-        <view class="ch-hint">{{ challenge.hint }}</view>
+        <view class="ch-hint">根据标题推测香调，来试试</view>
       </view>
       <button class="ch-btn" @tap="acceptChallenge">接受</button>
     </view>
@@ -110,7 +110,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getDailyChallenge, setDailyChallengeTarget } from '@/utils/mix.js'
+import { getDailyChallenge, setDailyChallengeTarget, isChallengeDone } from '@/utils/mix.js'
 import { getStreak } from '@/utils/streak.js'
 import { getStats, track } from '@/utils/analytics.js'
 import { getFavorites } from '@/utils/favorites.js'
@@ -173,10 +173,24 @@ function redoSurvey() {
 
 function acceptChallenge() {
   if (!challenge.value) return
-  setDailyChallengeTarget(challenge.value)
-  // showToast 必须在 switchTab 之前调用
-  uni.showToast({ title: '去工坊调出这个主题', icon: 'none' })
-  uni.switchTab({ url: '/pages/lab/lab' })
+  const accept = () => {
+    setDailyChallengeTarget(challenge.value)
+    // showToast 必须在 switchTab 之前调用
+    uni.showToast({ title: '去工坊调出这个主题', icon: 'none' })
+    uni.switchTab({ url: '/pages/lab/lab' })
+  }
+  // 当天已完成过：再接受 = 从纯水重新来一遍（且不再弹完成提示），先确认再重置
+  if (isChallengeDone()) {
+    uni.showModal({
+      title: '今日已完成',
+      content: '今天的挑战已经完成，再接受会从头再调一次。要重来吗？',
+      confirmText: '再来一次',
+      cancelText: '先不了',
+      success: (m) => { if (m.confirm) accept() }
+    })
+    return
+  }
+  accept()
 }
 
 onShow(() => {

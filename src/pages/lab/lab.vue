@@ -10,12 +10,24 @@
       <view class="cb-main">
         <text class="cb-tag">今日挑战</text>
         <text class="cb-theme">{{ challengeInfo.theme }}</text>
+        <text class="cb-hint-toggle" @tap="hintOpen = !hintOpen">{{ hintOpen ? '收起提示' : '看提示' }}</text>
       </view>
       <view class="cb-meta">
-        <text class="cb-hint">{{ challengeInfo.hint }}</text>
+        <text class="cb-intro">挑战介绍：根据标题推测香调</text>
+        <text v-if="hintOpen" class="cb-hint">提示：{{ challengeInfo.hint }}</text>
         <text class="cb-score">和目标的相似度 <text class="cb-num">{{ challengeScore }}%</text> <text class="cb-tip">{{ challengeScoreTip }}</text></text>
       </view>
       <view class="cb-close" @tap="exitChallenge">×</view>
+    </view>
+
+    <!-- 挑战吸顶条：滚过顶部横幅后从顶端淡入的一行紧凑条。
+         fixed 定位不碰文档流（不 reintroduce 抖动）；点条身回到顶部看完整横幅，
+         ✕ 仍可放弃挑战。横幅底色不透明，盖得住原生 canvas。 -->
+    <view v-if="challengeInfo" class="cb-sticky" :class="{ show: cbSticky }" @tap="scrollToChallenge">
+      <text class="cb-sticky-tag">今日挑战</text>
+      <text class="cb-sticky-theme">{{ challengeInfo.theme }}</text>
+      <text class="cb-sticky-score">{{ challengeScore }}%</text>
+      <view class="cb-sticky-close" @tap.stop="exitChallenge">×</view>
     </view>
 
     <view class="name-row">
@@ -53,20 +65,19 @@
         <view class="ref-dash"></view>
         <text class="ref-name">对比名香 · {{ refName }}</text>
       </view>
-      <view v-if="radarCaption" class="radar-caption">味道偏向：{{ radarCaption }}</view>
-      <!-- 复刻名香彩蛋：12 个香调与图鉴某瓶逐个相同才出现。
-           随机撞上的概率实测 200 万次 0 命中，靠用户手动调出来。 -->
-      <view v-if="eggHit" class="egg-banner">
-        <text class="egg-star">✦</text>
-        <text class="egg-text">{{ eggHit.self ? '你调回了旧作' : '恭喜调出' }}「{{ eggHit.name }}」！</text>
-        <text class="egg-star">✦</text>
+      <!-- 气息字幕与状态行都「常驻占位」：内容出现/消失只换文案不换高度——
+           各自 v-if 的写法会在没翻到滑块页时把下面的调配面板顶得上下抖（真机反馈）。
+           状态行展示优先级：彩蛋 > 极端反馈 > 相似名香（彩蛋命中时相似度让位，同旧规则）。 -->
+      <view class="radar-caption" :class="{ dim: !radarCaption }">
+        {{ radarCaption ? '味道偏向：' + radarCaption : '味道偏向：拖动香调后，这里实时解读' }}
       </view>
-      <!-- 对比名香模式下两者通常是同一瓶，不重复报名字。
-           彩蛋命中时让位给横幅，否则会同时出现「相似 100%」和「恭喜调出」两句打架 -->
-      <view v-if="nearPerfume && nearPerfume !== refName && !eggHit" class="near-perfume">
-        <text class="near-perfume-text">有点像「{{ nearPerfume }}」呢（相似 {{ nearScore }}%）</text>
+      <view class="panel-status" :class="panelStatus ? 'is-' + panelStatus.type : ''">
+        <template v-if="panelStatus">
+          <text v-if="panelStatus.type === 'egg'" class="status-star">✦</text>
+          <text class="status-text">{{ panelStatus.text }}</text>
+          <text v-if="panelStatus.type === 'egg'" class="status-star">✦</text>
+        </template>
       </view>
-      <view v-if="blendFeedback" class="blend-feedback">{{ blendFeedback }}</view>
     </view>
 
     <!-- 香调释义底 sheet：把 data.js 里已有的 12 个香调释义/原料接进工坊 -->
@@ -122,7 +133,7 @@
         </view>
       </view>
       <view class="normalize-hint">加香调就是从纯水里置换，纯水让完了才轮到香调互让，总和始终是 100%</view>
-      <view v-if="scentBroadcast" class="scent-broadcast">{{ scentBroadcast }}</view>
+      <view class="scent-broadcast" :class="{ show: scentBroadcast }">{{ scentBroadcast }}</view>
 
       <!-- 纯水：单独一根放在最上面。它是「瓶子里的空位」，不是一种气味，
            所以它不进 ACCORDS，也就不参与雷达、配方和名香比对 -->
@@ -139,7 +150,7 @@
           @changing="onSlide(solvent.key, $event)" @change="onSlideEnd(solvent.key, $event)" />
         <view class="strength-line">
           <text class="strength-name">{{ strength.name }}</text>
-          <text class="strength-desc">香精 {{ strength.essence }}% · {{ strength.desc }}</text>
+          <text class="strength-desc">香气 {{ strength.essence }}% · {{ strength.desc }}</text>
         </view>
       </view>
 
@@ -211,7 +222,7 @@
 
 <script setup>
 import { ref, reactive, nextTick, computed, watch } from 'vue'
-import { onLoad, onShow, onReady, onUnload, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
+import { onLoad, onShow, onReady, onUnload, onPageScroll, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { ACCORDS, SOLVENT, BLEND_KEYS, RADAR_LABELS, CORE_INGREDIENTS, galleryPerfumes, RADAR_DIM_DESC, SCENT_TEMPLATES } from '@/utils/data.js'
 import { computeRadarValues, generateFormula, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, isChallengeDone, topAccordDesc, randomAccords, findExactMatch, blankBlend, strengthOf } from '@/utils/mix.js'
 import { drawRadar, drawRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE } from '@/utils/canvas-draw.js'
@@ -271,6 +282,10 @@ onLoad((option) => {
 // 缺键时 accords[k] 是 undefined，undefined/sum 会算出 NaN 并污染整排滑块，
 // 所以这里必须逐键兜 0；同时用最大余数法保证总和恰好 100。
 function applyRestore({ accords, name: n, fromScan }) {
+  // 接力覆盖前的自保：当前配比压入撤销栈——四个接力入口（我也调一瓶/
+  // 图鉴基调/摇一瓶/扫码还原）都是无提示覆盖，被顶掉的调整此前
+  // 在撤销栈里找不回（applyRestore 不入栈），等于真丢（用户拍板）。
+  pushHistory()
   const raw = {}
   let sum = 0
   // 走 BLEND_KEYS（12 香调 + 纯水）。图鉴香水、模板这些没有纯水键，
@@ -326,12 +341,15 @@ function applyIncomingIfReady() {
     // 以前把 c.target 本身铺进滑块，等于把答案抄上去：16 个主题进页面一律 95%，挑战送分。
     // 目标只作为评分基准留着，用户从水里一样一样加出来。
     // 不走 applyRestore 是因为它会记 scan_restore 埋点，而这是挑战不是扫码还原。
+    // 重接 = 覆盖当前配比，与接力同一自保：先把当前状态压入撤销栈。
+    pushHistory()
     const blank = blankBlend()
     BLEND_KEYS.forEach((k) => { values[k] = blank[k] })
     disarmEgg()
     syncIngFromAccord()
     challengeTarget.value = c.target
     challengeInfo.value = { theme: c.theme, hint: c.hint }
+    hintOpen.value = false
     incoming.challenge = null
     drawLive(); syncCard()
   }
@@ -344,6 +362,15 @@ const blendFeedback = ref('')
 const challengeTarget = ref(null)
 const challengeInfo = ref(null)
 const challengeScore = ref(0)
+// 挑战横幅交互态：hint 默认藏起（标题即谜面）；滚过横幅后吸顶条淡入
+const hintOpen = ref(false)
+const cbSticky = ref(false)
+// 滚过顶部横幅（约 200rpx 高 + 页面留白）后收成紧凑条。
+// onPageScroll 每帧都来，这里只写一个布尔，值不变时 Vue 不会触发渲染。
+onPageScroll((e) => { cbSticky.value = challengeInfo.value != null && e.scrollTop > 100 })
+function scrollToChallenge() {
+  try { uni.pageScrollTo({ scrollTop: 0, duration: 200 }) } catch (e) { /* 忽略 */ }
+}
 const radarCaption = ref('')
 // 雷达视角：默认「结构」（相对值，看自己气息偏好）；切「绝对」按全局刻度横向可比
 const radarMode = ref('relative')
@@ -601,6 +628,7 @@ const challengeScoreTip = computed(() => {
 function exitChallenge() {
   challengeTarget.value = null
   challengeInfo.value = null
+  hintOpen.value = false
 }
 
 let radar = null
@@ -881,6 +909,18 @@ function flashFeedback() {
   }
 }
 
+// 雷达面板下的常驻状态行：彩蛋横幅 / 极端反馈 / 相似名香 三选一展示。
+// 原先各自 v-if 各占一行，出现/消失会改变文档流高度，
+// 把下面的滑块区顶得上下抖（真机反馈）——现在共用一个固定占位。
+const panelStatus = computed(() => {
+  if (eggHit.value) return { type: 'egg', text: `恭喜调出「${eggHit.value.name}」！` }
+  if (blendFeedback.value) return { type: 'feedback', text: blendFeedback.value }
+  if (nearPerfume.value && nearPerfume.value !== refName.value) {
+    return { type: 'near', text: `有点像「${nearPerfume.value}」呢（相似 ${nearScore.value}%）` }
+  }
+  return null
+})
+
 // 雷达生长动画：由首页「看看我是什么香」进入时播放一次（原「开始调香」按钮的行为）
 function playGrow() {
   if (!radar) return
@@ -1068,6 +1108,14 @@ async function triggerSeal() {
     uni.showToast({ title: nameCheck.reason || '香名包含不当内容，换个名字再封存', icon: 'none', duration: 2500 })
     return
   }
+  // 感言同闸：失焦检查依赖「点按钮先触发 blur」的跨端顺序，不保证；
+  // 这里不依赖事件顺序，脏感言一律拦在封存之前。
+  const noteCheck = moderateText(note.value)
+  if (!noteCheck.pass) {
+    note.value = ''
+    uni.showToast({ title: noteCheck.reason || '感言包含不当内容，改一句再封存', icon: 'none', duration: 2500 })
+    return
+  }
 
   // 「一瓶留白」的边界：纯水允许封存（那正是彩蛋），但不能拿来交挑战作业——
   // 12 香调全 0 时契合度必然垫底，放行等于白送「今日挑战已完成」。
@@ -1114,11 +1162,15 @@ async function triggerSeal() {
   const sealLabelText = sealLabelOf({
     tierLabel: tier.sealLabel, streak: streakNow, hour: sealHour, pureWater: isPureWater
   })
-  // 合并提示：一枚单数、多枚 ×N。整条封存链路只有这一处静默型彩蛋 toast。
-  if (newEggCount === 1) {
-    uni.showToast({ title: '✦ 新彩蛋已收入「我的 · 彩蛋收藏」', icon: 'none' })
-  } else if (newEggCount > 1) {
-    uni.showToast({ title: `✦ 新彩蛋 ×${newEggCount} 已收入「我的 · 彩蛋收藏」`, icon: 'none' })
+  // 合并提示：一枚单数、多枚 ×N，整条封存链路只有这一处静默型彩蛋提示。
+  // 若本次封存同时弹挑战完成弹窗，彩蛋行并入弹窗文案——
+  // toast 会被原生弹窗盖住，单独弹等于白弹（用户拍板）。
+  const eggToast = newEggCount === 1
+    ? '✦ 新彩蛋已收入「我的 · 彩蛋收藏」'
+    : (newEggCount > 1 ? `✦ 新彩蛋 ×${newEggCount} 已收入「我的 · 彩蛋收藏」` : '')
+  const eggLine = eggToast ? '\n' + eggToast : ''
+  if (eggToast && !challengeJustDone) {
+    uni.showToast({ title: eggToast, icon: 'none' })
   }
   const rarity = getRarity(computeRadarValues(getAccordValues()))
 
@@ -1211,7 +1263,7 @@ async function triggerSeal() {
       : `今日挑战已提交，得分 ${challengeDoneScore} 分。练练手感，明天再来。`
     uni.showModal({
       title: '今日挑战',
-      content: verdict,
+      content: verdict + eggLine,
       showCancel: false,
       confirmText: '好的',
       success: () => { if (leveledUp && unlock) showUnlockModal(unlock) }
@@ -1403,7 +1455,7 @@ onReady(async () => {
 </script>
 
 <style scoped>
-/* 富有设计感的字体：标题用 Georgia 衬线体，正文用 PingFang SC */
+/* 字体：统一跟随系统默认（Georgia 衬线栈已移除，见 home.vue 顶部说明） */
 .lab {
   min-height: 100vh;
   background: #f0eee5;
@@ -1412,7 +1464,7 @@ onReady(async () => {
   font-family: "PingFang SC", "Helvetica Neue", sans-serif;
 }
 .lab-header { margin: 12rpx 0 20rpx; }
-.lab-title { font-size: 40rpx; font-weight: 700; color: #2e5c45; display: block; font-family: "Georgia", "Palatino", serif; letter-spacing: 1rpx; }
+.lab-title { font-size: 40rpx; font-weight: 700; color: #2e5c45; display: block; font-family: inherit; letter-spacing: 1rpx; }
 .lab-sub { font-size: 24rpx; color: #6b6a6a; margin-top: 6rpx; display: block; }
 
 .name-row {
@@ -1434,7 +1486,7 @@ onReady(async () => {
 }
 .panel-title {
   font-size: 26rpx; color: #2e5c45; font-weight: 600; display: block; margin-bottom: 14rpx;
-  font-family: "Georgia", "Palatino", serif; letter-spacing: 0.5rpx;
+  font-family: inherit; letter-spacing: 0.5rpx;
 }
 .panel-title-row { display: flex; align-items: center; justify-content: space-between; }
 .radar-mode { display: flex; align-items: center; gap: 8rpx; }
@@ -1461,18 +1513,7 @@ onReady(async () => {
   font-size: 23rpx; color: #a97826; font-weight: 600; letter-spacing: 1rpx;
 }
 
-/* 极端反馈条（主导香调 >=70 时闪现） */
-.blend-feedback {
-  margin-top: 20rpx;
-  background: #fff; border-left: 6rpx solid #a97826;
-  border-radius: 12rpx; padding: 18rpx 24rpx;
-  font-size: 26rpx; color: #2e5c45; line-height: 1.5;
-  animation: fbIn 0.35s ease;
-}
-@keyframes fbIn {
-  from { opacity: 0; transform: translateY(-8rpx); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+/* 极端反馈/相似名香/彩蛋横幅已合并进常驻状态行 .panel-status（防抖动），旧样式随 v-if 一并移除 */
 .ccanvas { width: 600rpx; height: 900rpx; display: block; margin: 0 auto; background: #f6f3ea; }
 /* 离屏画布：移出视口而不是 display:none，避免部分基础库拿不到 node */
 .lab-share-wrap {
@@ -1498,8 +1539,8 @@ onReady(async () => {
 }
 .strength-desc { font-size: 20rpx; color: #9b9b8f; }
 .slider-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rpx; }
-.slider-name { font-size: 26rpx; color: #2b2b2e; font-family: "Georgia", "Palatino", serif; }
-.slider-val { font-size: 24rpx; color: #a97826; font-weight: 600; font-family: "Georgia", "Palatino", serif; }
+.slider-name { font-size: 26rpx; color: #2b2b2e; font-family: inherit; }
+.slider-val { font-size: 24rpx; color: #a97826; font-weight: 600; font-family: inherit; }
 .slider { margin: 0; }
 .ing-desc { display: block; font-size: 20rpx; color: #a08b6a; margin-top: 4rpx; }
 
@@ -1519,7 +1560,7 @@ onReady(async () => {
 .adv-list { margin-top: 16rpx; }
 
 .quote-panel { display: flex; flex-direction: column; gap: 14rpx; }
-.quote { font-size: 28rpx; font-style: italic; color: #6b6a6a; line-height: 1.6; font-family: "Georgia", "Palatino", serif; }
+.quote { font-size: 28rpx; color: #6b6a6a; line-height: 1.6; font-family: inherit; }
 .formula { font-size: 26rpx; color: #2b2b2e; line-height: 1.6; }
 
 .btn-row { display: flex; gap: 20rpx; margin-top: 22rpx; }
@@ -1577,10 +1618,69 @@ onReady(async () => {
   width: 48rpx; height: 48rpx; line-height: 44rpx; text-align: center;
 }
 
-/* 工坊雷达下方的气息特征字幕：把六个坐标轴翻译成人话 */
+/* 提示降级：标题即谜面，「看提示」挂在标题正下方（点击开合），
+   展开后的提示内容显示在右侧介绍行之下 */
+.cb-intro { font-size: 22rpx; color: #6b6a6a; line-height: 1.4; }
+.cb-hint-toggle {
+  font-size: 22rpx; color: #a97826; font-weight: 600;
+  align-self: flex-start; text-decoration: underline;
+}
+
+/* 挑战吸顶条：滚过横幅后从顶端淡入的一行紧凑条。
+   fixed 定位不碰文档流；底色不透明，盖得住原生 canvas；
+   层级低于释义 sheet（50）与引导蒙层（300），不会压住弹层。 */
+.cb-sticky {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+  display: flex; align-items: center; gap: 14rpx;
+  padding: 16rpx 28rpx; box-sizing: border-box;
+  background: #f6f3ea;
+  border-bottom: 2rpx solid rgba(46,92,69,0.18);
+  opacity: 0; transform: translateY(-100%);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  pointer-events: none;
+}
+.cb-sticky.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.cb-sticky-tag {
+  font-size: 20rpx; color: #fff; background: #2e5c45;
+  border-radius: 20rpx; padding: 2rpx 12rpx; flex-shrink: 0;
+}
+.cb-sticky-theme {
+  flex: 1; min-width: 0; font-size: 26rpx; font-weight: 700; color: #2b2b2e;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cb-sticky-score { font-size: 28rpx; font-weight: 700; color: #a97826; flex-shrink: 0; }
+.cb-sticky-close {
+  font-size: 36rpx; color: #9b9b8f; flex-shrink: 0;
+  width: 44rpx; height: 44rpx; line-height: 44rpx; text-align: center;
+}
+
+/* 工坊雷达下方的气息特征字幕：把六个坐标轴翻译成人话。
+   常驻占一行（空态给引导文案），高度固定——纯水起步第一次拖动时
+   内容出现不会再把下面的面板顶下去（真机反馈的抖动来源之一）。 */
 .radar-caption {
-  margin-top: 26rpx; text-align: center;
+  height: 40rpx; line-height: 40rpx; margin-top: 20rpx; text-align: center;
   font-size: 24rpx; color: #2e5c45; letter-spacing: 1rpx;
+}
+.radar-caption.dim { color: #b0ae9f; }
+
+/* 常驻状态行：彩蛋横幅 / 极端反馈 / 相似名香 共用，高度固定防抖 */
+.panel-status {
+  height: 64rpx; margin-top: 14rpx;
+  display: flex; align-items: center; justify-content: center; gap: 12rpx;
+  font-size: 24rpx; overflow: hidden;
+}
+.panel-status .status-text {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.panel-status.is-egg .status-text {
+  color: #8a5f18; font-weight: 700; letter-spacing: 2rpx;
+}
+.panel-status.is-egg .status-star { color: #a97826; font-size: 22rpx; }
+.panel-status.is-feedback .status-text { color: #3a3a38; }
+.panel-status.is-near .status-text {
+  color: #a97826; letter-spacing: 1rpx;
+  background: rgba(169, 120, 38, 0.09);
+  border-radius: 30rpx; padding: 6rpx 24rpx;
 }
 
 /* 标题行里的「六维说明」入口 */
@@ -1596,16 +1696,20 @@ onReady(async () => {
 .slider-info {
   font-size: 20rpx; color: #a97826; border: 2rpx solid rgba(169,120,38,0.4);
   border-radius: 50%; width: 30rpx; height: 30rpx; line-height: 28rpx;
-  text-align: center; flex-shrink: 0; font-family: "Georgia", "Palatino", serif;
+  text-align: center; flex-shrink: 0; font-family: inherit;
   font-style: italic;
 }
 
-/* 实时气味播报：拖动时把动作翻译成大白话 */
+/* 实时气味播报：拖动时把动作翻译成大白话。
+   常驻占一行，出现/消失只做透明度渐变——背景色也随之淡入淡出，
+   高度不变，拖动时上下的面板不再被顶得跳动（真机反馈）。 */
 .scent-broadcast {
-  margin-bottom: 14rpx; padding: 12rpx 18rpx; border-radius: 12rpx;
+  height: 44rpx; line-height: 44rpx; margin-bottom: 14rpx; border-radius: 12rpx;
   background: rgba(46,92,69,0.08); color: #2e5c45;
-  font-size: 25rpx; line-height: 1.5; text-align: center;
+  font-size: 25rpx; text-align: center;
+  opacity: 0; transition: opacity 0.25s ease;
 }
+.scent-broadcast.show { opacity: 1; }
 
 /* 通用底 sheet（香调释义 / 六维说明共用） */
 .sheet-mask {
@@ -1667,46 +1771,12 @@ onReady(async () => {
   border-radius: 14rpx; padding: 16rpx 6rpx;
 }
 .tpl-btn:active { background: rgba(46,92,69,0.06); }
-.tpl-label { font-size: 22rpx; color: #2b2b2e; font-family: "Georgia", "Palatino", serif; }
+.tpl-label { font-size: 22rpx; color: #2b2b2e; font-family: inherit; }
 
 /* 归一化解释 */
 .normalize-hint { font-size: 21rpx; color: #9b9b8f; margin-bottom: 12rpx; }
 
-/* 靠近名香提示 */
-/* 「有点像…」：以前只留 8rpx，几乎贴在上一行/雷达图上；提到 18rpx 并给它一层浅底，
-   让它读起来是独立的一句评价，而不是图像的附属物。 */
-.near-perfume {
-  margin-top: 18rpx;
-  display: flex; justify-content: center;
-}
-.near-perfume-text {
-  background: rgba(169, 120, 38, 0.09);
-  border-radius: 30rpx; padding: 10rpx 24rpx;
-  font-size: 23rpx; color: #a97826; letter-spacing: 1rpx;
-}
-
-/* 复刻名香彩蛋横幅：比「有点像」更隆重，但仍是克制的一条金色横幅，不打断调香。
-   滑入 + 轻微呼吸，4.5 秒后由 JS 收起。 */
-.egg-banner {
-  margin-top: 18rpx;
-  display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(90deg, rgba(169,120,38,0.06), rgba(169,120,38,0.18), rgba(169,120,38,0.06));
-  border-top: 2rpx solid rgba(169,120,38,0.5);
-  border-bottom: 2rpx solid rgba(169,120,38,0.5);
-  padding: 16rpx 0;
-  animation: egg-in 0.42s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.egg-star { font-size: 22rpx; color: #a97826; }
-.egg-text {
-  margin: 0 18rpx;
-  font-size: 29rpx; font-weight: 700; color: #8a5f18;
-  letter-spacing: 2rpx;
-  font-family: "Georgia", "Palatino", serif;
-}
-@keyframes egg-in {
-  from { opacity: 0; transform: translateY(-12rpx) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
+/* 靠近名香提示 / 复刻名香彩蛋横幅：已合并进常驻状态行 .panel-status（防抖动） */
 
 /* 首次进工坊引导蒙层 */
 .coach-mask {

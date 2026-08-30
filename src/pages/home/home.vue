@@ -80,7 +80,7 @@
       </view>
 
       <!-- ③ CTA：陈述结果，不问问题 -->
-      <button class="hero-btn" id="coachHeroBtn" @tap="goLab">看看我是什么香 →</button>
+      <button class="hero-btn" id="coachHeroBtn" @tap="goLab">去调一瓶你的香 →</button>
       <button class="hero-btn-sub" id="coachRandomBtn" @tap="randomPick">懒人福音 · 随便来一瓶 →</button>
       <view class="hero-guide" @tap="goTutorial">使用指南 · 不会调香也能上手</view>
 
@@ -94,7 +94,7 @@
           </view>
           <view class="daily-tag">每日挑战</view>
           <view class="daily-theme">{{ daily.theme }}</view>
-          <view class="daily-hint">{{ daily.hint }}</view>
+          <view class="daily-hint">根据标题推测香调，来试试</view>
           <view class="daily-cta">{{ dailyDone ? '✓ 已完成' : '接受挑战 →' }}</view>
         </view>
       </view>
@@ -325,11 +325,25 @@ function randomPick() {
 function goChallenge() {
   const d = daily.value
   if (!d) return
-  setDailyChallengeTarget(d)
-  track('home_challenge_accept')
-  // showToast 必须在 switchTab 之前调用
-  uni.showToast({ title: '去工坊调出这个主题', icon: 'none' })
-  uni.switchTab({ url: '/pages/lab/lab' })
+  const accept = () => {
+    setDailyChallengeTarget(d)
+    track('home_challenge_accept')
+    // showToast 必须在 switchTab 之前调用
+    uni.showToast({ title: '去工坊调出这个主题', icon: 'none' })
+    uni.switchTab({ url: '/pages/lab/lab' })
+  }
+  // 当天已完成过：再接受 = 从纯水重新来一遍（且不再弹完成提示），先确认再重置
+  if (isChallengeDone()) {
+    uni.showModal({
+      title: '今日已完成',
+      content: '今天的挑战已经完成，再接受会从头再调一次。要重来吗？',
+      confirmText: '再来一次',
+      cancelText: '先不了',
+      success: (m) => { if (m.confirm) accept() }
+    })
+    return
+  }
+  accept()
 }
 
 // ---------- 首开引导：小白香气小调查 ----------
@@ -481,7 +495,8 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
 </script>
 
 <style scoped>
-/* 富有设计感的字体：标题用 Georgia 衬线体，正文用 PingFang SC */
+/* 字体：统一跟随系统默认（Georgia 衬线栈已移除——各机型 serif 兜底不一致，
+   有的 ROM 落楷体、有的落默认黑体，跨设备必然长得不一样，真机反馈定案） */
 .home {
   min-height: 100vh;
   background: #f0eee5;
@@ -513,7 +528,7 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   line-height: 1.35;
   text-align: center;
   letter-spacing: 1rpx;
-  font-family: "Georgia", "Palatino", serif;
+  font-family: inherit;
 }
 
 /* ---------- 成品封存卡 ---------- */
@@ -542,7 +557,7 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   font-size: 20rpx;
   color: #a97826;
   letter-spacing: 3rpx;
-  font-family: "Georgia", "Palatino", serif;
+  font-family: inherit;
 }
 .card-name {
   margin-top: 10rpx;
@@ -550,7 +565,7 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   font-weight: 700;
   color: #2e5c45;
   letter-spacing: 2rpx;
-  font-family: "Georgia", "Palatino", serif;
+  font-family: inherit;
 }
 .card-rule {
   margin-top: 16rpx;
@@ -620,8 +635,8 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   text-align: center;
   letter-spacing: 1rpx;
   animation: quoteIn 0.5s ease-out 1.3s both;
-  font-family: "Georgia", "Palatino", serif;
-  font-style: italic;
+  font-family: inherit;
+ 
 }
 
 /* ---------- CTA ---------- */
@@ -727,7 +742,7 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   font-weight: 700;
   color: #2e5c45;
   line-height: 1.35;
-  font-family: "Georgia", "Palatino", serif;
+  font-family: inherit;
 }
 .daily-hint {
   font-size: 24rpx;
@@ -765,8 +780,8 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   box-shadow: 0 20rpx 60rpx rgba(46, 92, 69, 0.25);
 }
 .onb-head { text-align: center; margin-bottom: 30rpx; }
-.onb-kicker { font-size: 22rpx; color: #a97826; letter-spacing: 4rpx; display: block; font-family: "Georgia", "Palatino", serif; }
-.onb-title { font-size: 34rpx; font-weight: 700; color: #2e5c45; display: block; margin-top: 10rpx; line-height: 1.4; font-family: "Georgia", "Palatino", serif; }
+.onb-kicker { font-size: 22rpx; color: #a97826; letter-spacing: 4rpx; display: block; font-family: inherit; }
+.onb-title { font-size: 34rpx; font-weight: 700; color: #2e5c45; display: block; margin-top: 10rpx; line-height: 1.4; font-family: inherit; }
 .onb-dots { display: flex; justify-content: center; gap: 12rpx; margin-top: 20rpx; }
 .onb-dot { width: 14rpx; height: 14rpx; border-radius: 50%; background: rgba(46, 92, 69, 0.2); }
 .onb-dot.on { background: #2e5c45; }

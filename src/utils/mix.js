@@ -275,22 +275,23 @@ export function blankBlend() {
     return out;
 }
 
-// 浓度：香精占比 = 100 - 纯水。分级沿用真实香水的档位，
-// 让「我兑了多少水」这件原本隐藏的事有个说法。
+// 浓淡：纯水剩多少决定这瓶香闻起来有多重（香调占比 = 100 - 纯水）。
+// 档位名刻意口语化——不出现香精/古龙水这类行业词，小白一眼能懂；
+// 只影响纯水滑块下的一行提示，不参与雷达、评分等任何行为。
 export function strengthOf(blend) {
     const essence = Math.max(0, Math.min(100, 100 - (Number(blend && blend[SOLVENT.key]) || 0)));
     const table = [
-        { min: 40, name: '香精', desc: '几乎没兑水，一点就够，留香很久' },
-        { min: 25, name: '浓香精', desc: '存在感强，靠近才闻得到全部' },
-        { min: 15, name: '淡香精', desc: '最常见的一档，日常刚好' },
-        { min: 8, name: '淡香水', desc: '清爽，适合白天和夏天' },
-        { min: 1, name: '古龙水', desc: '很淡，一两个小时就散了' }
+        { min: 40, name: '浓郁', desc: '水几乎让光了，一点味道就很饱满' },
+        { min: 25, name: '偏浓', desc: '存在感强，靠近就能闻到全部' },
+        { min: 15, name: '适中', desc: '日常刚刚好，最顺手的一档' },
+        { min: 8, name: '清淡', desc: '清爽干净，适合白天和夏天' },
+        { min: 1, name: '若有似无', desc: '很轻很轻，一两个小时就散了' }
     ];
     const hit = table.find(t => essence >= t.min);
     return {
         essence,
-        name: hit ? hit.name : '几乎全是水',
-        desc: hit ? hit.desc : '还没加什么香调，先调起来吧'
+        name: hit ? hit.name : '还是清水',
+        desc: hit ? hit.desc : '还没加任何香调，先拖一根试试'
     };
 }
 

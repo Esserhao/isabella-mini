@@ -152,7 +152,7 @@ async function submit() {
   margin-top: 20rpx;
 }
 .letter-count { font-size: 21rpx; color: #a08b6a; }
-.letter-sign { font-size: 24rpx; color: #6b6a6a; font-style: italic; }
+.letter-sign { font-size: 24rpx; color: #6b6a6a; }
 
 .tip {
   font-size: 22rpx; color: #9b9b8f; text-align: center;

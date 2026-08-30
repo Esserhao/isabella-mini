@@ -177,7 +177,14 @@ function addSection() {
   editSections.value.push({ heading: '', text: '' })
 }
 function delSection(si) {
-  editSections.value.splice(si, 1)
+  // 手记是官方内容，误删没有撤销路径（保存即覆盖本地编辑），先确认
+  uni.showModal({
+    title: '删除本段？',
+    content: '删除后需手动重打；取消编辑可回到上次保存的版本。',
+    confirmText: '删除',
+    confirmColor: '#c45c5c',
+    success: (m) => { if (m.confirm) editSections.value.splice(si, 1) }
+  })
 }
 </script>
 
@@ -278,7 +285,7 @@ function delSection(si) {
 }
 .cover-lead {
   margin-top: 28rpx; font-size: 32rpx; color: #6b6a6a;
-  line-height: 1.7; font-style: italic;
+  line-height: 1.7;
 }
 .cover-meta { margin-top: 28rpx; font-size: 24rpx; color: #9b9b8f; }
 .cover-rule { width: 96rpx; height: 4rpx; background: #a97826; border-radius: 2rpx; margin-top: 36rpx; }
@@ -294,7 +301,7 @@ function delSection(si) {
 
 /* 正文导语段（editorial lead paragraph） */
 .note-lead {
-  font-size: 32rpx; color: #6b6a6a; font-style: italic;
+  font-size: 32rpx; color: #6b6a6a;
   line-height: 1.75; margin-bottom: 48rpx; padding-left: 20rpx;
   border-left: 6rpx solid #a97826;
 }

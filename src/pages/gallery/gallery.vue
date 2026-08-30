@@ -406,7 +406,7 @@ function ingMainKey(accords) {
 .p-info { flex: 1; min-width: 0; }
 .p-name { font-size: 32rpx; font-weight: 700; color: #2b2b2e; }
 .p-sub { font-size: 22rpx; color: #9b9b8f; margin: 4rpx 0 8rpx; }
-.p-hook { font-size: 23rpx; color: #a97826; font-style: italic; line-height: 1.5; margin-bottom: 12rpx; }
+.p-hook { font-size: 23rpx; color: #a97826; line-height: 1.5; margin-bottom: 12rpx; }
 .p-bars { display: flex; flex-direction: column; gap: 6rpx; }
 .p-bar { display: flex; align-items: center; gap: 10rpx; }
 .p-bar-label { font-size: 20rpx; color: #6b6a6a; width: 60rpx; flex-shrink: 0; }
@@ -464,7 +464,7 @@ function ingMainKey(accords) {
 .detail-scroll { flex: 1; min-height: 0; height: 0; padding: 28rpx 32rpx 60rpx; box-sizing: border-box; }
 .d-title { font-size: 40rpx; font-weight: 700; color: #2b2b2e; }
 .d-sub { font-size: 24rpx; color: #9b9b8f; margin: 8rpx 0 14rpx; }
-.d-hook { font-size: 26rpx; color: #a97826; font-style: italic; line-height: 1.6; margin-bottom: 22rpx; }
+.d-hook { font-size: 26rpx; color: #a97826; line-height: 1.6; margin-bottom: 22rpx; }
 .d-section-title {
   font-size: 26rpx; font-weight: 600; color: #2e5c45; margin: 26rpx 0 14rpx;
   border-left: 6rpx solid #2e5c45; padding-left: 14rpx;
@@ -515,7 +515,7 @@ function ingMainKey(accords) {
 .n-eyebrow { font-size: 21rpx; color: #a97826; letter-spacing: 3rpx; }
 .n-title { font-size: 32rpx; font-weight: 700; color: #2e5c45; line-height: 1.4; margin-top: 10rpx; }
 .n-lead {
-  font-size: 25rpx; color: #6b6a6a; font-style: italic; line-height: 1.7; margin-top: 12rpx;
+  font-size: 25rpx; color: #6b6a6a; line-height: 1.7; margin-top: 12rpx;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
 }
 .n-foot { display: flex; align-items: baseline; justify-content: space-between; margin-top: 16rpx; gap: 16rpx; }
@@ -527,7 +527,7 @@ function ingMainKey(accords) {
   font-size: 22rpx; color: #a97826; letter-spacing: 3rpx; margin-bottom: 16rpx;
 }
 .d-note-lead {
-  font-size: 29rpx; color: #6b6a6a; font-style: italic; line-height: 1.75;
+  font-size: 29rpx; color: #6b6a6a; line-height: 1.75;
   margin: 22rpx 0 40rpx; padding-left: 20rpx; border-left: 6rpx solid #a97826;
 }
 .d-note-sec { margin-bottom: 40rpx; }

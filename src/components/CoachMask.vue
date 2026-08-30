@@ -301,7 +301,7 @@ watch([() => tut.active, () => tut.index], () => { tryQuery() })
 }
 .coach-card-title {
   font-size: 32rpx; font-weight: 700; color: #2e5c45;
-  font-family: "Georgia", "Palatino", serif; line-height: 1.3;
+  font-family: inherit; line-height: 1.3;
 }
 .coach-card-text {
   display: block; font-size: 26rpx; color: #3a3a38; line-height: 1.75;
