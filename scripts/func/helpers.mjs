@@ -58,6 +58,7 @@ export function expect(got) {
     toEqual(want) { if (JSON.stringify(got) !== JSON.stringify(want)) throw new Error(`${fmt(got)} 应为 ${fmt(want)}`) },
     toBeTruthy() { if (!got) throw new Error(`${fmt(got)} 应为真值`) },
     toBeGreaterThan(n) { if (!(got > n)) throw new Error(`${fmt(got)} 应大于 ${n}`) },
+    toBeLessThan(n) { if (!(got < n)) throw new Error(`${fmt(got)} 应小于 ${n}`) },
     toBeAtLeast(n) { if (!(got >= n)) throw new Error(`${fmt(got)} 应 ≥ ${n}`) },
     toHaveLength(n) {
       if (!got || got.length !== n) throw new Error(`长度应为 ${n}，实际 ${got ? got.length : 'undefined'}`)
@@ -85,6 +86,27 @@ export function test(name, fn) {
   } catch (e) {
     outcomes.push({ suite: currentSuite, name, ok: false, error: e.message })
   }
+}
+
+// —— 用户旅程（模仿真人连续使用）——
+// 与 test 的区别：一条 story 内存储全程保留、跨步骤累积（像真人一次连续使用），
+// 开跑前清空存储（新装用户视角）。步骤按人在界面上操作的先后排列；
+// 某一步失败即终止后续步骤 —— 真人测到断点，后面的操作已无意义，
+// 报告里能看到 journey 断在哪一步。
+export function story(name, steps) {
+  const saved = currentSuite
+  currentSuite = name
+  clearStore()
+  for (const [stepName, fn] of steps) {
+    try {
+      fn()
+      outcomes.push({ suite: currentSuite, name: stepName, ok: true })
+    } catch (e) {
+      outcomes.push({ suite: currentSuite, name: stepName, ok: false, error: e.message })
+      break
+    }
+  }
+  currentSuite = saved
 }
 
 export function getOutcomes() {
