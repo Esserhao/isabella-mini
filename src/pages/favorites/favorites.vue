@@ -100,7 +100,7 @@ onShow(() => {
 
 <style scoped>
 .page { min-height: 100vh; background: #f0eee5; padding: 24rpx 28rpx 60rpx; box-sizing: border-box; }
-.empty { font-size: 25rpx; color: #7a7970; text-align: center; padding: 120rpx 40rpx; line-height: 1.7; }
+.empty { font-size: 24rpx; color: #6b6a6a; text-align: center; padding: 120rpx 40rpx; line-height: 1.7; }
 
 .row {
   display: flex; align-items: flex-start; gap: 16rpx;
@@ -115,7 +115,7 @@ onShow(() => {
 .bar-label { font-size: 20rpx; color: #6b6a6a; width: 60rpx; flex-shrink: 0; }
 .bar-track { flex: 1; height: 8rpx; background: rgba(26,26,30,0.08); border-radius: 4rpx; overflow: hidden; }
 .bar-fill { height: 100%; background: #2e5c45; border-radius: 4rpx; }
-.row-time { font-size: 21rpx; color: #7a7970; margin-top: 12rpx; }
+.row-time { font-size: 20rpx; color: #6b6a6a; margin-top: 12rpx; }
 
 .row-fav {
   flex-shrink: 0; width: 64rpx; height: 64rpx; border-radius: 50%;
@@ -123,7 +123,7 @@ onShow(() => {
   font-size: 34rpx; color: #b0ae9f; background: #fff;
   border: 2rpx solid rgba(169,120,38,0.20);
 }
-.row-fav.on { color: #a97826; border-color: rgba(169,120,38,0.55); }
+.row-fav.on { color: #8a5f18; border-color: rgba(169,120,38,0.55); }
 .row-fav:active { background: #f0eee5; }
 
 /* 收藏 + 删除纵向并排 */

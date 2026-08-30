@@ -116,7 +116,7 @@ async function submit() {
 .letter {
   background: #fbf8f0;
   border: 2rpx solid rgba(169,120,38,0.35);
-  border-radius: 6rpx;
+  border-radius: 8rpx;
   box-shadow: 0 10rpx 30rpx rgba(46,92,69,0.10);
   padding: 36rpx 32rpx 28rpx;
   position: relative;
@@ -151,17 +151,17 @@ async function submit() {
   display: flex; justify-content: space-between; align-items: center;
   margin-top: 20rpx;
 }
-.letter-count { font-size: 21rpx; color: #a08b6a; }
+.letter-count { font-size: 20rpx; color: #a08b6a; }
 .letter-sign { font-size: 24rpx; color: #6b6a6a; }
 
 .tip {
-  font-size: 22rpx; color: #7a7970; text-align: center;
+  font-size: 22rpx; color: #6b6a6a; text-align: center;
   margin: 24rpx 0;
 }
 
 .send-btn {
   font-size: 28rpx; color: #fff; background: #2e5c45;
-  border-radius: 14rpx; padding: 20rpx 0; margin: 0;
+  border-radius: 16rpx; padding: 20rpx 0; margin: 0;
 }
 .send-btn::after { border: none; }
 .send-btn[disabled] { background: #9db3a6; color: #fff; }

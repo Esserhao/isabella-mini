@@ -7,7 +7,8 @@ export const THEME = {
   inkSoft: '#6b6a6a',   // 次文字
   primary: '#2e5c45',   // 主绿
   primarySoft: '#85a88f',
-  gold: '#a97826',      // 辅金/铜
+  gold: '#a97826',      // 辅金/铜（描边、装饰线）
+  goldDeep: '#8a5f18',  // 深金：卡面与分享图上的金色「文字/数字」专用（对比度 ≥4.5）
   line: 'rgba(26,26,30,0.10)',
   radarFill: 'rgba(46,92,69,0.20)',
   radarLine: '#2e5c45'

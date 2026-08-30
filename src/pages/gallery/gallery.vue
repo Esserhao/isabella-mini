@@ -398,17 +398,17 @@ function ingMainKey(accords) {
 .g-scroll { flex: 1; min-height: 0; height: 0; padding: 24rpx 28rpx 60rpx; box-sizing: border-box; }
 
 .p-card {
-  display: flex; gap: 20rpx; background: #f6f3ea; border-radius: 18rpx;
+  display: flex; gap: 20rpx; background: #f6f3ea; border-radius: 16rpx;
   padding: 22rpx; margin-bottom: 20rpx;
 }
 .p-thumb {
-  width: 150rpx; height: 200rpx; border-radius: 14rpx; flex-shrink: 0;
+  width: 150rpx; height: 200rpx; border-radius: 16rpx; flex-shrink: 0;
   display: block;
 }
 .p-info { flex: 1; min-width: 0; }
 .p-name { font-size: 32rpx; font-weight: 700; color: #2b2b2e; }
-.p-sub { font-size: 22rpx; color: #7a7970; margin: 4rpx 0 8rpx; }
-.p-hook { font-size: 23rpx; color: #a97826; line-height: 1.5; margin-bottom: 12rpx; }
+.p-sub { font-size: 22rpx; color: #6b6a6a; margin: 4rpx 0 8rpx; }
+.p-hook { font-size: 22rpx; color: #8a5f18; line-height: 1.5; margin-bottom: 12rpx; }
 .p-bars { display: flex; flex-direction: column; gap: 6rpx; }
 .p-bar { display: flex; align-items: center; gap: 10rpx; }
 .p-bar-label { font-size: 20rpx; color: #6b6a6a; width: 60rpx; flex-shrink: 0; }
@@ -434,16 +434,16 @@ function ingMainKey(accords) {
   margin: 0 auto 24rpx;
 }
 
-.g-footer { font-size: 22rpx; color: #7a7970; text-align: center; padding: 20rpx 0 10rpx; }
+.g-footer { font-size: 22rpx; color: #6b6a6a; text-align: center; padding: 20rpx 0 10rpx; }
 
 /* 香料子栏目 */
-.ing-group { background: #f6f3ea; border-radius: 18rpx; padding: 22rpx; margin-bottom: 20rpx; }
+.ing-group { background: #f6f3ea; border-radius: 16rpx; padding: 22rpx; margin-bottom: 20rpx; }
 .ing-group-head { display: flex; align-items: center; gap: 14rpx; margin-bottom: 18rpx; }
 .ing-group-label { font-size: 28rpx; font-weight: 700; color: #2e5c45; flex: 1; }
-.ing-group-count { font-size: 22rpx; color: #7a7970; }
+.ing-group-count { font-size: 22rpx; color: #6b6a6a; }
 .ing-grid { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .ing-pill {
-  background: #fff; border-radius: 30rpx; padding: 12rpx 24rpx;
+  background: #fff; border-radius: 24rpx; padding: 12rpx 24rpx;
   border: 1rpx solid rgba(46,92,69,0.08);
 }
 .ing-pill:active { background: #e7e3d5; }
@@ -459,24 +459,24 @@ function ingMainKey(accords) {
 }
 .detail-bar { padding: 16rpx 24rpx; border-bottom: 2rpx solid rgba(0,0,0,0.05); }
 .detail-back {
-  font-size: 26rpx; color: #2e5c45; background: #fff; border-radius: 10rpx;
+  font-size: 26rpx; color: #2e5c45; background: #fff; border-radius: 8rpx;
   padding: 8rpx 24rpx; margin: 0; display: inline-block;
 }
 .detail-back::after { border: none; }
 .detail-scroll { flex: 1; min-height: 0; height: 0; padding: 28rpx 32rpx 60rpx; box-sizing: border-box; }
 .d-title { font-size: 40rpx; font-weight: 700; color: #2b2b2e; }
-.d-sub { font-size: 24rpx; color: #7a7970; margin: 8rpx 0 14rpx; }
-.d-hook { font-size: 26rpx; color: #a97826; line-height: 1.6; margin-bottom: 22rpx; }
+.d-sub { font-size: 24rpx; color: #6b6a6a; margin: 8rpx 0 14rpx; }
+.d-hook { font-size: 26rpx; color: #8a5f18; line-height: 1.6; margin-bottom: 22rpx; }
 .d-section-title {
   font-size: 26rpx; font-weight: 600; color: #2e5c45; margin: 26rpx 0 14rpx;
   border-left: 6rpx solid #2e5c45; padding-left: 14rpx;
 }
 .d-bar { display: flex; align-items: center; gap: 14rpx; margin-bottom: 12rpx; }
-.d-bar-label { font-size: 23rpx; color: #6b6a6a; width: 70rpx; flex-shrink: 0; }
-.d-bar-track { flex: 1; height: 12rpx; background: rgba(26,26,30,0.08); border-radius: 6rpx; overflow: hidden; }
-.d-bar-fill { height: 100%; background: #2e5c45; border-radius: 6rpx; }
-.d-bar-val { font-size: 22rpx; color: #a97826; width: 60rpx; text-align: right; flex-shrink: 0; }
-.d-desc { font-size: 27rpx; color: #3a3a38; line-height: 1.85; }
+.d-bar-label { font-size: 22rpx; color: #6b6a6a; width: 70rpx; flex-shrink: 0; }
+.d-bar-track { flex: 1; height: 12rpx; background: rgba(26,26,30,0.08); border-radius: 8rpx; overflow: hidden; }
+.d-bar-fill { height: 100%; background: #2e5c45; border-radius: 8rpx; }
+.d-bar-val { font-size: 22rpx; color: #8a5f18; width: 60rpx; text-align: right; flex-shrink: 0; }
+.d-desc { font-size: 26rpx; color: #3a3a38; line-height: 1.85; }
 /* 香水六维雷达 */
 .d-section-row { display: flex; align-items: center; justify-content: space-between; }
 .d-section-row .d-section-title { margin-bottom: 0; }
@@ -491,61 +491,61 @@ function ingMainKey(accords) {
 .d-blend-btn {
   margin-top: 28rpx; width: 100%; box-sizing: border-box;
   font-size: 28rpx; color: #fff; background: #2e5c45;
-  border-radius: 14rpx; padding: 22rpx 0; line-height: 1.4; letter-spacing: 2rpx;
+  border-radius: 16rpx; padding: 22rpx 0; line-height: 1.4; letter-spacing: 2rpx;
 }
 .d-blend-btn::after { border: none; }
 .d-blend-btn:active { background: #244a37; }
 /* 随便来一瓶 */
 .g-random {
   width: 100%; box-sizing: border-box; margin-bottom: 20rpx;
-  font-size: 26rpx; color: #a97826; background: #fff;
-  border: 2rpx solid rgba(169,120,38,0.45); border-radius: 14rpx;
+  font-size: 26rpx; color: #8a5f18; background: #fff;
+  border: 2rpx solid rgba(169,120,38,0.45); border-radius: 16rpx;
   padding: 20rpx 0; line-height: 1.4;
 }
 .g-random::after { border: none; }
 .g-random:active { background: #f3ead8; }
 .ing-list { display: flex; flex-wrap: wrap; gap: 14rpx; }
-.ing-item { background: #fff; border-radius: 30rpx; padding: 12rpx 24rpx; }
-.ing-name { font-size: 25rpx; color: #2b2b2e; }
+.ing-item { background: #fff; border-radius: 24rpx; padding: 12rpx 24rpx; }
+.ing-name { font-size: 24rpx; color: #2b2b2e; }
 
 /* ---------- 手记子栏目 ---------- */
 .n-card {
-  background: #f6f3ea; border-radius: 18rpx; padding: 26rpx 24rpx; margin-bottom: 20rpx;
+  background: #f6f3ea; border-radius: 16rpx; padding: 26rpx 24rpx; margin-bottom: 20rpx;
   border-left: 6rpx solid #a97826;
 }
 .n-card:active { background: #efeadd; }
-.n-eyebrow { font-size: 21rpx; color: #a97826; letter-spacing: 3rpx; }
+.n-eyebrow { font-size: 20rpx; color: #8a5f18; letter-spacing: 3rpx; }
 .n-title { font-size: 32rpx; font-weight: 700; color: #2e5c45; line-height: 1.4; margin-top: 10rpx; }
 .n-lead {
-  font-size: 25rpx; color: #6b6a6a; line-height: 1.7; margin-top: 12rpx;
+  font-size: 24rpx; color: #6b6a6a; line-height: 1.7; margin-top: 12rpx;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
 }
 .n-foot { display: flex; align-items: baseline; justify-content: space-between; margin-top: 16rpx; gap: 16rpx; }
-.n-date { font-size: 21rpx; color: #7a7970; flex: 1; min-width: 0; }
-.n-count { font-size: 21rpx; color: #b0ae9f; flex-shrink: 0; }
+.n-date { font-size: 20rpx; color: #6b6a6a; flex: 1; min-width: 0; }
+.n-count { font-size: 20rpx; color: #b0ae9f; flex-shrink: 0; }
 
 /* 手记详情（复用图鉴详情弹层） */
 .d-eyebrow {
-  font-size: 22rpx; color: #a97826; letter-spacing: 3rpx; margin-bottom: 16rpx;
+  font-size: 22rpx; color: #8a5f18; letter-spacing: 3rpx; margin-bottom: 16rpx;
 }
 .d-note-lead {
-  font-size: 29rpx; color: #6b6a6a; line-height: 1.75;
+  font-size: 28rpx; color: #6b6a6a; line-height: 1.75;
   margin: 22rpx 0 40rpx; padding-left: 20rpx; border-left: 6rpx solid #a97826;
 }
 .d-note-sec { margin-bottom: 40rpx; }
 .d-sec-head { font-size: 28rpx; font-weight: 600; color: #2e5c45; margin-bottom: 12rpx; letter-spacing: 1rpx; }
-.d-sec-text { font-size: 27rpx; color: #3a3a38; line-height: 1.9; letter-spacing: 0.5rpx; }
-.d-pyramid { background: #fff; border-radius: 14rpx; padding: 26rpx 30rpx; margin-top: 10rpx; }
+.d-sec-text { font-size: 26rpx; color: #3a3a38; line-height: 1.9; letter-spacing: 0.5rpx; }
+.d-pyramid { background: #fff; border-radius: 16rpx; padding: 26rpx 30rpx; margin-top: 10rpx; }
 .pyr-row { display: flex; gap: 18rpx; padding: 10rpx 0; align-items: baseline; }
-.pyr-label { font-size: 24rpx; color: #a97826; font-weight: 600; width: 70rpx; flex-shrink: 0; }
-.pyr-val { font-size: 25rpx; color: #3a3a38; line-height: 1.6; }
+.pyr-label { font-size: 24rpx; color: #8a5f18; font-weight: 600; width: 70rpx; flex-shrink: 0; }
+.pyr-val { font-size: 24rpx; color: #3a3a38; line-height: 1.6; }
 
 /* 香水六维「说明」入口 + 六维释义底 sheet */
 .d-section-title-wrap { display: flex; align-items: baseline; gap: 14rpx; }
 .d-section-title-wrap .d-section-title { margin-bottom: 0; }
 .dim-help {
-  font-size: 22rpx; color: #a97826; font-weight: 600;
-  border: 2rpx solid rgba(169,120,38,0.35); border-radius: 20rpx;
+  font-size: 22rpx; color: #8a5f18; font-weight: 600;
+  border: 2rpx solid rgba(169,120,38,0.35); border-radius: 16rpx;
   padding: 2rpx 14rpx; line-height: 1.4; flex-shrink: 0;
 }
 .sheet-mask {
@@ -560,12 +560,12 @@ function ingMainKey(accords) {
 }
 .sheet-title { font-size: 32rpx; font-weight: 700; color: #2b2b2e; margin-bottom: 16rpx; }
 .dim-row { display: flex; gap: 16rpx; padding: 14rpx 0; border-bottom: 2rpx solid rgba(0,0,0,0.05); }
-.dim-name { font-size: 27rpx; font-weight: 700; color: #2e5c45; width: 130rpx; flex-shrink: 0; }
-.dim-text { font-size: 25rpx; color: #3a3a38; line-height: 1.6; flex: 1; }
+.dim-name { font-size: 26rpx; font-weight: 700; color: #2e5c45; width: 130rpx; flex-shrink: 0; }
+.dim-text { font-size: 24rpx; color: #3a3a38; line-height: 1.6; flex: 1; }
 .sheet-note {
   margin-top: 20rpx; padding: 14rpx 18rpx;
   background: rgba(46, 92, 69, 0.06); border-radius: 12rpx;
-  font-size: 22rpx; color: #7a7970; line-height: 1.7;
+  font-size: 22rpx; color: #6b6a6a; line-height: 1.7;
 }
 .sheet-close {
   margin-top: 28rpx; width: 100%; font-size: 30rpx; font-weight: 600;

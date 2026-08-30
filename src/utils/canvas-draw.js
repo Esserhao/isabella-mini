@@ -335,7 +335,7 @@ export function drawCardBase(ctx, opt) {
     ctx.strokeStyle = rgba(THEME.gold, 0.55)
     ctx.lineWidth = 1
     ctx.stroke()
-    ctx.fillStyle = theme.gold
+    ctx.fillStyle = THEME.goldDeep
     ctx.fillText(badgeText, 0, 1)
     ctx.restore()
   }
@@ -392,7 +392,7 @@ export function drawCardBase(ctx, opt) {
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
     ctx.fillText(a.label + (i === 0 ? ' · 主调' : ''), ingX, yy + 7)
-    ctx.fillStyle = theme.gold
+    ctx.fillStyle = THEME.goldDeep
     ctx.font = 'bold 13px sans-serif'
     ctx.textAlign = 'right'
     ctx.fillText(v + '%', ingX + ingW, yy + 7)
@@ -426,7 +426,7 @@ export function drawCardBase(ctx, opt) {
   if (origin) {
     ctx.font = '11px sans-serif'
     ctx.textAlign = 'right'
-    ctx.fillStyle = '#a97826'
+    ctx.fillStyle = '#8a5f18'
     ctx.fillText(`改编自 ${origin}`, width - M, cursor)
     ctx.textAlign = 'left'
   }
@@ -466,7 +466,7 @@ export function drawCardBase(ctx, opt) {
   ctx.fillStyle = 'rgba(107,106,106,0.9)'
   ctx.font = '13px sans-serif'
   ctx.fillText('封存于 ' + ds, colX, qrY + 44)
-  ctx.fillStyle = theme.gold
+  ctx.fillStyle = THEME.goldDeep
   ctx.font = '13px sans-serif'
   ctx.fillText(sealLabel || '扫码调香 · 调出你的味道', colX, qrY + 68)
 
@@ -524,7 +524,7 @@ export function drawCardBase(ctx, opt) {
     const nH = nLabelH + nLines.length * nLineH
     const nTop = nAreaTop
 
-    ctx.fillStyle = theme.gold
+    ctx.fillStyle = THEME.goldDeep
     ctx.fillText('调香感言', width / 2, nTop + 8)
     ctx.fillStyle = theme.ink
     ctx.font = '16px sans-serif'
@@ -705,7 +705,7 @@ export function drawShareCard(ctx, opt) {
   // 对决行：发起对决的分享图把分数与题名印在标题正下方——
   // 好友在聊天里第一眼看到的是图，图自己得会「喊话」
   if (duel) {
-    ctx.fillStyle = theme.gold
+    ctx.fillStyle = THEME.goldDeep
     ctx.font = `${Math.round(width * 0.026)}px sans-serif`
     ctx.fillText(`⚔ 今日挑战「${duel.theme}」 · ${duel.score} 分`, cx, height * 0.14 + Math.round(width * 0.055))
   }
@@ -737,7 +737,7 @@ export function drawShareCard(ctx, opt) {
 
   // 4) 品牌
   const bSize = Math.round(width * 0.022)
-  ctx.fillStyle = theme.gold
+  ctx.fillStyle = THEME.goldDeep
   ctx.font = `${bSize}px sans-serif`
   ctx.fillText('调香日记', cx, height * 0.945)
 }

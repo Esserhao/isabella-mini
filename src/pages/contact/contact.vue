@@ -46,7 +46,7 @@ function copy() {
 .card {
   width: 100%; background: #fbf8f0;
   border: 2rpx solid rgba(169,120,38,0.30);
-  border-radius: 18rpx; padding: 56rpx 40rpx;
+  border-radius: 16rpx; padding: 56rpx 40rpx;
   display: flex; flex-direction: column; align-items: center;
   box-shadow: 0 12rpx 36rpx rgba(46,92,69,0.10);
 }
@@ -71,14 +71,14 @@ function copy() {
   border: 2rpx solid rgba(169,120,38,0.20);
 }
 .email-label { font-size: 26rpx; color: #6b6a6a; }
-.email-id { font-size: 28rpx; font-weight: 700; color: #a97826; }
+.email-id { font-size: 28rpx; font-weight: 700; color: #8a5f18; }
 
 .copy-btn {
   margin-top: 32rpx; width: 100%;
   font-size: 28rpx; color: #fff; background: #2e5c45;
-  border-radius: 14rpx; padding: 20rpx 0;
+  border-radius: 16rpx; padding: 20rpx 0;
 }
 .copy-btn::after { border: none; }
 
-.hint { font-size: 21rpx; color: #7a7970; margin-top: 16rpx; }
+.hint { font-size: 20rpx; color: #6b6a6a; margin-top: 16rpx; }
 </style>

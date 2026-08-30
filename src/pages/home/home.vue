@@ -564,7 +564,7 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
 }
 .card-no {
   font-size: 20rpx;
-  color: #a97826;
+  color: #8a5f18;
   letter-spacing: 3rpx;
   font-family: inherit;
 }
@@ -580,7 +580,7 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   margin-top: 16rpx;
   width: 72%;
   height: 1rpx;
-  background: #a97826;
+  background: #8a5f18;
   opacity: 0.6;
 }
 
@@ -630,7 +630,7 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
 .card-formula {
   display: block;
   margin-top: 6rpx;
-  font-size: 21rpx;
+  font-size: 20rpx;
   color: #6b6a6a;
   line-height: 1.6;
 }
@@ -734,7 +734,7 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   align-items: center;
   gap: 4rpx;
   background: #c45c5c;
-  border-radius: 20rpx;
+  border-radius: 16rpx;
   padding: 6rpx 14rpx 6rpx 10rpx;
   box-shadow: 0 4rpx 12rpx rgba(196, 92, 92, 0.3);
 }
@@ -745,7 +745,7 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
 .streak-risk { font-size: 20rpx; color: #fff; line-height: 1; }
 .daily-tag {
   font-size: 22rpx;
-  color: #a97826;
+  color: #8a5f18;
   letter-spacing: 4rpx;
   text-transform: uppercase;
 }
@@ -765,14 +765,14 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   margin-top: 6rpx;
   font-size: 26rpx;
   font-weight: 600;
-  color: #a97826;
+  color: #8a5f18;
   align-self: flex-end;
 }
 /* 使用指南入口 */
 .hero-guide {
   margin-top: 22rpx;
   font-size: 24rpx;
-  color: #a97826;
+  color: #8a5f18;
   letter-spacing: 1rpx;
   text-decoration: underline;
 }
@@ -792,7 +792,7 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   box-shadow: 0 20rpx 60rpx rgba(46, 92, 69, 0.25);
 }
 .onb-head { text-align: center; margin-bottom: 30rpx; }
-.onb-kicker { font-size: 22rpx; color: #a97826; letter-spacing: 4rpx; display: block; font-family: inherit; }
+.onb-kicker { font-size: 22rpx; color: #8a5f18; letter-spacing: 4rpx; display: block; font-family: inherit; }
 .onb-title { font-size: 34rpx; font-weight: 700; color: #2e5c45; display: block; margin-top: 10rpx; line-height: 1.4; font-family: inherit; }
 .onb-dots { display: flex; justify-content: center; gap: 12rpx; margin-top: 20rpx; }
 .onb-dot { width: 14rpx; height: 14rpx; border-radius: 50%; background: rgba(46, 92, 69, 0.2); }
@@ -814,15 +814,15 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   background: #fff; border-radius: 16rpx; padding: 18rpx 20rpx;
 }
 .onb-reco:active { background: #eef3ef; }
-.onb-reco-img { width: 96rpx; height: 120rpx; border-radius: 10rpx; flex-shrink: 0; }
+.onb-reco-img { width: 96rpx; height: 120rpx; border-radius: 8rpx; flex-shrink: 0; }
 .onb-reco-info { flex: 1; min-width: 0; }
 .onb-reco-name { font-size: 28rpx; font-weight: 700; color: #2b2b2e; display: block; }
-.onb-reco-sub { font-size: 22rpx; color: #7a7970; display: block; margin-top: 6rpx; }
-.onb-reco-go { font-size: 24rpx; color: #a97826; font-weight: 600; flex-shrink: 0; }
+.onb-reco-sub { font-size: 22rpx; color: #6b6a6a; display: block; margin-top: 6rpx; }
+.onb-reco-go { font-size: 24rpx; color: #8a5f18; font-weight: 600; flex-shrink: 0; }
 .onb-result-tip { font-size: 22rpx; color: #6b6a6a; line-height: 1.7; margin-top: 6rpx; }
 .onb-result-actions { display: flex; gap: 16rpx; margin-top: 8rpx; }
 .onb-btn {
-  flex: 1; font-size: 26rpx; border-radius: 14rpx; padding: 20rpx 0;
+  flex: 1; font-size: 26rpx; border-radius: 16rpx; padding: 20rpx 0;
   background: #2e5c45; color: #fff; margin: 0;
 }
 .onb-btn::after { border: none; }

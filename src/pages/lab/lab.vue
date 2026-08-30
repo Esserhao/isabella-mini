@@ -1544,14 +1544,14 @@ onReady(async () => {
 .name-label { font-size: 26rpx; color: #2e5c45; font-weight: 600; }
 .name-input {
   flex: 1; font-size: 28rpx; color: #2b2b2e; background: #fff;
-  border-radius: 10rpx; padding: 10rpx 16rpx;
+  border-radius: 8rpx; padding: 10rpx 16rpx;
 }
 /* 感言行：与香名行同款，右侧加字数计数 */
 .note-row { margin-bottom: 20rpx; }
-.note-count { font-size: 21rpx; color: #a08b6a; flex-shrink: 0; }
+.note-count { font-size: 20rpx; color: #a08b6a; flex-shrink: 0; }
 
 .panel {
-  background: #f6f3ea; border-radius: 18rpx; padding: 22rpx;
+  background: #f6f3ea; border-radius: 16rpx; padding: 22rpx;
   margin-bottom: 20rpx;
 }
 .panel-title {
@@ -1580,7 +1580,7 @@ onReady(async () => {
 }
 .ref-name {
   margin-left: 12rpx;
-  font-size: 23rpx; color: #a97826; font-weight: 600; letter-spacing: 1rpx;
+  font-size: 22rpx; color: #8a5f18; font-weight: 600; letter-spacing: 1rpx;
 }
 
 /* 极端反馈/相似名香/彩蛋横幅已合并进常驻状态行 .panel-status（防抖动），旧样式随 v-if 一并移除 */
@@ -1603,14 +1603,14 @@ onReady(async () => {
 .solvent-item .slider-val { color: #6f8a7d; }
 .strength-line { display: flex; align-items: center; margin-top: 6rpx; }
 .strength-name {
-  font-size: 21rpx; color: #2e5c45; letter-spacing: 1rpx;
-  border: 2rpx solid rgba(46, 92, 69, 0.35); border-radius: 20rpx;
+  font-size: 20rpx; color: #2e5c45; letter-spacing: 1rpx;
+  border: 2rpx solid rgba(46, 92, 69, 0.35); border-radius: 16rpx;
   padding: 2rpx 14rpx; margin-right: 12rpx; flex-shrink: 0;
 }
-.strength-desc { font-size: 20rpx; color: #7a7970; }
+.strength-desc { font-size: 20rpx; color: #6b6a6a; }
 .slider-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rpx; }
 .slider-name { font-size: 26rpx; color: #2b2b2e; font-family: inherit; }
-.slider-val { font-size: 24rpx; color: #a97826; font-weight: 600; font-family: inherit; min-width: 70rpx; text-align: center; }
+.slider-val { font-size: 24rpx; color: #8a5f18; font-weight: 600; font-family: inherit; min-width: 70rpx; text-align: center; }
 /* ± 步进：44rpx 触控目标（全站触控标准），数值列定宽，位数变化不左右顶腾 */
 .slider-stepper { display: flex; align-items: center; gap: 10rpx; flex-shrink: 0; }
 .step-btn {
@@ -1628,14 +1628,14 @@ onReady(async () => {
   display: flex; align-items: baseline; justify-content: space-between;
   margin-bottom: 18rpx;
 }
-.panel-hint { font-size: 21rpx; color: #a08b6a; letter-spacing: 1rpx; }
+.panel-hint { font-size: 20rpx; color: #a08b6a; letter-spacing: 1rpx; }
 .adv-head {
   margin-top: 8rpx; padding: 20rpx 0 4rpx;
   border-top: 1rpx solid rgba(26,26,30,0.10);
   display: flex; align-items: center; justify-content: space-between;
 }
-.adv-title { font-size: 26rpx; color: #a97826; letter-spacing: 1rpx; }
-.adv-toggle { font-size: 24rpx; color: #7a7970; }
+.adv-title { font-size: 26rpx; color: #8a5f18; letter-spacing: 1rpx; }
+.adv-toggle { font-size: 24rpx; color: #6b6a6a; }
 .adv-list { margin-top: 16rpx; }
 
 .quote-panel { display: flex; flex-direction: column; gap: 14rpx; }
@@ -1644,11 +1644,11 @@ onReady(async () => {
 
 .btn-row { display: flex; gap: 20rpx; margin-top: 22rpx; }
 .btn {
-  flex: 1; font-size: 28rpx; border-radius: 14rpx; padding: 18rpx 0; margin: 0; line-height: 1.4;
+  flex: 1; font-size: 28rpx; border-radius: 16rpx; padding: 18rpx 0; margin: 0; line-height: 1.4;
 }
 .btn.ghost { background: #fff; color: #2e5c45; border: 2rpx solid #2e5c45; }
 .btn.primary { background: #2e5c45; color: #fff; }
-.btn.gold { background: #a97826; color: #fff; }
+.btn.gold { background: #8a5f18; color: #fff; }
 .btn::after { border: none; }
 
 /* 封存卡折叠面板 */
@@ -1662,7 +1662,7 @@ onReady(async () => {
   width: 64rpx; height: 96rpx; border-radius: 8rpx; flex-shrink: 0;
   border: 2rpx solid rgba(169,120,38,0.30); background: #fff;
 }
-.card-toggle { font-size: 24rpx; color: #a97826; padding: 8rpx 16rpx; }
+.card-toggle { font-size: 24rpx; color: #8a5f18; padding: 8rpx 16rpx; }
 .card-body { transition: opacity 0.25s ease; }
 /* 折叠时不 display:none（canvas 隐藏会导出失败），改为 absolute 移出视口保持可绘制。
    避免 fixed 定位在微信真机/开发者工具里偶发把隐藏内容带到视口顶部造成重影。 */
@@ -1671,7 +1671,7 @@ onReady(async () => {
   opacity: 0; pointer-events: none;
 }
 .seal-cta { margin-bottom: 20rpx; }
-.seal-cta--done { background: #fff; color: #a97826; border: 2rpx solid rgba(169,120,38,0.4); }
+.seal-cta--done { background: #fff; color: #8a5f18; border: 2rpx solid rgba(169,120,38,0.4); }
 
 /* 今日挑战横幅：青绿底 + 金线，和品牌色一致，不抢调香台主体 */
 .challenge-banner {
@@ -1684,16 +1684,16 @@ onReady(async () => {
 .cb-main { display: flex; flex-direction: column; gap: 4rpx; flex-shrink: 0; }
 .cb-tag {
   font-size: 20rpx; color: #fff; background: #2e5c45;
-  border-radius: 20rpx; padding: 2rpx 14rpx; align-self: flex-start;
+  border-radius: 16rpx; padding: 2rpx 14rpx; align-self: flex-start;
 }
 .cb-theme { font-size: 28rpx; font-weight: 700; color: #2b2b2e; }
 .cb-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4rpx; }
 .cb-hint { font-size: 22rpx; color: #6b6a6a; line-height: 1.4; }
 .cb-score { font-size: 22rpx; color: #6b6a6a; }
-.cb-num { font-size: 30rpx; font-weight: 700; color: #a97826; margin: 0 4rpx; }
+.cb-num { font-size: 30rpx; font-weight: 700; color: #8a5f18; margin: 0 4rpx; }
 .cb-tip { color: #2e5c45; }
 .cb-close {
-  font-size: 40rpx; color: #7a7970; flex-shrink: 0;
+  font-size: 40rpx; color: #6b6a6a; flex-shrink: 0;
   width: 48rpx; height: 48rpx; line-height: 44rpx; text-align: center;
 }
 
@@ -1701,7 +1701,7 @@ onReady(async () => {
    展开后的提示内容显示在右侧介绍行之下 */
 .cb-intro { font-size: 22rpx; color: #6b6a6a; line-height: 1.4; }
 .cb-hint-toggle {
-  font-size: 22rpx; color: #a97826; font-weight: 600;
+  font-size: 22rpx; color: #8a5f18; font-weight: 600;
   align-self: flex-start; text-decoration: underline;
 }
 
@@ -1721,15 +1721,15 @@ onReady(async () => {
 .cb-sticky.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
 .cb-sticky-tag {
   font-size: 20rpx; color: #fff; background: #2e5c45;
-  border-radius: 20rpx; padding: 2rpx 12rpx; flex-shrink: 0;
+  border-radius: 16rpx; padding: 2rpx 12rpx; flex-shrink: 0;
 }
 .cb-sticky-theme {
   flex: 1; min-width: 0; font-size: 26rpx; font-weight: 700; color: #2b2b2e;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.cb-sticky-score { font-size: 28rpx; font-weight: 700; color: #a97826; flex-shrink: 0; }
+.cb-sticky-score { font-size: 28rpx; font-weight: 700; color: #8a5f18; flex-shrink: 0; }
 .cb-sticky-close {
-  font-size: 36rpx; color: #7a7970; flex-shrink: 0;
+  font-size: 36rpx; color: #6b6a6a; flex-shrink: 0;
   width: 44rpx; height: 44rpx; line-height: 44rpx; text-align: center;
 }
 
@@ -1754,31 +1754,31 @@ onReady(async () => {
 .panel-status.is-egg .status-text {
   color: #8a5f18; font-weight: 700; letter-spacing: 2rpx;
 }
-.panel-status.is-egg .status-star { color: #a97826; font-size: 22rpx; }
+.panel-status.is-egg .status-star { color: #8a5f18; font-size: 22rpx; }
 .panel-status.is-feedback .status-text { color: #3a3a38; }
 .panel-status.is-near .status-text {
-  color: #a97826; letter-spacing: 1rpx;
+  color: #8a5f18; letter-spacing: 1rpx;
   background: rgba(169, 120, 38, 0.09);
-  border-radius: 30rpx; padding: 6rpx 24rpx;
+  border-radius: 24rpx; padding: 6rpx 24rpx;
 }
 .sheet-note {
   margin-top: 20rpx; padding: 14rpx 18rpx;
   background: rgba(46, 92, 69, 0.06); border-radius: 12rpx;
-  font-size: 22rpx; color: #7a7970; line-height: 1.7;
+  font-size: 22rpx; color: #6b6a6a; line-height: 1.7;
 }
 
 /* 标题行里的「六维说明」入口 */
 .title-group { display: flex; align-items: baseline; gap: 14rpx; }
 .dim-help {
-  font-size: 22rpx; color: #a97826; font-weight: 600;
-  border: 2rpx solid rgba(169,120,38,0.35); border-radius: 20rpx;
+  font-size: 22rpx; color: #8a5f18; font-weight: 600;
+  border: 2rpx solid rgba(169,120,38,0.35); border-radius: 16rpx;
   padding: 2rpx 14rpx; line-height: 1.4;
 }
 
 /* 香调滑块 label 可点开释义 */
 .slider-name-wrap { display: flex; align-items: center; gap: 6rpx; }
 .slider-info {
-  font-size: 22rpx; color: #a97826; border: 2rpx solid rgba(169,120,38,0.4);
+  font-size: 22rpx; color: #8a5f18; border: 2rpx solid rgba(169,120,38,0.4);
   border-radius: 50%; width: 44rpx; height: 44rpx; line-height: 40rpx;
   box-sizing: border-box; text-align: center; flex-shrink: 0; font-family: inherit;
   font-style: italic;
@@ -1790,7 +1790,7 @@ onReady(async () => {
 .scent-broadcast {
   height: 44rpx; line-height: 44rpx; margin-bottom: 14rpx; border-radius: 12rpx;
   background: rgba(46,92,69,0.08); color: #2e5c45;
-  font-size: 25rpx; text-align: center;
+  font-size: 24rpx; text-align: center;
   opacity: 0; transition: opacity 0.25s ease;
 }
 .scent-broadcast.show { opacity: 1; }
@@ -1807,12 +1807,12 @@ onReady(async () => {
   max-height: 72vh; overflow-y: auto;
 }
 .sheet-title { font-size: 32rpx; font-weight: 700; color: #2b2b2e; margin-bottom: 16rpx; }
-.sheet-desc { font-size: 27rpx; color: #3a3a38; line-height: 1.8; }
-.sheet-sub { font-size: 24rpx; color: #7a7970; margin: 22rpx 0 12rpx; }
+.sheet-desc { font-size: 26rpx; color: #3a3a38; line-height: 1.8; }
+.sheet-sub { font-size: 24rpx; color: #6b6a6a; margin: 22rpx 0 12rpx; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .chip {
   font-size: 24rpx; color: #2e5c45; background: #fff;
-  border: 2rpx solid rgba(46,92,69,0.2); border-radius: 30rpx; padding: 8rpx 18rpx;
+  border: 2rpx solid rgba(46,92,69,0.2); border-radius: 24rpx; padding: 8rpx 18rpx;
 }
 .sheet-close {
   margin-top: 28rpx; width: 100%; font-size: 30rpx; font-weight: 600;
@@ -1820,12 +1820,12 @@ onReady(async () => {
 }
 .sheet-close::after { border: none; }
 .dim-row { display: flex; gap: 16rpx; padding: 14rpx 0; border-bottom: 2rpx solid rgba(0,0,0,0.05); }
-.dim-name { font-size: 27rpx; font-weight: 700; color: #2e5c45; width: 130rpx; flex-shrink: 0; }
-.dim-text { font-size: 25rpx; color: #3a3a38; line-height: 1.6; flex: 1; }
+.dim-name { font-size: 26rpx; font-weight: 700; color: #2e5c45; width: 130rpx; flex-shrink: 0; }
+.dim-text { font-size: 24rpx; color: #3a3a38; line-height: 1.6; flex: 1; }
 
 /* 香名旁的「帮我起名」 */
 .name-suggest {
-  font-size: 24rpx; color: #a97826; font-weight: 600; flex-shrink: 0;
+  font-size: 24rpx; color: #8a5f18; font-weight: 600; flex-shrink: 0;
   border: 2rpx solid rgba(169,120,38,0.4); border-radius: 24rpx; padding: 6rpx 16rpx;
 }
 .name-suggest:active { background: #f3ead8; }
@@ -1834,31 +1834,31 @@ onReady(async () => {
 .blend-tools { display: flex; gap: 12rpx; }
 .tool-btn {
   font-size: 22rpx; color: #2e5c45; font-weight: 600;
-  border: 2rpx solid rgba(46,92,69,0.3); border-radius: 20rpx; padding: 4rpx 16rpx;
+  border: 2rpx solid rgba(46,92,69,0.3); border-radius: 16rpx; padding: 4rpx 16rpx;
 }
 .tool-btn:active { background: rgba(46,92,69,0.08); }
 /* 「摇一瓶」是生成动作，不是编辑动作，用金色和「撤销/重置」区分开 */
 .tool-btn-cta {
-  color: #a97826; border-color: rgba(169,120,38,0.45);
+  color: #8a5f18; border-color: rgba(169,120,38,0.45);
 }
 .tool-btn-cta:active { background: rgba(169,120,38,0.1); }
 
 /* 一键气味模板 */
 .tpl-tip {
-  font-size: 22rpx; color: #7a7970; line-height: 1.5; margin-bottom: 10rpx;
+  font-size: 22rpx; color: #6b6a6a; line-height: 1.5; margin-bottom: 10rpx;
   text-align: center;
 }
 .tpl-row { display: flex; gap: 14rpx; margin-bottom: 12rpx; }
 .tpl-btn {
   flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4rpx;
   background: #fff; border: 2rpx solid rgba(46,92,69,0.16);
-  border-radius: 14rpx; padding: 16rpx 6rpx;
+  border-radius: 16rpx; padding: 16rpx 6rpx;
 }
 .tpl-btn:active { background: rgba(46,92,69,0.06); }
 .tpl-label { font-size: 22rpx; color: #2b2b2e; font-family: inherit; }
 
 /* 归一化解释 */
-.normalize-hint { font-size: 21rpx; color: #7a7970; margin-bottom: 12rpx; }
+.normalize-hint { font-size: 20rpx; color: #6b6a6a; margin-bottom: 12rpx; }
 
 /* 靠近名香提示 / 复刻名香彩蛋横幅：已合并进常驻状态行 .panel-status（防抖动） */
 

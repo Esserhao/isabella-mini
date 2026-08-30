@@ -285,7 +285,7 @@ watch([() => tut.active, () => tut.index], () => { tryQuery() })
   pointer-events: none;
   opacity: 0;
   background: #f6f3ea;
-  border-radius: 20rpx;
+  border-radius: 16rpx;
   padding: 32rpx 30rpx 26rpx;
   box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.4);
   box-sizing: border-box;
@@ -296,8 +296,8 @@ watch([() => tut.active, () => tut.index], () => { tryQuery() })
 }
 .coach-card-head { display: flex; align-items: center; gap: 14rpx; margin-bottom: 14rpx; }
 .coach-no {
-  font-size: 22rpx; color: #fff; background: #a97826;
-  border-radius: 20rpx; padding: 2rpx 14rpx; flex-shrink: 0;
+  font-size: 22rpx; color: #fff; background: #8a5f18;
+  border-radius: 16rpx; padding: 2rpx 14rpx; flex-shrink: 0;
 }
 .coach-card-title {
   font-size: 32rpx; font-weight: 700; color: #2e5c45;
@@ -308,16 +308,16 @@ watch([() => tut.active, () => tut.index], () => { tryQuery() })
 }
 .coach-detail {
   display: inline-block; margin-top: 16rpx;
-  font-size: 24rpx; color: #a97826; font-weight: 600;
+  font-size: 24rpx; color: #8a5f18; font-weight: 600;
 }
 .coach-actions {
   display: flex; align-items: center; justify-content: space-between;
   margin-top: 22rpx;
 }
-.coach-skip { font-size: 24rpx; color: #7a7970; }
+.coach-skip { font-size: 24rpx; color: #6b6a6a; }
 .coach-nav { display: flex; gap: 14rpx; }
 .coach-btn {
-  font-size: 26rpx; border-radius: 14rpx; padding: 14rpx 28rpx; margin: 0;
+  font-size: 26rpx; border-radius: 16rpx; padding: 14rpx 28rpx; margin: 0;
   line-height: 1.3; background: #2e5c45; color: #fff;
 }
 .coach-btn::after { border: none; }

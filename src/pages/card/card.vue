@@ -520,7 +520,7 @@ onShareTimeline(() => {
   box-sizing: border-box;
 }
 .cp-head { display: flex; flex-direction: column; align-items: center; margin-bottom: 22rpx; }
-.cp-no { font-size: 21rpx; color: #a97826; letter-spacing: 3rpx; }
+.cp-no { font-size: 20rpx; color: #8a5f18; letter-spacing: 3rpx; }
 .cp-name { font-size: 38rpx; font-weight: 700; color: #2e5c45; margin-top: 8rpx; letter-spacing: 2rpx; }
 
 /* 稀有度徽章 + 层级称号 */
@@ -529,15 +529,15 @@ onShareTimeline(() => {
   display: flex; align-items: center; gap: 8rpx;
 }
 .cp-badge-text {
-  font-size: 22rpx; color: #a97826; font-weight: 600;
+  font-size: 22rpx; color: #8a5f18; font-weight: 600;
   letter-spacing: 2rpx;
 }
 .cp-badge-sep {
-  font-size: 22rpx; color: #a97826; opacity: 0.5;
+  font-size: 22rpx; color: #8a5f18; opacity: 0.5;
 }
 .cp-rarity-desc {
   margin-top: 6rpx;
-  font-size: 21rpx; color: #6b6a6a; line-height: 1.5;
+  font-size: 20rpx; color: #6b6a6a; line-height: 1.5;
   text-align: center;
 }
 
@@ -555,13 +555,13 @@ onShareTimeline(() => {
 
 .cp-btn-row { display: flex; gap: 16rpx; margin-top: 30rpx; }
 .cp-btn {
-  flex: 1; font-size: 26rpx; border-radius: 14rpx; padding: 18rpx 0; margin: 0; line-height: 1.4;
+  flex: 1; font-size: 26rpx; border-radius: 16rpx; padding: 18rpx 0; margin: 0; line-height: 1.4;
 }
 .cp-btn::after { border: none; }
-.cp-btn.fav { background: #fff; color: #a97826; border: 2rpx solid rgba(169,120,38,0.45); }
-.cp-btn.fav.on { background: #a97826; color: #fff; border-color: #a97826; }
+.cp-btn.fav { background: #fff; color: #8a5f18; border: 2rpx solid rgba(169,120,38,0.45); }
+.cp-btn.fav.on { background: #8a5f18; color: #fff; border-color: #8a5f18; }
 .cp-btn.primary { background: #2e5c45; color: #fff; }
-.cp-btn.gold { background: #a97826; color: #fff; }
+.cp-btn.gold { background: #8a5f18; color: #fff; }
 
 /* 对决条：好友从「发起对决」分享进来时的应战入口 */
 .duel-banner {
@@ -572,13 +572,13 @@ onShareTimeline(() => {
   border-radius: 16rpx; padding: 20rpx 24rpx;
   display: flex; flex-direction: column; gap: 8rpx;
 }
-.duel-line { font-size: 25rpx; color: #3a3a38; line-height: 1.5; }
+.duel-line { font-size: 24rpx; color: #3a3a38; line-height: 1.5; }
 .duel-name { font-weight: 700; color: #2e5c45; }
-.duel-score { font-size: 40rpx; font-weight: 700; color: #a97826; }
-.duel-unit { font-size: 22rpx; font-weight: 400; color: #7a7970; }
+.duel-score { font-size: 40rpx; font-weight: 700; color: #8a5f18; }
+.duel-unit { font-size: 22rpx; font-weight: 400; color: #6b6a6a; }
 .cp-duel-accept {
-  margin: 0; font-size: 27rpx; font-weight: 600; color: #fff;
-  background: #a97826; border-radius: 14rpx; padding: 18rpx 0; line-height: 1.4;
+  margin: 0; font-size: 26rpx; font-weight: 600; color: #fff;
+  background: #8a5f18; border-radius: 16rpx; padding: 18rpx 0; line-height: 1.4;
 }
 .cp-duel-accept::after { border: none; }
 .cp-duel-accept:active { background: #8f651c; }
@@ -586,9 +586,9 @@ onShareTimeline(() => {
 /* 发起对决：挑战完成的卡独有，金色次级按钮（open-type=share 走对决分支） */
 .cp-duel-btn {
   margin-top: 16rpx; width: 100%; box-sizing: border-box;
-  font-size: 26rpx; font-weight: 600; color: #a97826;
+  font-size: 26rpx; font-weight: 600; color: #8a5f18;
   background: rgba(169,120,38,0.08);
-  border: 2rpx solid rgba(169,120,38,0.45); border-radius: 14rpx;
+  border: 2rpx solid rgba(169,120,38,0.45); border-radius: 16rpx;
   padding: 18rpx 0; line-height: 1.4; letter-spacing: 1rpx;
 }
 .cp-duel-btn::after { border: none; }
@@ -598,7 +598,7 @@ onShareTimeline(() => {
 .cp-blend {
   margin-top: 20rpx; width: 100%; box-sizing: border-box;
   font-size: 26rpx; color: #2e5c45; background: rgba(46,92,69,0.08);
-  border: 2rpx solid rgba(46,92,69,0.35); border-radius: 14rpx;
+  border: 2rpx solid rgba(46,92,69,0.35); border-radius: 16rpx;
   padding: 18rpx 0; line-height: 1.4; letter-spacing: 2rpx;
 }
 .cp-blend::after { border: none; }

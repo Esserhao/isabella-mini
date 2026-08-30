@@ -221,7 +221,7 @@ onShow(() => {
 }
 .stat { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4rpx; }
 .stat-n { font-size: 34rpx; font-weight: 700; color: #2e5c45; }
-.stat-l { font-size: 20rpx; color: #7a7970; }
+.stat-l { font-size: 20rpx; color: #6b6a6a; }
 .streak-stat .stat-n { color: #c45c5c; }
 
 /* 每日挑战（浅色卡片，与stats区分） */
@@ -229,12 +229,12 @@ onShow(() => {
   display: flex; align-items: center; gap: 18rpx;
   background: linear-gradient(135deg, #f6f3ea 0%, #ece7d8 100%);
   border: 2rpx solid #2e5c45;
-  border-radius: 18rpx; padding: 24rpx; margin-bottom: 24rpx;
+  border-radius: 16rpx; padding: 24rpx; margin-bottom: 24rpx;
 }
 .ch-body { flex: 1; min-width: 0; }
-.ch-tag { font-size: 22rpx; color: #a97826; letter-spacing: 2rpx; }
+.ch-tag { font-size: 22rpx; color: #8a5f18; letter-spacing: 2rpx; }
 .ch-theme { font-size: 32rpx; font-weight: 700; color: #2e5c45; margin: 6rpx 0; }
-.ch-hint { font-size: 23rpx; color: #6b6a6a; line-height: 1.5; }
+.ch-hint { font-size: 22rpx; color: #6b6a6a; line-height: 1.5; }
 .ch-btn {
   flex-shrink: 0; font-size: 26rpx; color: #fff; background: #2e5c45;
   border-radius: 12rpx; padding: 14rpx 30rpx; margin: 0;
@@ -253,14 +253,14 @@ onShow(() => {
   flex-shrink: 0; width: 64rpx; height: 64rpx; border-radius: 50%;
   background: #fff; border: 2rpx solid rgba(169,120,38,0.30);
   display: flex; align-items: center; justify-content: center;
-  font-size: 36rpx; color: #a97826;
+  font-size: 36rpx; color: #8a5f18;
 }
 .fav-icon { color: #c45c5c; }
 .hist-icon { color: #2e5c45; font-size: 32rpx; }
 .entry-body { flex: 1; min-width: 0; }
-.entry-title { font-size: 27rpx; font-weight: 700; color: #2b2b2e; }
+.entry-title { font-size: 26rpx; font-weight: 700; color: #2b2b2e; }
 .entry-sub {
-  font-size: 20rpx; color: #7a7970; margin-top: 4rpx;
+  font-size: 20rpx; color: #6b6a6a; margin-top: 4rpx;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .entry-arrow { flex-shrink: 0; font-size: 36rpx; color: #b0ae9f; line-height: 1; }
@@ -268,7 +268,7 @@ onShow(() => {
 /* 留言建议 / 联系我 菜单分组 */
 .menu-group { margin-top: 8rpx; }
 .menu-label {
-  font-size: 22rpx; color: #7a7970; letter-spacing: 2rpx;
+  font-size: 22rpx; color: #6b6a6a; letter-spacing: 2rpx;
   margin-bottom: 12rpx; padding-left: 4rpx;
 }
 .menu {
@@ -282,7 +282,7 @@ onShow(() => {
 .menu-item + .menu-item { border-top: 2rpx solid rgba(26,26,30,0.06); }
 .menu-left { display: flex; align-items: center; gap: 18rpx; min-width: 0; }
 .menu-icon { font-size: 34rpx; }
-.egg-icon { color: #a97826; }
+.egg-icon { color: #8a5f18; }
 .menu-title { font-size: 28rpx; font-weight: 600; color: #2b2b2e; }
-.menu-sub { font-size: 21rpx; color: #7a7970; margin-top: 4rpx; }
+.menu-sub { font-size: 20rpx; color: #6b6a6a; margin-top: 4rpx; }
 </style>

@@ -132,14 +132,14 @@ function next() {
   border-bottom: 2rpx solid rgba(46,92,69,0.15);
   white-space: nowrap;
 }
-.toc-count { color: #a97826; margin-left: 6rpx; }
+.toc-count { color: #8a5f18; margin-left: 6rpx; }
 .toc-list { flex: 1; min-height: 0; padding-top: 14rpx; box-sizing: border-box; }
 .toc-item {
-  font-size: 23rpx; color: #4a4a48; line-height: 1.5;
+  font-size: 22rpx; color: #4a4a48; line-height: 1.5;
   padding: 18rpx 22rpx;
   margin: 0 14rpx 14rpx;
   background: rgba(255,255,255,0.45);
-  border-radius: 10rpx;
+  border-radius: 8rpx;
   position: relative;
   overflow: hidden;
   display: -webkit-box;
@@ -152,7 +152,7 @@ function next() {
   content: ''; position: absolute; left: 0; top: 50%;
   transform: translateY(-50%);
   width: 6rpx; height: 40rpx;
-  background: #a97826; border-radius: 3rpx;
+  background: #8a5f18; border-radius: 3rpx;
 }
 
 /* 折叠/展开箭头（常驻侧边栏右缘，半透明但清晰可见） */
@@ -176,7 +176,7 @@ function next() {
 }
 .tb-btn {
   width: 56rpx; height: 56rpx; line-height: 56rpx; padding: 0; margin: 0;
-  background: #fff; color: #2e5c45; border-radius: 10rpx; font-size: 32rpx;
+  background: #fff; color: #2e5c45; border-radius: 8rpx; font-size: 32rpx;
 }
 .tb-btn::after { border: none; }
 .tb-ind { font-size: 24rpx; color: #6b6a6a; }
@@ -196,7 +196,7 @@ function next() {
   padding-top: 60rpx;
 }
 .cover-eyebrow {
-  font-size: 22rpx; color: #a97826; letter-spacing: 3rpx;
+  font-size: 22rpx; color: #8a5f18; letter-spacing: 3rpx;
   text-transform: uppercase; margin-bottom: 24rpx;
 }
 .cover-title {
@@ -207,13 +207,13 @@ function next() {
   margin-top: 28rpx; font-size: 32rpx; color: #6b6a6a;
   line-height: 1.7;
 }
-.cover-meta { margin-top: 28rpx; font-size: 24rpx; color: #7a7970; }
-.cover-rule { width: 96rpx; height: 4rpx; background: #a97826; border-radius: 2rpx; margin-top: 36rpx; }
+.cover-meta { margin-top: 28rpx; font-size: 24rpx; color: #6b6a6a; }
+.cover-rule { width: 96rpx; height: 4rpx; background: #8a5f18; border-radius: 4rpx; margin-top: 36rpx; }
 .cover-start {
   margin-top: 44rpx;
   display: flex; align-items: center; gap: 14rpx;
   background: #2e5c45; color: #fff;
-  font-size: 30rpx; padding: 22rpx 52rpx; border-radius: 14rpx;
+  font-size: 30rpx; padding: 22rpx 52rpx; border-radius: 16rpx;
   letter-spacing: 2rpx;
 }
 .cover-arrow { font-size: 32rpx; line-height: 1; }
@@ -228,15 +228,15 @@ function next() {
 
 .note-head { margin-bottom: 40rpx; }
 .note-title { font-size: 38rpx; font-weight: 700; color: #2b2b2e; line-height: 1.5; }
-.note-meta { font-size: 24rpx; color: #7a7970; margin-top: 14rpx; }
-.note-rule { width: 96rpx; height: 4rpx; background: #a97826; border-radius: 2rpx; margin-top: 30rpx; }
+.note-meta { font-size: 24rpx; color: #6b6a6a; margin-top: 14rpx; }
+.note-rule { width: 96rpx; height: 4rpx; background: #8a5f18; border-radius: 4rpx; margin-top: 30rpx; }
 .note-section { margin-bottom: 48rpx; }
-.sec-head { font-size: 29rpx; font-weight: 600; color: #2e5c45; margin-bottom: 12rpx; letter-spacing: 1rpx; }
-.sec-text { font-size: 27rpx; color: #3a3a38; line-height: 1.9; letter-spacing: 0.5rpx; }
+.sec-head { font-size: 28rpx; font-weight: 600; color: #2e5c45; margin-bottom: 12rpx; letter-spacing: 1rpx; }
+.sec-text { font-size: 26rpx; color: #3a3a38; line-height: 1.9; letter-spacing: 0.5rpx; }
 
-.note-pyramid { margin-top: 20rpx; background: #fff; border-radius: 14rpx; padding: 26rpx 30rpx; }
+.note-pyramid { margin-top: 20rpx; background: #fff; border-radius: 16rpx; padding: 26rpx 30rpx; }
 .pyr-row { display: flex; gap: 18rpx; padding: 10rpx 0; align-items: baseline; }
-.pyr-label { font-size: 24rpx; color: #a97826; font-weight: 600; width: 70rpx; flex-shrink: 0; }
-.pyr-val { font-size: 25rpx; color: #3a3a38; line-height: 1.6; }
+.pyr-label { font-size: 24rpx; color: #8a5f18; font-weight: 600; width: 70rpx; flex-shrink: 0; }
+.pyr-val { font-size: 24rpx; color: #3a3a38; line-height: 1.6; }
 
 </style>

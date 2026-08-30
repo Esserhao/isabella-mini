@@ -80,11 +80,11 @@ function redoSurvey() {
 }
 .tut-head { margin-bottom: 36rpx; }
 .tut-title { font-size: 42rpx; font-weight: 700; color: #2e5c45; display: block; }
-.tut-sub { font-size: 24rpx; color: #7a7970; margin-top: 8rpx; display: block; }
+.tut-sub { font-size: 24rpx; color: #6b6a6a; margin-top: 8rpx; display: block; }
 
 .tut-step {
   display: flex; gap: 22rpx; background: #f6f3ea;
-  border-radius: 18rpx; padding: 28rpx 26rpx; margin-bottom: 18rpx;
+  border-radius: 16rpx; padding: 28rpx 26rpx; margin-bottom: 18rpx;
 }
 .tut-no {
   width: 48rpx; height: 48rpx; border-radius: 50%;
@@ -93,15 +93,15 @@ function redoSurvey() {
 }
 .tut-body { flex: 1; }
 .tut-step-title { font-size: 30rpx; font-weight: 700; color: #2b2b2e; display: block; margin-bottom: 8rpx; }
-.tut-step-text { font-size: 25rpx; color: #3a3a38; line-height: 1.8; }
+.tut-step-text { font-size: 24rpx; color: #3a3a38; line-height: 1.8; }
 
 .tut-tip {
   margin-top: 14rpx; padding: 12rpx 16rpx;
-  background: rgba(46, 92, 69, 0.06); border-radius: 10rpx;
+  background: rgba(46, 92, 69, 0.06); border-radius: 8rpx;
   border-left: 6rpx solid #2e5c45;
 }
-.tut-tip-label { font-size: 21rpx; color: #2e5c45; font-weight: 700; display: block; margin-bottom: 4rpx; }
-.tut-tip-text { font-size: 23rpx; color: #6b6a6a; line-height: 1.6; }
+.tut-tip-label { font-size: 20rpx; color: #2e5c45; font-weight: 700; display: block; margin-bottom: 4rpx; }
+.tut-tip-text { font-size: 22rpx; color: #6b6a6a; line-height: 1.6; }
 
 .tut-cta-group { display: flex; gap: 16rpx; margin-top: 24rpx; }
 .tut-cta-group .tut-btn { flex: 1; margin-top: 0; }

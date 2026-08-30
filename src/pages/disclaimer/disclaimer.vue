@@ -59,7 +59,7 @@ function goContact() {
 .card {
   background: #fbf8f0;
   border: 2rpx solid rgba(169,120,38,0.25);
-  border-radius: 18rpx; padding: 40rpx 32rpx;
+  border-radius: 16rpx; padding: 40rpx 32rpx;
   box-shadow: 0 10rpx 30rpx rgba(46,92,69,0.08);
 }
 
@@ -84,11 +84,11 @@ function goContact() {
   border-radius: 12rpx; padding: 20rpx 24rpx;
 }
 .b-email:active { background: #f3ead8; }
-.b-email-id { font-size: 26rpx; font-weight: 700; color: #a97826; }
-.b-email-go { font-size: 23rpx; color: #7a7970; flex-shrink: 0; }
+.b-email-id { font-size: 26rpx; font-weight: 700; color: #8a5f18; }
+.b-email-go { font-size: 22rpx; color: #6b6a6a; flex-shrink: 0; }
 
 .updated {
-  font-size: 20rpx; color: #7a7970; text-align: center;
+  font-size: 20rpx; color: #6b6a6a; text-align: center;
   margin-top: 32rpx; padding-top: 20rpx;
   border-top: 2rpx solid rgba(26,26,30,0.06);
 }
