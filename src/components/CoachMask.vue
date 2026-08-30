@@ -38,6 +38,7 @@
 import { onMounted, watch, computed, ref, reactive, nextTick } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { tut, TUTORIAL_STEPS, nextStep, prevStep, finishTour, goToPage, stepTotal } from '@/utils/tutorial.js'
+import { placeCard, paddedHole, desiredScrollTop } from '@/utils/coach-layout.js'
 
 const props = defineProps({
   page: { type: String, required: true }
@@ -85,20 +86,14 @@ function measureCard() {
   })
 }
 watch([cardShown, () => tut.index], measureCard)
-// 亮框外扩：目标贴着视口边缘时也看得全白边，聚光灯不会「切边」
-const RING_PAD = 6
 
-// 挖洞区域：boundingClientRect 给的是视口坐标，遮罩/亮框都是 position:fixed，可以直接用
-const hole = computed(() => {
-  const r = rect.value
-  if (!r) return null
-  return {
-    top: Math.max(0, r.top - RING_PAD),
-    left: Math.max(0, r.left - RING_PAD),
-    width: r.width + RING_PAD * 2,
-    height: r.height + RING_PAD * 2
-  }
-})
+// 卡片高度：量到实测值就用实测值，否则用兜底估算
+function cardHeight() {
+  return cardH.value || (isLast.value ? CARD_H_FALLBACK + 30 : CARD_H_FALLBACK)
+}
+
+// 几何计算放在 coach-layout.js 里（纯函数），便于脚本在没有 DOM 的环境下验证
+const hole = computed(() => paddedHole(rect.value))
 
 const dimStyle = computed(() => {
   const h = hole.value
@@ -108,24 +103,17 @@ const dimStyle = computed(() => {
 const ringStyle = dimStyle
 const cardStyle = computed(() => {
   const wpx = rpxToPx(CARD_W_RPX)
-  // 未量到时用兜底；最后一步多一行「查看详细图文指南」，兜底也相应加高
-  const ch = cardH.value || (isLast.value ? CARD_H_FALLBACK + 30 : CARD_H_FALLBACK)
-  let top = 16
-  let left = (screen.w - wpx) / 2
-  if (rect.value) {
-    const r = rect.value
-    // 下方放得下就放下方（紧贴目标），否则放上方；都放不下就贴底
-    const below = r.top + r.height + 18
-    const above = r.top - ch - 18
-    if (below + ch <= screen.h) top = below
-    else if (above > 8) top = above
-    else top = screen.h - ch - 12
-    left = r.left + r.width / 2 - wpx / 2
-    left = Math.max(12, Math.min(left, screen.w - wpx - 12))
+  if (!rect.value) {
+    return `top:16px;left:${Math.round((screen.w - wpx) / 2)}px;width:${wpx}px;`
   }
-  // 夹紧：估算高度和真实高度有出入时，也别让卡片跑出屏幕
-  top = Math.max(8, Math.min(top, Math.max(8, screen.h - ch - 8)))
-  return `top:${top}px;left:${left}px;width:${wpx}px;`
+  const plan = placeCard({
+    screenW: screen.w,
+    screenH: screen.h,
+    rect: rect.value,
+    cardW: wpx,
+    cardH: cardHeight()
+  })
+  return `top:${plan.top}px;left:${plan.left}px;width:${wpx}px;`
 })
 
 // 目标始终量不到时给个兜底框（屏幕中段）。宁可高亮位置不精确，
@@ -177,16 +165,18 @@ function scrollIntoView(s, done) {
       const r = res && res[1]
       // 量不到（还没渲染 / 被 v-show 藏了）就交给 measure 去重试
       if (!r || !r.width) { setTimeout(done, 60); return }
-      const tooHigh = r.top < 56
-      const tooLow = r.top + Math.min(r.height, 220) > screen.h - 48
-      if (!tooHigh && !tooLow) { setTimeout(done, 60); return }
-      // 挪到视口 28% 高度处：上方留得下注解卡片，下方也不至于顶到边
-      const wantTop = Math.round(screen.h * 0.28)
-      const delta = r.top - wantTop
+      // 先用当前位置试摆一次：只有「卡片会压住目标」时才滚。
+      // 以前是只要目标贴顶/沉底就滚，首页第 1 步→第 2 步这种相邻目标会白跳一下。
+      const want = desiredScrollTop({
+        screenH: screen.h,
+        rectTop: r.top,
+        rectHeight: r.height,
+        scrollTop: (so && typeof so.scrollTop === 'number') ? so.scrollTop : 0,
+        cardH: cardHeight()
+      })
+      if (want === null) { setTimeout(done, 60); return }
       // 图鉴页是 scroll-view，pageScrollTo 对它会静默失败——不致命，量得到就行
-      if (so && typeof so.scrollTop === 'number' && Math.abs(delta) > 8) {
-        try { uni.pageScrollTo({ scrollTop: Math.max(0, so.scrollTop + delta), duration: 0 }) } catch (e) { /* 忽略 */ }
-      }
+      try { uni.pageScrollTo({ scrollTop: want, duration: 0 }) } catch (e) { /* 忽略 */ }
       setTimeout(done, 160)
     })
 }

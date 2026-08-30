@@ -18,6 +18,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { TUTORIAL_STEPS } from '../src/utils/tutorial.js'
 import { RADAR_LABELS, RADAR_DIM_DESC } from '../src/utils/data.js'
+import { placeCard, desiredScrollTop, canFitCleanly, CARD_EDGE } from '../src/utils/coach-layout.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8')
@@ -128,6 +129,78 @@ RADAR_LABELS.forEach((lab) => {
 Object.keys(RADAR_DIM_DESC).forEach((k) => {
   if (!RADAR_LABELS.includes(k)) warnings.push(`RADAR_DIM_DESC 里有 RADAR_LABELS 用不到的键：${k}`)
 })
+
+// ---- 5：卡片摆放几何 ----
+// 定位偏移只能上真机用眼睛看，这里把各种机型尺寸 × 目标形状先算一遍。
+// 假设：页面能滚到任意位置（首页/工坊都是长页面，成立；图鉴是 scroll-view，滚不动）。
+const DEVICES = [
+  { name: 'iPhone SE 一代', w: 320, h: 568 },
+  { name: 'iPhone 8 / SE2', w: 375, h: 667 },
+  { name: 'iPhone 14 Pro Max', w: 430, h: 932 },
+  { name: 'iPad mini 竖屏', w: 744, h: 1133 }
+]
+const TARGETS = [
+  { name: '贴顶按钮', top: 90, height: 44 },
+  { name: '视口中部按钮', top: 300, height: 44 },
+  { name: '沉底按钮', top: 560, height: 44 },
+  { name: '首屏之下的滑块区', top: 760, height: 260 },
+  { name: '工坊雷达面板（很高）', top: 160, height: 380 }
+]
+const CARD_HEIGHTS = [145, 200, 260]   // 实测卡片约 145px，兜底 170，末步再多一行
+
+// 目标比屏幕还高时，滚动后也不可能完整露出来，属物理限制
+function canShowFully(screenH, rectHeight) {
+  return rectHeight + CARD_EDGE * 2 <= screenH
+}
+
+let geoCases = 0
+let geoSkipped = 0   // 摆在视口外、但脚本认为不需要滚的情况（有问题的话会报出来）
+for (const d of DEVICES) {
+  for (const t of TARGETS) {
+    for (const ch of CARD_HEIGHTS) {
+      geoCases++
+      const cardW = Math.round(d.w * 600 / 750)   // 卡片宽 600rpx
+      const tag = `${d.name} / ${t.name} / 卡片 ${ch}px`
+
+      if (cardW > d.w - CARD_EDGE * 2) { problems.push(`几何：${tag} —— 卡片宽度超出屏幕`); continue }
+
+      // 先按当前位置试摆，再决定要不要滚；滚了就按滚后的坐标重摆
+      const want = desiredScrollTop({
+        screenH: d.h, rectTop: t.top, rectHeight: t.height, scrollTop: 0, cardH: ch
+      })
+      const newTop = want === null ? t.top : t.top - want
+      const after = placeCard({
+        screenW: d.w, screenH: d.h, cardW, cardH: ch,
+        rect: { top: newTop, left: 20, width: d.w - 40, height: t.height }
+      })
+
+      if (after.top < 0 || after.top + ch > d.h) {
+        problems.push(`几何：${tag} —— 卡片跑出屏幕（top=${after.top}, 底=${after.top + ch}, 屏高=${d.h}）`)
+      }
+      if (after.left < 0 || after.left + cardW > d.w) {
+        problems.push(`几何：${tag} —— 卡片横向出界（left=${after.left}, 宽=${cardW}）`)
+      }
+
+      // 聚光灯照不到视口外。目标在首屏之下时必须滚进来 —— 少判这一条，
+      // 「只在不重叠时才不滚」的写法就会让长页面底部目标永远滚不动。
+      const fully = newTop >= 0 && newTop + t.height <= d.h
+      if (!fully) {
+        const msg = `几何：${tag} —— 滚动后目标仍未完整露出（top=${newTop}）`
+        if (canShowFully(d.h, t.height)) problems.push(msg)
+        else warnings.push(msg + ' —— 目标本身比视口还高，只能露出一部分')
+      }
+
+      if (after.overlaps) {
+        const msg = `几何：${tag} —— 卡片压住目标 ${after.overlapPx}px（top=${after.top}）`
+        // 屏幕实在塞不下（目标 + 间距 + 卡片 > 屏高）是物理限制，不是算法问题，
+        // 降级为提醒；塞得下还压住就是真 bug。
+        if (canFitCleanly(d.h, t.height, ch)) problems.push(msg)
+        else warnings.push(msg + ' —— 该屏高放不下，已取重叠最小的位置')
+      }
+      if (want === null && newTop + t.height > d.h) geoSkipped++
+    }
+  }
+}
 
 // ---- 报告 ----
 console.log(`========== 手把手教程自检（共 ${total} 步） ==========`)
