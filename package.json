@@ -2,6 +2,9 @@
   "name": "uni-preset-vue",
   "version": "0.0.0",
   "scripts": {
+    "audit": "node scripts/audit-card-layout.mjs && node scripts/audit-tutorial.mjs",
+    "audit:card": "node scripts/audit-card-layout.mjs",
+    "audit:tour": "node scripts/audit-tutorial.mjs",
     "dev:custom": "uni -p",
     "dev:h5": "uni",
     "dev:h5:ssr": "uni --ssr",

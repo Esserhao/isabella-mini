@@ -1,13 +1,19 @@
 <template>
-  <view v-if="show" class="coach-root">
-    <!-- 暗色遮罩：靠大范围 box-shadow 在目标处「挖洞」，其余压暗，形成明暗对比 -->
-    <view class="coach-dim" :style="dimStyle"></view>
-    <!-- 透明捕获层：吃掉所有点击，避免误触底层页面 -->
-    <view class="coach-capture" @tap="onCaptureTap"></view>
-    <!-- 目标亮边：白光描边，让高亮对象从暗背景里「跳」出来 -->
-    <view class="coach-ring" :style="ringStyle"></view>
-    <!-- 侧边注解卡片 -->
-    <view class="coach-card" :style="cardStyle">
+  <view v-if="cardShown" class="coach-root">
+    <!-- 遮罩 / 亮框必须等取到目标包围盒才画，否则会先在一个错误位置闪一下 -->
+    <template v-if="show">
+      <!-- 暗色遮罩：靠大范围 box-shadow 在目标处「挖洞」，其余压暗，形成明暗对比 -->
+      <view class="coach-dim" :style="dimStyle"></view>
+      <!-- 透明捕获层：吃掉所有点击，避免误触底层页面 -->
+      <view class="coach-capture" @tap="onCaptureTap"></view>
+      <!-- 目标亮边：白光描边，让高亮对象从暗背景里「跳」出来 -->
+      <view class="coach-ring" :style="ringStyle"></view>
+    </template>
+    <!-- 侧边注解卡片。
+         取位期间也保持渲染（透明、不挡点击）：先量到真实高度，再决定放上方还是下方。
+         以前靠 250px 的拍脑袋估算，实际卡片只有 145px 上下，
+         估算偏大会把本该放下方（紧贴目标）的卡片顶到上方去，中间空一大块。 -->
+    <view class="coach-card coach-annot" :class="{ 'is-ready': ready }" :style="cardStyle">
       <view class="coach-card-head">
         <text class="coach-no">{{ index1 }}/{{ total }}</text>
         <text class="coach-card-title">{{ step.title }}</text>
@@ -42,10 +48,12 @@ const total = stepTotal()
 const index1 = computed(() => tut.index + 1)
 const isLast = computed(() => tut.index === TUTORIAL_STEPS.length - 1)
 
+// 本页是否轮到：这决定注解卡片要不要渲染（取位期间也渲染，只是透明）
+const cardShown = computed(() => tut.active && !!step.value && step.value.page === props.page)
 // 真正显示：教程激活 + 当前步骤属于本页 + 已取到目标包围盒
 const rect = ref(null)
 const ready = ref(false)
-const show = computed(() => tut.active && step.value && step.value.page === props.page && ready.value)
+const show = computed(() => cardShown.value && ready.value)
 
 const screen = reactive({ w: 375, h: 667 })
 function measureScreen() {
@@ -59,11 +67,24 @@ function measureScreen() {
 // rpx→px：750rpx 约等于屏幕宽
 function rpxToPx(v) { return screen.w * (v / 750) }
 
-// 注解卡片尺寸（估算），用于决定放在目标上方还是下方。
-// 最后一步多一行「查看详细图文指南」，估算高度要跟着变，否则卡片会溢出屏幕底部。
 const CARD_W_RPX = 600
-const CARD_H_BASE = 250
-const cardH = computed(() => (isLast.value ? CARD_H_BASE + 46 : CARD_H_BASE))
+// 卡片高度的兜底估算：只在还没量到真实高度时用（首帧）。
+// 取「偏小」而不是「偏大」——偏大会让卡片被顶到目标上方、中间空一大块；
+// 偏小最坏只是贴底，下面还有夹紧兜着。最后一步多一行「查看详细图文指南」。
+const CARD_H_FALLBACK = 170
+// 量到的真实高度（px）。卡片在取位期间是渲染着的（透明），所以量得到。
+const cardH = ref(0)
+function measureCard() {
+  if (!cardShown.value) return
+  nextTick(() => {
+    // 注意不能只写 .coach-card：工坊页自己也有一张 .coach-card（首次进工坊的蒙层），
+    // select 取的是文档顺序里的第一个，会量错。coach-annot 是本组件独有的。
+    uni.createSelectorQuery().select('.coach-annot').boundingClientRect((r) => {
+      if (r && r.height) cardH.value = r.height
+    }).exec()
+  })
+}
+watch([cardShown, () => tut.index], measureCard)
 // 亮框外扩：目标贴着视口边缘时也看得全白边，聚光灯不会「切边」
 const RING_PAD = 6
 
@@ -87,7 +108,8 @@ const dimStyle = computed(() => {
 const ringStyle = dimStyle
 const cardStyle = computed(() => {
   const wpx = rpxToPx(CARD_W_RPX)
-  const ch = cardH.value
+  // 未量到时用兜底；最后一步多一行「查看详细图文指南」，兜底也相应加高
+  const ch = cardH.value || (isLast.value ? CARD_H_FALLBACK + 30 : CARD_H_FALLBACK)
   let top = 16
   let left = (screen.w - wpx) / 2
   if (rect.value) {
@@ -260,15 +282,21 @@ watch([() => tut.active, () => tut.index], () => { tryQuery() })
   border: 4rpx solid rgba(255, 255, 255, 0.95);
   box-shadow: 0 0 16rpx 4rpx rgba(255, 255, 255, 0.5);
 }
-/* 注解卡片 */
+/* 注解卡片。
+   取位期间（ready=false）保持渲染但透明：既能量到真实高度，又不会先闪在错误位置。 */
 .coach-card {
   position: fixed;
-  pointer-events: auto;
+  pointer-events: none;
+  opacity: 0;
   background: #f6f3ea;
   border-radius: 20rpx;
   padding: 32rpx 30rpx 26rpx;
   box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.4);
   box-sizing: border-box;
+}
+.coach-card.is-ready {
+  pointer-events: auto;
+  opacity: 1;
 }
 .coach-card-head { display: flex; align-items: center; gap: 14rpx; margin-bottom: 14rpx; }
 .coach-no {
