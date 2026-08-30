@@ -35,6 +35,14 @@ export function startTour() {
 export function finishTour() {
   tut.active = false
   try { uni.setStorageSync('gu_tour_done', 1) } catch (e) { /* 忽略 */ }
+  // 第 4/5 步在工坊，已经讲过雷达和滑块。若是在这两步完成或跳过的，
+  // 就别再让工坊弹「第一次来工坊？」把同样的内容重复一遍——
+  // 教程结束那一刻 tut.active 已置 false，下次进工坊 onShow 就会弹。
+  // 在首页/图鉴就早早退出的（index < 3）不算，那种情况工坊蒙层还有价值。
+  // 注意 tut.index 此时还没被重置，可以放心读。
+  if (tut.index >= 3) {
+    try { uni.setStorageSync('gu_lab_guided', 1) } catch (e) { /* 忽略 */ }
+  }
 }
 
 export function nextStep() {

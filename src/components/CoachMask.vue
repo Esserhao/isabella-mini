@@ -191,11 +191,17 @@ function scrollIntoView(s, done) {
     })
 }
 
+// 至少得有一部分落在视口里。量到了但整块在屏幕外（列表还没滚到位）时，
+// 聚光灯就照了个寂寞，不如重试等它滚过来。
+function inView(r) {
+  return r.top + r.height > 40 && r.top < screen.h - 40
+}
+
 function measure(s, attempt, token) {
   uni.createSelectorQuery().select(s.target).boundingClientRect((r) => {
     if (token !== queryToken) return
     // v-show 隐藏的元素会返回宽高为 0，不能只判 width
-    if (r && r.width > 0 && r.height > 0) {
+    if (r && r.width > 0 && r.height > 0 && inView(r)) {
       rect.value = r
       ready.value = true
       // 复测一次：图片加载完、或 canvas 隐藏引起的二次回流，会把目标再顶一下
@@ -214,7 +220,7 @@ function measure(s, attempt, token) {
 
 function correct(s, token) {
   uni.createSelectorQuery().select(s.target).boundingClientRect((r) => {
-    if (token !== queryToken || !r || !r.width) return
+    if (token !== queryToken || !r || !r.width || !inView(r)) return
     const old = rect.value
     if (!old || Math.abs(old.top - r.top) > 2 || Math.abs(old.left - r.left) > 2) rect.value = r
   }).exec()
