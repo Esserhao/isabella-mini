@@ -192,7 +192,7 @@
 import { ref, reactive, nextTick, computed, watch } from 'vue'
 import { onLoad, onShow, onReady, onUnload, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { ACCORDS, RADAR_LABELS, CORE_INGREDIENTS, galleryPerfumes, RADAR_DIM_DESC, SCENT_TEMPLATES } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, topAccordDesc, randomAccords, findExactMatch } from '@/utils/mix.js'
+import { computeRadarValues, generateFormula, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, topAccordDesc, randomAccords, findExactMatch, evenAccords } from '@/utils/mix.js'
 import { drawRadar, drawRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE } from '@/utils/canvas-draw.js'
 import { THEME } from '@/utils/theme.js'
 import { recordSeal } from '@/utils/streak.js'
@@ -305,7 +305,10 @@ function applyIncomingIfReady() {
   }
   if (incoming.challenge) {
     const c = incoming.challenge
-    applyRestore({ accords: c.target, name: '' })
+    // 起点是「平均基底」，不是目标本身。
+    // 以前把 c.target 铺进滑块，等于把答案抄上去：16 个主题进页面一律 95%，挑战送分。
+    // 目标只作为评分基准和雷达参考，用户从平均态往上调。
+    applyRestore({ accords: evenAccords(), name: '' })
     challengeTarget.value = c.target
     challengeInfo.value = { theme: c.theme, hint: c.hint }
     incoming.challenge = null

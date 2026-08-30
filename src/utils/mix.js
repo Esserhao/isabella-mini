@@ -261,6 +261,19 @@ export function normalizeAccords(rawObj) {
     return out;
 }
 
+// 平均基底：12 个香调各占一份，用同一套最大余数法，保证整数且总和恰好 100。
+//
+// 每日挑战进工坊时用它当起点。以前是把挑战目标本身铺进滑块
+// （applyRestore({ accords: c.target })），等于把答案抄上去——
+// 实测 16 个主题进页面一律 95% 相似度，挑战直接送分。
+// 平均基底是「什么都没调」的中性态：每项约 8%，拖哪一味都是从这里往上加，
+// 其余按现有规则等比让位，不会像全 0 那样一拖就给另外 11 味各填 4~5。
+export function evenAccords() {
+    const raw = {};
+    ACCORDS.forEach(a => { raw[a.key] = 1; });
+    return normalizeAccords(raw);
+}
+
 // 纯随机配比：每一瓶都是现摇的，不从图鉴里挑。
 //
 // 别写成「12 个键各随机 0-100 再归一化」——那样每项的数学期望都是 8.3，

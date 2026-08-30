@@ -14,8 +14,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { galleryPerfumes, ACCORDS } from '../src/utils/data.js'
-import { findExactMatch, randomAccords } from '../src/utils/mix.js'
+import { galleryPerfumes, ACCORDS, DAILY_CHALLENGES } from '../src/utils/data.js'
+import { findExactMatch, randomAccords, evenAccords, scoreDailyChallenge } from '../src/utils/mix.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const labSrc = fs.readFileSync(path.join(root, 'src/pages/lab/lab.vue'), 'utf8')
@@ -129,6 +129,31 @@ for (let i = 0; i < 200000; i++) {
   if (findExactMatch(randomAccords(), galleryPerfumes)) randomHit++
 }
 console.log(`  ${randomHit === 0 ? '✅' : '⚠️ '} 随机 20 万次撞上彩蛋 ${randomHit} 次（设计上应≈0，靠手调触发）`)
+
+// ---- 每日挑战的入场地基线 ----
+// 曾经把挑战目标本身铺进滑块（applyRestore({ accords: c.target })），
+// 等于把答案抄上去：16 个主题进页面一律 95%，挑战直接送分。
+// 起点改回平均基底后，起始分必须落在「还没到、但也不至于毫无关系」的区间。
+console.log('')
+const even = evenAccords()
+const evenSum = KEYS.reduce((s, k) => s + even[k], 0)
+const evenSpread = Math.max(...KEYS.map((k) => even[k])) - Math.min(...KEYS.map((k) => even[k]))
+const evenOK = evenSum === 100 && evenSpread <= 1
+console.log(`  ${evenOK ? '✅' : '❌'} 平均基底总和 ${evenSum}、极差 ${evenSpread}（应 100 / ≤1）`)
+if (!evenOK) problems.push(`平均基底不平均：总和 ${evenSum}，极差 ${evenSpread}`)
+
+let tooHigh = []
+let tooLow = []
+for (const c of DAILY_CHALLENGES) {
+  const s = scoreDailyChallenge(even, { target: c.target }).score
+  if (s >= 85) tooHigh.push(`${c.theme} ${s}%`)
+  if (s <= 10) tooLow.push(`${c.theme} ${s}%`)
+}
+const startOK = tooHigh.length === 0 && tooLow.length === 0
+const scores = DAILY_CHALLENGES.map((c) => scoreDailyChallenge(even, { target: c.target }).score)
+console.log(`  ${startOK ? '✅' : '❌'} ${DAILY_CHALLENGES.length} 个挑战主题，起始相似度 ${Math.min(...scores)}%~${Math.max(...scores)}%（应全部 <85 且 >10）`)
+if (tooHigh.length) problems.push(`这些主题一进工坊就满分（答案被抄进滑块了）：${tooHigh.join('、')}`)
+if (tooLow.length) problems.push(`这些主题起始分触底，提示会一直说「试试加重主导香调」：${tooLow.join('、')}`)
 
 console.log('')
 if (problems.length) {
