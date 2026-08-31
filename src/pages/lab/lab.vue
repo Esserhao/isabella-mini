@@ -1,5 +1,9 @@
 <template>
-  <view class="lab">
+  <view class="lab" :class="{ night: nightMode, dawn: dawnMode }">
+    <!-- 深夜夜调：22:00–次日 5:00 进店时铺一层烛光暖色蒙层 + 弹古先生夜话。
+         与「深夜调香师」封存彩蛋（0–5 点封存）是两回事：这是进店氛围，不是封存成就。 -->
+    <view v-if="nightMode" class="night-veil"></view>
+    <view v-if="dawnMode" class="dawn-veil"></view>
     <view class="lab-header">
       <text class="lab-title">工坊 · 调香台</text>
       <text class="lab-sub">拖动滑块配香气，像调奶茶一样简单</text>
@@ -232,6 +236,27 @@
       <canvas type="2d" id="shareTimelineCanvas" class="lab-share-canvas"></canvas>
     </view>
 
+    <!-- 深夜：首次深夜进店弹寄语气泡，点按关闭 -->
+    <view v-if="nightTip" class="night-tip" @tap="nightTip = false">
+      <text class="night-tip-name">夜话</text>
+      <text class="night-tip-quote">夜深了，慢慢调。这一瓶，只为你自己。</text>
+    </view>
+    <!-- 迎晨：首次清晨进店弹寄语气泡，点按关闭 -->
+    <view v-if="dawnTip" class="dawn-tip" @tap="dawnTip = false">
+      <text class="dawn-tip-name">晨语</text>
+      <text class="dawn-tip-quote">天刚亮你就来了。这一瓶，沾着晨光。</text>
+    </view>
+    <!-- 当午：首次正午进店弹寄语气泡，点按关闭 -->
+    <view v-if="noonTip" class="night-tip" @tap="noonTip = false">
+      <text class="night-tip-name">当午</text>
+      <text class="night-tip-quote">日头最盛的时辰走进来，香也跟着精神了几分。</text>
+    </view>
+    <!-- 向晚：首次黄昏进店弹寄语气泡，点按关闭 -->
+    <view v-if="twilightTip" class="night-tip" @tap="twilightTip = false">
+      <text class="night-tip-name">向晚</text>
+      <text class="night-tip-quote">天将暗未暗，这一瓶，就留给黄昏吧。</text>
+    </view>
+
     <!-- 手把手教程：暗色聚光灯，高亮工坊（最重点） -->
     <CoachMask page="lab" />
   </view>
@@ -265,6 +290,79 @@ let nameTouched = false  // 用户是否手动起名（未起名则封存时自�
 const originRef = ref('')
 // 高级区（单方香料）默认收起：首屏只暴露香调这一套滑块
 const advOpen = ref(false)
+// 深夜夜调：进店时若处于深夜时段，铺烛光蒙层并弹古先生夜话（仅首弹，避免每次切回都烦）
+const nightMode = ref(false)
+const nightTip = ref(false)
+let nightTipShown = false
+function checkNight() {
+  const h = new Date().getHours()
+  const isNight = h >= 22 || h < 5
+  nightMode.value = isNight
+  if (isNight && !nightTipShown) {
+    nightTipShown = true
+    nightTip.value = true
+    // 首次深夜进店记入「夜猫子」彩蛋（幂等，重复不计数）
+    achieveEgg('night_owl')
+    setTimeout(() => { nightTip.value = false }, 4500)
+  }
+}
+
+// 迎晨（5:00–8:00 进店）：与夜猫子成一对冷暖时段彩蛋。
+// 铺一层晨光薄雾 + 弹古先生晨语（仅首弹，避免每次切回都烦），并记入「迎晨」彩蛋。
+const dawnMode = ref(false)
+const dawnTip = ref(false)
+let dawnTipShown = false
+function checkDawn() {
+  const h = new Date().getHours()
+  const isDawn = h >= 5 && h < 8
+  dawnMode.value = isDawn
+  if (isDawn && !dawnTipShown) {
+    dawnTipShown = true
+    dawnTip.value = true
+    achieveEgg('dawn')
+    setTimeout(() => { dawnTip.value = false }, 4500)
+  }
+}
+
+// 当午（11:00–14:00 进店）：与夜话 / 晨语成一组时段寄语气泡，记入「当午」彩蛋。
+const noonTip = ref(false)
+let noonTipShown = false
+function checkNoon() {
+  const h = new Date().getHours()
+  if (h >= 11 && h < 14 && !noonTipShown) {
+    noonTipShown = true
+    noonTip.value = true
+    achieveEgg('noon')
+    setTimeout(() => { noonTip.value = false }, 4500)
+  }
+}
+
+// 向晚（17:00–19:00 进店）：黄昏寄语气泡，记入「向晚」彩蛋。
+const twilightTip = ref(false)
+let twilightTipShown = false
+function checkTwilight() {
+  const h = new Date().getHours()
+  if (h >= 17 && h < 19 && !twilightTipShown) {
+    twilightTipShown = true
+    twilightTip.value = true
+    achieveEgg('twilight')
+    setTimeout(() => { twilightTip.value = false }, 4500)
+  }
+}
+
+// 单日封存计数（「一日高产」彩蛋用）：按自然日重置，跨天自动从 1 重数。
+// 与 streak（连续天数）是两个维度——这里数的是「今天封了几瓶」，不是连续几天。
+function bumpTodaySeal() {
+  const d = new Date()
+  const pad = (x) => String(x).padStart(2, '0')
+  const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  try {
+    const rec = uni.getStorageSync('isabella_seal_today') || {}
+    const n = (rec.date === today ? (Number(rec.n) || 0) : 0) + 1
+    uni.setStorageSync('isabella_seal_today', { date: today, n })
+    return n
+  } catch (e) { return 1 }
+}
 
 // 起点是「一杯纯水」：12 个香调全 0，纯水占满 100%。
 //
@@ -1215,7 +1313,7 @@ async function triggerSeal() {
   }
 
   // 阶梯递进：封存数 +1，拿到当前层级（印章大小/角度/称号）
-  const { tier, leveledUp, unlock } = bumpSealCount()
+  const { count, tier, leveledUp, unlock } = bumpSealCount()
   // 同一次封存共用一个时间戳；提前到这里，让 drawCard 也能拿到真实封存时间
   // （否则旧卡片隔几天重开，卡面会印出重绘当天的日期，信息错误）。
   const sealTime = Date.now()
@@ -1224,6 +1322,61 @@ async function triggerSeal() {
   const streakNow = getStreak()
   if (sealHour < 5) sealEgg('midnight')
   if (streakNow >= 7) sealEgg('streak7')
+
+  // ---- 本轮新增的「封存时」彩蛋：全部靠用户亲手行为触发，复用 sealEgg（幂等、合并提示）----
+  // 纯水不计入香调，下列判断一律只看 12 个 ACCORDS 的非 0 项（sealVals 已排除纯水）。
+  // ① 一味成香：同一次进店恰好只留 1 个香调非 0（全 0 是「留白」，单列不重算）
+  let nzCount = 0
+  ACCORDS.forEach((a) => { if ((sealVals[a.key] || 0) > 0) nzCount++ })
+  if (nzCount === 1) sealEgg('single_note')
+  // ② 镜中配方：12 香调首尾对称（第 i 个 = 第 13−i 个）。全 0 虽对称但属留白，已排除。
+  if (!isPureWater) {
+    let sym = true
+    for (let i = 0; i < ACCORDS.length / 2; i++) {
+      if ((sealVals[ACCORDS[i].key] || 0) !== (sealVals[ACCORDS[ACCORDS.length - 1 - i].key] || 0)) { sym = false; break }
+    }
+    if (sym) sealEgg('mirror')
+  }
+  // ③ 初调 / ④ 百瓶记：累计封存数（bumpSealCount 已在本函数上方 +1）
+  if (count === 1) sealEgg('first_bottle')
+  if (count >= 100) sealEgg('centurion')
+  // ⑤ 一日高产：同一自然日封存满 5 瓶（bumpTodaySeal 跨天自动从 1 重数）
+  const todaySeals = bumpTodaySeal()
+  if (todaySeals >= 5) sealEgg('daily_rush')
+  // ⑥ 唱反调 / ⑦ 十二味巡礼：依赖历史记录里上一瓶与累计覆盖。
+  //    此处读的是「本次封存写入之前」的历史，historyList[0] 即刚封存前的上一瓶。
+  let historyList = []
+  try { const hl = uni.getStorageSync('isabella_history'); historyList = Array.isArray(hl) ? hl : [] } catch (e) { historyList = [] }
+  if (historyList.length) {
+    const prevAccords = historyList[0].accords || {}
+    let opp = true
+    for (const a of ACCORDS) {
+      if ((sealVals[a.key] || 0) !== 100 - (prevAccords[a.key] || 0)) { opp = false; break }
+    }
+    if (opp) sealEgg('opposite')
+  }
+  const covered = new Set()
+  ACCORDS.forEach((a) => { if ((sealVals[a.key] || 0) > 0) covered.add(a.key) })
+  historyList.forEach((h) => {
+    const ac = h.accords || {}
+    ACCORDS.forEach((a) => { if ((ac[a.key] || 0) > 0) covered.add(a.key) })
+  })
+  if (covered.size >= ACCORDS.length) sealEgg('collector')
+  // ⑧ 并蒂 / ⑨ 三叠：恰好两味 / 三味非 0，且彼此分量近乎相等（差 ≤ 2，容归一化舍入）。
+  const nzVals = ACCORDS.map((a) => sealVals[a.key] || 0).filter((v) => v > 0)
+  const evenish = (arr) => arr.length >= 2 && arr.every((v) => Math.abs(v - arr[0]) <= 2)
+  if (nzCount === 2 && evenish(nzVals)) sealEgg('split_even')
+  if (nzCount === 3 && evenish(nzVals)) sealEgg('three_way')
+  // ⑩ 拾阶：所有非 0 香调值都是 10 的整数倍（整十整十地调）。
+  if (nzVals.length && nzVals.every((v) => v % 10 === 0)) sealEgg('round_ten')
+  // ⑪ 金线：主调占比约 55%~66% 即黄金分割感；整十配比让给「拾阶」，不在此重复计。
+  if (nzVals.length >= 2) {
+    const total = nzVals.reduce((s, v) => s + v, 0)
+    const sorted = [...nzVals].sort((a, b) => b - a)
+    const ratio = sorted[0] / total
+    const allTens = nzVals.every((v) => v % 10 === 0)
+    if (!allTens && ratio >= 0.55 && ratio <= 0.66) sealEgg('golden')
+  }
   const sealLabelText = sealLabelOf({
     tierLabel: tier.sealLabel, streak: streakNow, hour: sealHour, pureWater: isPureWater
   })
@@ -1431,6 +1584,8 @@ async function ensureShareTemp() {
 // card 页已接管分享，lab 页保留原生分享钩子供微信右上角菜单用。
 // path 带上 p（配方）/n（香名）：好友点进来直接还原这瓶香，与扫码闭环同一套参数。
 onShareAppMessage(() => {
+  // 首次把封存卡分享出去，记入「递香」彩蛋（幂等，重复不计数）
+  achieveEgg('first_share')
   const vals = getAccordValues()
   const isRealName = name.value && name.value !== '未命名香氛'
   // 分享卡片 path 不带前导斜杠（getwxacode/分享路径规范）
@@ -1457,6 +1612,10 @@ onShareTimeline(() => {
 
 onShow(() => {
   track('enter_lab')
+  checkNight()  // 深夜进店：铺烛光蒙层 + 弹夜话气泡（幂等，仅首弹）
+  checkDawn()  // 清晨进店：铺晨光薄雾 + 弹晨语气泡（幂等，仅首弹）
+  checkNoon()  // 正午进店：弹当午气泡（幂等，仅首弹）
+  checkTwilight()  // 黄昏进店：弹向晚气泡（幂等，仅首弹）
   // 「十二味全开」按「同一次进工坊」计：每次进入都从零重新收集。
   // 注意 onShow 在切回小程序后台时也会触发，收集进度会重开——
   // 宁可重收一遍也不让条件跨天累积（登记条件写的是哪次就算哪次）。
@@ -1540,6 +1699,48 @@ onReady(async () => {
 .lab-header { margin: 12rpx 0 20rpx; }
 .lab-title { font-size: 40rpx; font-weight: 700; color: #2e5c45; display: block; font-family: inherit; letter-spacing: 1rpx; }
 .lab-sub { font-size: 24rpx; color: #6b6a6a; margin-top: 6rpx; display: block; }
+
+/* 深夜夜调：烛光暖色蒙层（不挡操作）+ 古先生夜话气泡。与日间清爽工坊拉开气氛。 */
+.lab.night { background: #ece3d2; }
+.night-veil {
+  position: fixed; left: 0; right: 0; top: 0; bottom: 0;
+  pointer-events: none; z-index: 5;
+  background: linear-gradient(180deg, rgba(255, 200, 130, 0.12), rgba(40, 26, 14, 0.26));
+}
+.night-tip {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(140rpx + env(safe-area-inset-bottom)); z-index: 60;
+  width: 560rpx; max-width: 86vw; box-sizing: border-box;
+  background: rgba(40, 28, 16, 0.92); border-radius: 18rpx; padding: 24rpx 28rpx;
+  display: flex; flex-direction: column; gap: 8rpx;
+  box-shadow: 0 12rpx 40rpx rgba(0, 0, 0, 0.35);
+}
+.night-tip-name { font-size: 20rpx; color: #e6b873; letter-spacing: 3rpx; }
+.night-tip-quote {
+  font-family: var(--font-hand);
+  font-size: 27rpx; color: #f3ead8; line-height: 1.7;
+}
+
+/* 迎晨：清晨薄雾（不挡操作）+ 古先生晨语气泡。与深夜夜调成一对冷暖。 */
+.lab.dawn { background: #eef1ea; }
+.dawn-veil {
+  position: fixed; left: 0; right: 0; top: 0; bottom: 0;
+  pointer-events: none; z-index: 5;
+  background: linear-gradient(180deg, rgba(225, 235, 220, 0.30), rgba(180, 200, 170, 0.12));
+}
+.dawn-tip {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(140rpx + env(safe-area-inset-bottom)); z-index: 60;
+  width: 560rpx; max-width: 86vw; box-sizing: border-box;
+  background: rgba(250, 248, 240, 0.96); border-radius: 18rpx; padding: 24rpx 28rpx;
+  display: flex; flex-direction: column; gap: 8rpx;
+  box-shadow: 0 12rpx 40rpx rgba(120, 130, 100, 0.25);
+}
+.dawn-tip-name { font-size: 20rpx; color: #6b8a5f; letter-spacing: 3rpx; }
+.dawn-tip-quote {
+  font-family: var(--font-hand);
+  font-size: 27rpx; color: #3a3a38; line-height: 1.7;
+}
 
 .name-row {
   display: flex; align-items: center; gap: 16rpx;

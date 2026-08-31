@@ -3,6 +3,14 @@
     <view class="empty" v-if="history.length === 0">
       架子还空着。去工坊调一瓶，留下你的气味签名。
     </view>
+    <view class="sum" v-if="summary">
+      <view class="sum-row">
+        <text class="sum-num">{{ summary.count }}</text>
+        <text class="sum-unit">款</text>
+        <text class="sum-meta">历史配方 · 始于 {{ summary.first }} · 最近 {{ summary.last }}</text>
+      </view>
+      <view class="sum-pref" v-if="summary.pref">你偏爱的香调：{{ summary.pref }}</view>
+    </view>
     <view class="row" v-for="h in history" :key="h.time" @tap="openCard(h)">
       <view class="row-main">
         <view class="row-name">{{ h.name }}</view>
@@ -46,6 +54,32 @@ const favedMap = computed(() => {
   favorites.value.forEach((f) => { m[f.time] = true })
   return m
 })
+
+// 列表顶部汇总：款数 + 时间跨度 + 收藏者偏爱的香调。让两页不再是「裸列表」，
+// 进页先给一个锚点；偏好取各瓶 topOf 第一香调的众数（纯水已滤，见 topOf）。
+const summary = computed(() => {
+  const arr = history.value || []
+  if (!arr.length) return null
+  const times = arr.map((x) => x.time).filter(Boolean).sort((a, b) => a - b)
+  const freq = {}
+  arr.forEach((x) => {
+    const t = topOf(x.accords)[0]
+    if (t) freq[t.k] = (freq[t.k] || 0) + 1
+  })
+  const topKey = Object.keys(freq).sort((a, b) => freq[b] - freq[a])[0]
+  return {
+    count: arr.length,
+    first: fmtDate(times[0]),
+    last: fmtDate(times[times.length - 1]),
+    pref: topKey ? accordLabel(topKey) : ''
+  }
+})
+function fmtDate(t) {
+  if (!t) return ''
+  const d = new Date(t)
+  const p = (n) => ('' + n).padStart(2, '0')
+  return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}`
+}
 
 // 取占比最高的 3 个香调做条形预览。两个坑，缺一不可（与收藏页同一套逻辑）：
 // ① 必须滤掉纯水 —— 存的是含溶剂的完整配比（BLEND_KEYS = ACCORDS + SOLVENT），
@@ -134,6 +168,17 @@ onShow(() => {
 <style scoped>
 .page { min-height: 100vh; background: #f0eee5; padding: 24rpx 28rpx 60rpx; box-sizing: border-box; }
 .empty { font-size: 24rpx; color: #6b6a6a; text-align: center; padding: 120rpx 40rpx; line-height: 1.7; }
+
+/* 列表顶部汇总条：款数 + 时间跨度 + 偏好香调，给裸列表一个锚点 */
+.sum {
+  background: #f6f3ea; border-radius: 16rpx; padding: 22rpx 24rpx; margin-bottom: 18rpx;
+  border: 1rpx solid rgba(46, 92, 69, 0.10);
+}
+.sum-row { display: flex; align-items: baseline; gap: 10rpx; }
+.sum-num { font-size: 40rpx; font-weight: 700; color: #2e5c45; font-family: inherit; line-height: 1; }
+.sum-unit { font-size: 22rpx; color: #6b6a6a; }
+.sum-meta { font-size: 22rpx; color: #6b6a6a; margin-left: 6rpx; }
+.sum-pref { font-size: 22rpx; color: #8a5f18; margin-top: 8rpx; letter-spacing: 1rpx; }
 
 /* 拍立得小卡：小圆角 + 一道细边，像贴在本子上的一张照片，与封存卡、图鉴拍立得呼应。
    大圆角无描边的色块读起来是「列表项」，不是「一张卡」。 */

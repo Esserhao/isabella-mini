@@ -13,7 +13,7 @@
         </view>
 
         <view v-if="onboardStep < 3" class="onb-opts">
-          <view class="onb-opt" v-for="o in onboardOptions" :key="o.key" @tap.stop="chooseOnboard(o)">
+          <view class="onb-opt" v-for="o in onboardOptions" :key="o.key" :class="{ 'onb-opt--wide': o.key === 'whatever' }" @tap.stop="chooseOnboard(o)">
             <text class="onb-opt-label">{{ o.label }}</text>
           </view>
         </view>
@@ -29,6 +29,10 @@
             <text class="onb-reco-go">用这款</text>
           </view>
           <view class="onb-result-tip">这几款最接近你的偏好，点任意一款设为你的首页香。</view>
+          <view v-if="slackerMode" class="onb-slacker">
+            <text class="onb-slacker-name">古先生</text>
+            <text class="onb-slacker-quote">「都行？那这瓶就交给我了。调香好玩的地方，恰恰是你犹豫不决的那一下。」</text>
+          </view>
           <view class="onb-result-actions">
             <button class="onb-btn ghost" @tap.stop="goTutorial">怎么做</button>
             <button class="onb-btn" @tap.stop="closeOnboard">先逛逛</button>
@@ -116,6 +120,7 @@ import { galleryPerfumes, ACCORDS, RADAR_LABELS } from '@/utils/data.js'
 import { computeRadarValues, generateFormula, getDailyChallenge, isChallengeDone, setDailyChallengeTarget, randomAccords, genPerfumeName } from '@/utils/mix.js'
 import { THEME, accordColor } from '@/utils/theme.js'
 import { track } from '@/utils/analytics.js'
+import { achieveEgg } from '@/utils/eggs.js'
 import { getStreak, todayStr } from '@/utils/streak.js'
 import { setPendingBlend } from '@/utils/wxacode.js'
 import { startTour, tut } from '@/utils/tutorial.js'
@@ -363,7 +368,8 @@ const ONBOARD_Q = [
       { key: 'green', label: '清新草木' },
       { key: 'woody', label: '温暖木质' },
       { key: 'floral', label: '甜美花果' },
-      { key: 'aquatic', label: '清冽水感' }
+      { key: 'aquatic', label: '清冽水感' },
+      { key: 'whatever', label: '都行，你定' }
     ]
   },
   {
@@ -372,7 +378,8 @@ const ONBOARD_Q = [
       { key: 'fresh', label: '清爽提神' },
       { key: 'warm', label: '温暖安心' },
       { key: 'sweet', label: '甜美愉悦' },
-      { key: 'special', label: '低调特别' }
+      { key: 'special', label: '低调特别' },
+      { key: 'whatever', label: '都行，你定' }
     ]
   },
   {
@@ -381,7 +388,8 @@ const ONBOARD_Q = [
       { key: 'daily', label: '日常通勤' },
       { key: 'date', label: '约会聚会' },
       { key: 'alone', label: '独处放松' },
-      { key: 'any', label: '都行' }
+      { key: 'any', label: '都行' },
+      { key: 'whatever', label: '都行，你定' }
     ]
   }
 ]
@@ -390,6 +398,8 @@ const onboardOpen = ref(false)
 const onboardStep = ref(0)
 const onboardReco = ref([])
 const onboardAnswers = reactive({ q1: '', q2: '', q3: '' })
+// 「佛系调香」彩蛋态：三题全选「都行，你定」时为真，结果页显示古先生无奈批注
+const slackerMode = ref(false)
 
 // 雷达 canvas 是原生组件，浮在视图层之上、z-index 盖不住。
 // 开屏引导弹窗（onboardOpen）或聚光灯教程（tut.active）打开时，把它隐藏，
@@ -423,13 +433,17 @@ function computeReco(ans) {
   // q1 决定「家族池」，q2(感觉) / q3(场合) 在池内按气味轮廓精排，三题都参与，不白答
   const want = [1, 1, 1, 1, 1, 1]
   const bump = (i, n) => { want[i] += n }
-  if (ans.q2 === 'fresh') { bump(0, 1.2); bump(3, 1.2) }
-  else if (ans.q2 === 'warm') { bump(1, 1.2); bump(4, 1.2) }
-  else if (ans.q2 === 'sweet') { bump(2, 1.2) }
-  else if (ans.q2 === 'special') { bump(4, 1.0); bump(1, 0.4) }
-  if (ans.q3 === 'daily') { bump(0, 1.0); bump(5, 1.0) }
-  else if (ans.q3 === 'date') { bump(2, 1.0); bump(3, 0.8) }
-  else if (ans.q3 === 'alone') { bump(4, 1.0); bump(1, 0.6) }
+  if (ans.q2 && ans.q2 !== 'whatever') {
+    if (ans.q2 === 'fresh') { bump(0, 1.2); bump(3, 1.2) }
+    else if (ans.q2 === 'warm') { bump(1, 1.2); bump(4, 1.2) }
+    else if (ans.q2 === 'sweet') { bump(2, 1.2) }
+    else if (ans.q2 === 'special') { bump(4, 1.0); bump(1, 0.4) }
+  }
+  if (ans.q3 && ans.q3 !== 'whatever') {
+    if (ans.q3 === 'daily') { bump(0, 1.0); bump(5, 1.0) }
+    else if (ans.q3 === 'date') { bump(2, 1.0); bump(3, 0.8) }
+    else if (ans.q3 === 'alone') { bump(4, 1.0); bump(1, 0.6) }
+  }
 
   const cats = catMap[ans.q1] || []
   let pool = galleryPerfumes.filter((p) => cats.includes(topAccordKey(p.accords)))
@@ -451,6 +465,11 @@ function chooseOnboard(o) {
   else if (onboardStep.value === 1) onboardAnswers.q2 = o.key
   else if (onboardStep.value === 2) {
     onboardAnswers.q3 = o.key
+    // 「佛系调香」彩蛋：三题全选「都行，你定」即视为把选香全盘交给古先生。
+    // achieveEgg 幂等，重复答也不会多记；结果页会额外显示一句古先生无奈批注。
+    const allWhatever = onboardAnswers.q1 === 'whatever' && onboardAnswers.q2 === 'whatever' && onboardAnswers.q3 === 'whatever'
+    slackerMode.value = allWhatever
+    if (allWhatever) achieveEgg('slacker')
     onboardReco.value = computeReco(onboardAnswers)
     onboardStep.value = 3
     // 这里不立刻换卡：把"换卡"留到弹窗真正关闭时（选择结束后按流程更换），
@@ -819,6 +838,13 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
 }
 .onb-opt:active { background: #eef3ef; border-color: #2e5c45; }
 .onb-opt-label { font-size: 26rpx; color: #2b2b2e; font-weight: 600; }
+/* 「都行，你定」：跨两列占满整行，用虚线弱化，提示这是「交权」而非普通选项 */
+.onb-opt--wide {
+  width: 100%; flex-basis: 100%;
+  background: rgba(46, 92, 69, 0.05);
+  border-style: dashed; border-color: rgba(46, 92, 69, 0.28);
+}
+.onb-opt--wide:active { background: rgba(46, 92, 69, 0.1); }
 
 .onb-result { display: flex; flex-direction: column; gap: 18rpx; }
 .onb-reco {
@@ -832,6 +858,18 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
 .onb-reco-sub { font-size: 22rpx; color: #6b6a6a; display: block; margin-top: 6rpx; }
 .onb-reco-go { font-size: 24rpx; color: #8a5f18; font-weight: 600; flex-shrink: 0; }
 .onb-result-tip { font-size: 22rpx; color: #6b6a6a; line-height: 1.7; margin-top: 6rpx; }
+/* 「佛系调香」彩蛋：三题全选「都行」，古先生一句无奈批注，与封存卡/图鉴手写感同字体 */
+.onb-slacker {
+  display: flex; flex-direction: column; gap: 8rpx;
+  margin-top: 18rpx; padding: 20rpx 22rpx;
+  background: rgba(169, 120, 38, 0.08);
+  border-left: 6rpx solid #a97826; border-radius: 12rpx;
+}
+.onb-slacker-name { font-size: 20rpx; color: #8a5f18; letter-spacing: 3rpx; }
+.onb-slacker-quote {
+  font-family: var(--font-hand);
+  font-size: 25rpx; color: #6b6a6a; line-height: 1.7;
+}
 .onb-result-actions { display: flex; gap: 16rpx; margin-top: 8rpx; }
 .onb-btn {
   flex: 1; font-size: 26rpx; border-radius: 16rpx; padding: 20rpx 0;

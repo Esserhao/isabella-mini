@@ -20,7 +20,24 @@ export const EGGS = [
     { key: 'streak7',      name: '七日不熄', desc: '连续第 7 天都有封存（中断了就从头再攒）。' },
     { key: 'midnight',     name: '深夜调香师', desc: '在凌晨 0 点到 5 点之间封存一瓶香。' },
     { key: 'namesake',     name: '撞名大胆', desc: '亲手给自己的香起一个与图鉴名香一模一样的名字。' },
-    { key: 'perfect',      name: '主题正解', desc: '在挑战模式下，以 ≥95 分的契合度封存当日挑战。' }
+    { key: 'perfect',      name: '主题正解', desc: '在挑战模式下，以 ≥95 分的契合度封存当日挑战。' },
+    { key: 'slacker',      name: '佛系调香', desc: '三题香气小调查全选「都行，你定」，把选香的事，交了出去。' },
+    { key: 'night_owl',    name: '夜猫子',   desc: '在深夜（22 点至次日 5 点）走进调香工坊，与一盏灯作伴到很晚。' },
+    { key: 'single_note',  name: '一味成香',   desc: '同一次进工坊，只留一个香调非 0 就封存 —— 把别的都忍住，只留一味。' },
+    { key: 'mirror',       name: '镜中配方',   desc: '12 个香调首尾对称（第 1 个 = 第 12 个，第 2 个 = 第 11 个……）地封存一瓶。' },
+    { key: 'dawn',         name: '迎晨',       desc: '清晨 5 点到 8 点之间走进调香工坊，迎着第一缕光调一瓶。' },
+    { key: 'first_bottle', name: '初调',       desc: '封存人生第一瓶香。不管好不好闻，它都在日记里了。' },
+    { key: 'daily_rush',   name: '一日高产',   desc: '同一天里封存满 5 瓶。香，要慢慢养。' },
+    { key: 'centurion',    name: '百瓶记',     desc: '累计封存满 100 瓶。日记快写不下，给你腾个地方。' },
+    { key: 'opposite',     name: '唱反调',     desc: '这一瓶的每一味，都正好是上一瓶的反相（v = 100 − 上瓶那味）。你这是在跟自己抬杠。' },
+    { key: 'collector',    name: '十二味巡礼', desc: '历史累计，十二种香调你都亲手调过一遍。这一趟巡礼，记着了。' },
+    { key: 'split_even',   name: '并蒂',   desc: '同一回里，两味并肩而立，谁也不肯多让谁半分。' },
+    { key: 'three_way',    name: '三叠',   desc: '三味依次排开，像案上三只杯，各斟了同样的量。' },
+    { key: 'round_ten',    name: '拾阶',   desc: '一阶一阶地走，每步都刚好落在整数上，利落得很。' },
+    { key: 'golden',       name: '金线',   desc: '主调占了约莫六成，余韵收在四成——这是老天定的比例，不抢。' },
+    { key: 'noon',         name: '当午',   desc: '日头最盛的时辰走进来，香也跟着精神了几分。' },
+    { key: 'twilight',     name: '向晚',   desc: '天将暗未暗，这一瓶，就留给黄昏吧。' },
+    { key: 'first_share',  name: '递香',   desc: '你把这瓶递了出去。香要有人闻过，才算真正活过。' }
 ];
 
 const KEY = 'isabella_eggs';

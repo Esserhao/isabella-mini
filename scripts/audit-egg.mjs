@@ -16,7 +16,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { galleryPerfumes, ACCORDS, SOLVENT, BLEND_KEYS, DAILY_CHALLENGES } from '../src/utils/data.js'
 import { findExactMatch, randomAccords, blankBlend, strengthOf, scoreDailyChallenge } from '../src/utils/mix.js'
-import { achieveEgg, getEggs, sealLabelOf } from '../src/utils/eggs.js'
+import { achieveEgg, getEggs, sealLabelOf, EGGS } from '../src/utils/eggs.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const labSrc = fs.readFileSync(path.join(root, 'src/pages/lab/lab.vue'), 'utf8')
@@ -196,7 +196,7 @@ const secondHit = achieveEgg('replica')
 const unknownHit = achieveEgg('no_such_egg')
 const eggStatus = getEggs()
 const eggsOK = firstHit === true && secondHit === false && unknownHit === false &&
-  eggStatus.achieved === 1 && eggStatus.total === 8 &&
+  eggStatus.achieved === 1 && eggStatus.total === EGGS.length &&
   eggStatus.list.every((e) => (e.key === 'replica') === (e.time > 0))
 console.log(`  ${eggsOK ? '✅' : '❌'} 彩蛋登记：首次 ${firstHit} / 重复 ${secondHit} / 未知 ${unknownHit}，进度 ${eggStatus.achieved}/${eggStatus.total}`)
 if (!eggsOK) problems.push('eggs.js 登记或聚合逻辑不对')

@@ -11,7 +11,7 @@ import { track, getStats } from '../../src/utils/analytics.js'
 import { toggleFav, getFavorites, removeFav } from '../../src/utils/favorites.js'
 import { recordSeal, getStreak } from '../../src/utils/streak.js'
 import { bumpSealCount, getSealCount, tierOf } from '../../src/utils/progress.js'
-import { achieveEgg, getEggs, sealLabelOf } from '../../src/utils/eggs.js'
+import { achieveEgg, getEggs, sealLabelOf, EGGS } from '../../src/utils/eggs.js'
 import {
   scoreDailyChallenge, markChallengeDone, isChallengeDone,
   takeDailyChallengeTarget, setDailyChallengeTarget,
@@ -115,10 +115,10 @@ story('小白的七天：从第一瓶到「七日不熄」', [
     expect(achieveEgg('streak7')).toBe(true)
     expect(sealLabelOf({ tierLabel: '已封存', streak: 7, hour: 14, pureWater: false })).toBe('七日封存')
   }],
-  ['「我的」页视角：进度 1/8，七日彩蛋已点亮', () => {
+  ['「我的」页视角：进度 1/10，七日彩蛋已点亮', () => {
     const g = getEggs()
     expect(g.achieved).toBe(1)
-    expect(g.total).toBe(8)
+    expect(g.total).toBe(EGGS.length)
     expect(g.list.find((e) => e.key === 'streak7').time > 0).toBe(true)
   }],
   ['漏斗与收藏页视角：埋点、历史、收藏互相咬合', () => {

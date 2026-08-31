@@ -54,12 +54,17 @@
       <view class="g-footer">共 {{ perfumes.length }} 款 · 图鉴收录</view>
     </scroll-view>
 
-    <!-- 香调列表 -->
+    <!-- 香调列表：原来是一排扁平灰药丸（图标＋文字），数据库脸最重的一栏。
+         改成与香水拍立得同一套语言：白卡＋主色色块（香调本色）＋楷体手写标签＋指纹色带，
+         翻「香调图鉴」而不是查「香料表」。 -->
     <scroll-view v-show="tab === 'accords'" scroll-y class="g-scroll" :show-scrollbar="false">
       <view class="a-grid">
         <view class="a-chip" v-for="a in accords" :key="a.key" @tap="openAccord(a)">
-          <image class="a-icon" :src="accordImg(a.key)" mode="aspectFit"></image>
+          <view class="a-swatch" :style="{ background: accordColor(a.key) }">
+            <view class="a-badge"><image class="a-icon" :src="accordImg(a.key)" mode="aspectFit"></image></view>
+          </view>
           <text class="a-label">{{ a.label }}</text>
+          <view class="a-band" :style="{ background: accordColor(a.key) }"></view>
         </view>
       </view>
     </scroll-view>
@@ -74,6 +79,9 @@
         </view>
         <view class="ing-grid">
           <view class="ing-cell" v-for="(ing, i) in g.items" :key="g.key + '-' + i" @tap="openIngredient(ing)">
+            <!-- 每格顶上一道主导香调的色块：和香调卡的主色块、拍立得的照片同一语汇，
+                 一眼就能把这味料归到它最像的那个香调家族。 -->
+            <view class="ing-swatch" :style="{ background: accordColor(ingMainKey(ing.accords)) }"></view>
             <text class="ing-cell-name">{{ ing.name }}</text>
             <!-- 每格底下铺一条它自己的香调构成色带：不点开也能看出这味料偏什么，
                  顺便让 104 个格子不再是清一色的灰药丸（标签云脸最重的就是它）。 -->
@@ -541,14 +549,25 @@ function ingMainKey(accords) {
 .deck-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: rgba(46,92,69,0.22); transition: background 200ms ease; }
 .deck-dot.on { background: #2e5c45; }
 
+/* 香调卡：白卡＋主色块＋楷体标签＋指纹色带，与香水拍立得同一套视觉语言 */
 .a-grid { display: flex; flex-wrap: wrap; gap: 18rpx; }
 .a-chip {
-  display: flex; align-items: center; gap: 14rpx; background: #f6f3ea;
-  border-radius: 40rpx; padding: 12rpx 22rpx;
+  flex: 0 0 calc((100% - 36rpx) / 3);
+  background: #fff; border-radius: 14rpx; padding: 16rpx 12rpx 14rpx;
+  border: 1rpx solid rgba(46,92,69,0.10);
+  box-shadow: 0 4rpx 12rpx rgba(60,50,30,0.08);
+  display: flex; flex-direction: column; align-items: center; gap: 10rpx;
 }
-.a-icon { width: 48rpx; height: 48rpx; flex-shrink: 0; }
+/* 主色色块：香调本色，当作拍立得里的「照片」 */
+.a-swatch { width: 100%; height: 96rpx; border-radius: 10rpx; display: flex; align-items: center; justify-content: center; }
+/* 白底圆章托住图标：不管香调主色深浅，图标都看得清 */
+.a-badge { width: 60rpx; height: 60rpx; border-radius: 50%; background: rgba(255,255,255,0.92); display: flex; align-items: center; justify-content: center; }
+.a-icon { width: 40rpx; height: 40rpx; flex-shrink: 0; }
 .a-dot { width: 24rpx; height: 24rpx; border-radius: 50%; }
-.a-label { font-size: 26rpx; color: #2b2b2e; }
+/* 楷体手写感标签，呼应拍立得短句 */
+.a-label { font-family: var(--font-hand); font-size: 26rpx; color: #2b2b2e; }
+/* 指纹色带：本香调单色，呼应香料格的气味指纹 */
+.a-band { width: 100%; height: 6rpx; border-radius: 3rpx; }
 
 /* 详情大图：只有香水走「贴上去的照片」，香调/香料走下面的 .d-accord-img 小图 */
 .d-paste { width: 480rpx; margin: 0 auto 26rpx; }
@@ -571,16 +590,21 @@ function ingMainKey(accords) {
 .ing-group-label { font-size: 28rpx; font-weight: 700; color: #2e5c45; flex: 1; }
 .ing-group-count { font-size: 22rpx; color: #6b6a6a; }
 .ing-grid { display: flex; flex-wrap: wrap; gap: 12rpx; }
-/* 标本格：不再是全圆角药丸。min-width 是给底下那条色带留的——
-   两三个字的料名撑不出宽度，色带太短就看不出主次了。 */
+/* 标本格：白卡＋主色块＋楷体名＋指纹色带，与香调卡、拍立得同源 */
 .ing-cell {
-  background: #fff; border-radius: 12rpx; padding: 14rpx 22rpx 12rpx;
-  border: 1rpx solid rgba(46,92,69,0.10); min-width: 148rpx;
+  background: #fff; border-radius: 12rpx; padding: 14rpx 20rpx 12rpx;
+  border: 1rpx solid rgba(46,92,69,0.10);
+  box-shadow: 0 3rpx 10rpx rgba(60,50,30,0.06);
+  min-width: 150rpx;
+  display: flex; flex-direction: column; align-items: center; gap: 10rpx;
 }
 .ing-cell:active { background: #e7e3d5; }
-.ing-cell-name { font-size: 24rpx; color: #2b2b2e; display: block; text-align: center; }
+/* 顶上一道主导香调色块：和香调卡的主色块同一语汇 */
+.ing-swatch { width: 100%; height: 8rpx; border-radius: 4rpx; }
+/* 楷体手写感名称，呼应拍立得短句与香调标签 */
+.ing-cell-name { font-family: var(--font-hand); font-size: 24rpx; color: #2b2b2e; display: block; text-align: center; }
 /* 香调构成色带：104 种各有各的指纹，一眼能分出「纯柑橘」和「柑橘带点绿」 */
-.ing-strip { display: flex; height: 4rpx; border-radius: 2rpx; overflow: hidden; margin-top: 10rpx; }
+.ing-strip { display: flex; width: 100%; height: 6rpx; border-radius: 3rpx; overflow: hidden; margin-top: 2rpx; }
 .ing-strip-i { height: 100%; }
 
 .detail-mask {
