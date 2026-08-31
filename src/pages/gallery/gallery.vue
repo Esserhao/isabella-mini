@@ -574,6 +574,7 @@ function ingMainKey(accords) {
 /* 香调卡：三列白卡＋左侧竖脊＋楷体名＋两字短注（方案 E 色谱索引） */
 .a-grid { display: flex; flex-wrap: wrap; gap: 20rpx; padding: 4rpx 2rpx; }
 .a-chip {
+  box-sizing: border-box;
   flex: 0 0 var(--accord-col-w, calc((100% - 40rpx) / 3));
   width: var(--accord-col-w, calc((100% - 40rpx) / 3));
   background: #fffdf8;

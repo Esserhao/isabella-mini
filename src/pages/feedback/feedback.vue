@@ -137,14 +137,21 @@ async function submit() {
 }
 .letter-date { font-size: 22rpx; color: #a08b6a; }
 
-.letter-body { min-height: 320rpx; }
+.letter-body { min-height: 340rpx; }
 .letter-input {
-  width: 100%; min-height: 320rpx;
-  font-size: 28rpx; color: #3a3a38; line-height: 2;
-  /* 信纸横线感 */
+  width: 100%; min-height: 340rpx;
+  font-size: 28rpx; color: #3a3a38; line-height: 56rpx;
+  padding-top: 8rpx;
+  /* 信纸横线：周期 112rpx = 2 倍行高，一格放一行字，文字与上下横线各空一行 */
   background-image: repeating-linear-gradient(
-    transparent, transparent 54rpx, rgba(169,120,38,0.12) 54rpx, rgba(169,120,38,0.12) 56rpx
+    transparent, transparent 110rpx, rgba(169,120,38,0.15) 110rpx, rgba(169,120,38,0.15) 112rpx
   );
+  background-position: 0 0;
+}
+.letter-input::placeholder {
+  line-height: 56rpx;
+  color: #a08b6a;
+  opacity: 0.7;
 }
 
 .letter-foot {

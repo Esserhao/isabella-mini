@@ -36,7 +36,6 @@
           </view>
           <view class="onb-result-tip">这几款最接近你的偏好，点任意一款设为你的首页香。</view>
           <view v-if="slackerMode" class="onb-slacker">
-            <text class="onb-slacker-name">古先生</text>
             <text class="onb-slacker-quote">「都行？那这瓶就交给我了。调香好玩的地方，恰恰是你犹豫不决的那一下。」</text>
           </view>
           <view class="onb-result-actions">
