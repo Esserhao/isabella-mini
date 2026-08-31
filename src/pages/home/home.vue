@@ -114,7 +114,7 @@ import { onReady, onShow } from '@dcloudio/uni-app'
 import { drawRadar, drawRadarGrow } from '@/utils/canvas-draw.js'
 import { galleryPerfumes, ACCORDS, RADAR_LABELS } from '@/utils/data.js'
 import { computeRadarValues, generateFormula, getDailyChallenge, isChallengeDone, setDailyChallengeTarget, randomAccords, genPerfumeName } from '@/utils/mix.js'
-import { THEME, ACCORD_COLORS } from '@/utils/theme.js'
+import { THEME, accordColor } from '@/utils/theme.js'
 import { track } from '@/utils/analytics.js'
 import { getStreak, todayStr } from '@/utils/streak.js'
 import { setPendingBlend } from '@/utils/wxacode.js'
@@ -138,7 +138,7 @@ const topAccords = computed(() =>
       value,
       main: i === 0,
       label: (ACCORDS.find((a) => a.key === key) || {}).label || key,
-      color: ACCORD_COLORS[key] || THEME.primary
+      color: accordColor(key)
     }))
 )
 
@@ -619,16 +619,17 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   font-size: 22rpx;
   color: #2b2b2e;
 }
+/* 不要灰底轨道：右侧已经印了百分比数值，不需要再用刻度槽表达比例。
+   灰底胶囊 + 纯色填充是表单控件的标准长相，与「调香日记」的调性冲突。 */
 .bar-track {
   flex: 1;
-  height: 8rpx;
-  border-radius: 4rpx;
-  background: rgba(26, 26, 30, 0.1);
+  height: 6rpx;
+  border-radius: 3rpx;
   overflow: hidden;
 }
 .bar-fill {
   height: 100%;
-  border-radius: 4rpx;
+  border-radius: 3rpx;
   transition: width 0.6s ease-out;
 }
 .bar-value {

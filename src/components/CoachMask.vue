@@ -249,6 +249,9 @@ onShow(tryQuery)
 // 两个都要听：startTour() 时 index 可能本来就是 0（没变），
 // 只听 index 的话教程开了也不会重新取位，亮框就停在上次那个旧坐标上。
 watch([() => tut.active, () => tut.index], () => { tryQuery() })
+// 图鉴页把教程目标所在的 tab / 滚动 / 横滑复位后，会自增 coachBump，
+// 让它「复位真正生效之后」再量一次 —— 否则量到提前逛图鉴时缓存的旧坐标会兜底错框。
+watch(() => tut.coachBump, () => { tryQuery() })
 </script>
 
 <style scoped>

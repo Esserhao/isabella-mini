@@ -31,3 +31,9 @@ export const ACCORD_COLORS = {
   tobacco: '#6b4a2f',  // 烟草：深烟棕
   aquatic: '#3f86a8'   // 水生：海蓝
 }
+
+// 取某个香调的本色。首页首屏 / 收藏 / 历史 / canvas 四处共用，
+// 别各写一遍 `ACCORD_COLORS[k] || THEME.primary`——fallback 规则一改就会漏掉一处。
+export function accordColor(key) {
+  return ACCORD_COLORS[key] || THEME.primary
+}

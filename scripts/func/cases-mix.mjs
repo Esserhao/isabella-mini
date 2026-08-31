@@ -6,7 +6,7 @@ import {
   computeRadarValues, generateFormula, scoreDailyChallenge,
   normalizeAccords, findExactMatch, getDailyChallenge
 } from '../../src/utils/mix.js'
-import { DAILY_CHALLENGES, ACCORDS } from '../../src/utils/data.js'
+import { DAILY_CHALLENGES, ACCORDS, SOLVENT } from '../../src/utils/data.js'
 
 suite('每日挑战选题', () => {
   test('同一天内多次取题稳定，且题目结构完整', () => {
@@ -63,6 +63,17 @@ suite('水位不影响香水行为（浓淡无关性规格）', () => {
   })
   test('配方（香料名）不受水位影响', () => {
     expect(generateFormula(diluted())).toEqual(generateFormula(fullBlend()))
+  })
+  test('纯水公约：整瓶只含水（SOLVENT 也在入参里）配方必须为空，绝不幻觉前六香料', () => {
+    const onlyWater = {}
+    ACCORDS.forEach((a) => { onlyWater[a.key] = 0 })
+    onlyWater[SOLVENT.key] = 100
+    expect(generateFormula(onlyWater)).toEqual([])
+  })
+  test('配方对水位的无关性在「入参含 SOLVENT.key」时仍然成立', () => {
+    const noWater = fullBlend()
+    const withWater = { ...noWater, [SOLVENT.key]: 40 }
+    expect(generateFormula(withWater)).toEqual(generateFormula(noWater))
   })
   test('挑战契合度不受水位影响', () => {
     const target = DAILY_CHALLENGES[1].target

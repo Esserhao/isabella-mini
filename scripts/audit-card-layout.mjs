@@ -7,10 +7,37 @@ import { THEME } from '../src/utils/theme.js'
 
 const W = 600, H = 900
 
+// 2D 仿射矩阵 [a,b,c,d,e,f]：x' = a*x + c*y + e, y' = b*x + d*y + f
+// 之前 translate/rotate/scale 全是空函数，导致所有「变换后绘制」的元素
+// 都被记在局部坐标上 —— 既误报越界，也会漏掉真实重叠（封存卡称号徽章就是前者）。
+const IDENT = () => [1, 0, 0, 1, 0, 0]
+function matMul(m, n) { // 返回 m · n（都是 [a,b,c,d,e,f]）
+  const [a, b, c, d, e, f] = m
+  const [a2, b2, c2, d2, e2, f2] = n
+  return [
+    a * a2 + c * b2,
+    b * a2 + d * b2,
+    a * c2 + c * d2,
+    b * c2 + d * d2,
+    a * e2 + c * f2 + e,
+    b * e2 + d * f2 + f
+  ]
+}
+function matPoint(m, x, y) {
+  return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]
+}
+// 把一个矩形（可能带旋转）的四个角变换后取包围盒
+function matRect(m, x, y, w, h) {
+  const pts = [matPoint(m, x, y), matPoint(m, x + w, y), matPoint(m, x, y + h), matPoint(m, x + w, y + h)]
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1])
+  return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) }
+}
+
 function makeCtx() {
   const log = []
   const state = { font: '12px sans-serif', textAlign: 'left', textBaseline: 'top', globalAlpha: 1 }
   const stack = []
+  let m = IDENT()
   const c = {
     _log: log,
     set font(v) { state.font = v }, get font() { return state.font },
@@ -26,28 +53,47 @@ function makeCtx() {
       return { width: w }
     },
     fillText(text, x, y) {
-      const m = /(\d+(?:\.\d+)?)px/.exec(state.font)
-      const size = m ? parseFloat(m[1]) : 12
+      const fm = /(\d+(?:\.\d+)?)px/.exec(state.font)
+      const size = fm ? parseFloat(fm[1]) : 12
       const w = c.measureText(text).width
       let left = x
       if (state.textAlign === 'center') left = x - w / 2
       else if (state.textAlign === 'right') left = x - w
-      log.push({ type: 'text', text: String(text), x, y, w, size, left, right: left + w, top: y - size * 0.6, bottom: y + size * 0.4, align: state.textAlign })
+      // 用包围盒而不是原始坐标：旋转过的文字，四角投影后才是它真正占的地方
+      const box = matRect(m, left, y - size * 0.6, w, size)
+      log.push({
+        type: 'text', text: String(text), x, y, w, size, align: state.textAlign,
+        left: box.left, right: box.right, top: box.top, bottom: box.bottom
+      })
     },
-    fillRect(x, y, w, h) { log.push({ type: 'rect', kind: 'fill', x, y, w, h, right: x + w, bottom: y + h, fill: c.fillStyle }) },
-    strokeRect(x, y, w, h) { log.push({ type: 'rect', kind: 'stroke', x, y, w, h, right: x + w, bottom: y + h }) },
+    fillRect(x, y, w, h) { const b = matRect(m, x, y, w, h); log.push({ type: 'rect', kind: 'fill', ...b, w, h, fill: c.fillStyle }) },
+    strokeRect(x, y, w, h) { const b = matRect(m, x, y, w, h); log.push({ type: 'rect', kind: 'stroke', ...b, w, h }) },
     beginPath() {}, moveTo() {}, lineTo() {}, arcTo() {}, closePath() {},
-    arc() {}, fill() {}, stroke() {}, save() { stack.push({ ...state }) }, restore() { const s = stack.pop(); if (s) Object.assign(state, s) },
-    translate() {}, rotate() {}, scale() {}, setLineDash() {}, clearRect() {},
-    drawImage(img, x, y, w, h) { log.push({ type: 'image', x, y, w, h, right: x + w, bottom: y + h }) }
+    arc() {}, fill() {}, stroke() {},
+    // save/restore 必须连矩阵一起存，且矩阵要拷贝 —— 直接 push {...state} 会让
+    // 之后对矩阵的修改顺着同一个数组引用泄漏回去
+    save() { stack.push({ ...state, _m: [...m] }) },
+    restore() {
+      const s = stack.pop()
+      if (!s) return
+      m = s._m ? [...s._m] : IDENT()
+      delete s._m
+      Object.assign(state, s)
+    },
+    translate(tx, ty) { m = matMul(m, [1, 0, 0, 1, tx, ty]) },
+    rotate(rad) { const cos = Math.cos(rad), sin = Math.sin(rad); m = matMul(m, [cos, sin, -sin, cos, 0, 0]) },
+    scale(sx, sy) { m = matMul(m, [sx, 0, 0, sy, 0, 0]) },
+    setLineDash() {}, clearRect() {},
+    drawImage(img, x, y, w, h) { const b = matRect(m, x, y, w, h); log.push({ type: 'image', ...b, w, h }) }
   }
   return c
 }
 
 function rectOf(e) {
+  // 三种类型统一存 left/top/right/bottom（经过变换矩阵投影后的包围盒）
   if (e.type === 'text') return { x: e.left, y: e.top, right: e.right, bottom: e.bottom, label: `TEXT "${e.text}"` }
-  if (e.type === 'rect') return { x: e.x, y: e.y, right: e.right, bottom: e.bottom, label: `RECT(${e.kind}) fill=${e.fill}` }
-  return { x: e.x, y: e.y, right: e.right, bottom: e.bottom, label: 'IMAGE(qr)' }
+  if (e.type === 'rect') return { x: e.left, y: e.top, right: e.right, bottom: e.bottom, label: `RECT(${e.kind}) fill=${e.fill}` }
+  return { x: e.left, y: e.top, right: e.right, bottom: e.bottom, label: 'IMAGE(qr)' }
 }
 function overlap(a, b) {
   const ix = Math.min(a.right, b.right) - Math.max(a.x, b.x)

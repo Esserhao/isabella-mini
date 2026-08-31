@@ -1,7 +1,7 @@
 // 小程序 canvas 2d 手绘库（替代网页版 Chart.js / html2canvas）
 // 调用方负责根据 dpr 对 ctx 做 scale，本文件统一使用「逻辑像素」坐标。
 import { THEME, ACCORD_COLORS } from './theme.js'
-import { ACCORDS } from './data.js'
+import { ACCORDS, SOLVENT } from './data.js'
 import { topAccordDesc } from './mix.js'
 
 function accordColor(key) {
@@ -319,9 +319,9 @@ export function drawCardBase(ctx, opt) {
   ctx.fillStyle = theme.paper
   ctx.fill()
 
-  // 顶部标题区：香名居中（8 字上限，旧数据超长截断加省略号），
-  // 称号徽章是额外的叠层——斜贴在香名左侧的一枚小票（右缘轻压名字首字），
-  // 不与香名抢一行（真机反馈：竖排叠放会贴字重叠，同行又会挤占名字宽度）。
+  // 顶部标题区：香名居中（8 字上限，旧数据超长截断加省略号）。
+  // 称号徽章是额外的叠层——斜贴的一枚小票，左缘与「主要香调 / 配方」左对齐
+  // （ingX = M = 60），和左栏看齐，不再浮在香名左侧随香名宽度乱跑。
   const displayName = (name && name.length > 8) ? name.slice(0, 8) + '…' : (name || '未命名香氛')
   ctx.fillStyle = theme.primary
   ctx.textAlign = 'center'
@@ -335,8 +335,9 @@ export function drawCardBase(ctx, opt) {
     ctx.font = 'bold 12px sans-serif'
     const bw = ctx.measureText(badgeText).width + 24
     const bh = 24
-    const nameW = ctx.measureText(displayName).width
-    const bcx = width / 2 - nameW / 2 - bw / 2 - 2
+    // 左缘对齐左栏 ingX（= M）。+2 抵消 -8° 旋转把左上角往左甩出的约 2px，
+    // 让视觉左缘正好落在 M 上，与下方「主要香调」的竖线/文字左缘对齐。
+    const bcx = M + bw / 2 + 2
     ctx.save()
     ctx.translate(bcx, 58)
     ctx.rotate(-8 * Math.PI / 180)
@@ -368,10 +369,16 @@ export function drawCardBase(ctx, opt) {
   })
 
   // ---------- 区块 1：主要香调（浅底卡片，含占比彩条） ----------
+  // 纯水只是工坊里「从里置换香调」的中间载体，不是「闻起来怎样」的香，
+  // 绝不写进任何香味分析 —— 过滤掉，否则纯水 100% 封存会冒出「纯水·主调 100%」。
   const topAccords = accords.slice().sort((a, b) =>
     (accordValues[b.key] || 0) - (accordValues[a.key] || 0))
-    .filter((a) => (accordValues[a.key] || 0) > 0)
+    .filter((a) => (accordValues[a.key] || 0) > 0 && a.key !== SOLVENT.key)
     .slice(0, 3)
+  // 全是纯水（还没调香就封存）时给个占位行，别让卡片空着像渲染 bug
+  if (topAccords.length === 0) {
+    topAccords.push({ key: '', label: '纯水基底 · 待调香', v: 0, muted: true })
+  }
   const ingX = M
   const ingW = width - M * 2
   const rowH = 30
@@ -398,11 +405,12 @@ export function drawCardBase(ctx, opt) {
   topAccords.forEach((a, i) => {
     const v = accordValues[a.key] || 0
     const yy = listTop + i * (rowH + rowGap)
-    ctx.fillStyle = theme.ink
+    ctx.fillStyle = a.muted ? 'rgba(95,94,94,0.7)' : theme.ink
     ctx.font = '13px sans-serif'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
-    ctx.fillText(a.label + (i === 0 ? ' · 主调' : ''), ingX, yy + 7)
+    ctx.fillText(a.label, ingX, yy + 7)
+    if (a.muted) return
     ctx.fillStyle = THEME.goldDeep
     ctx.font = 'bold 13px sans-serif'
     ctx.textAlign = 'right'
@@ -474,7 +482,7 @@ export function drawCardBase(ctx, opt) {
   // 否则 8 月封存的香，隔几周重开卡片页会印出重绘当天的日期，信息错误。
   const d = new Date(sealTime ? sealTime : Date.now())
   const ds = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0')
-  ctx.fillStyle = 'rgba(107,106,106,0.9)'
+  ctx.fillStyle = 'rgba(95,94,94,0.95)'
   ctx.font = '13px sans-serif'
   ctx.fillText('封存于 ' + ds, colX, qrY + 44)
   ctx.fillStyle = THEME.goldDeep
@@ -486,8 +494,8 @@ export function drawCardBase(ctx, opt) {
   const guLineH = 22
   ctx.font = '15px sans-serif'
   const guFull = String(quote || '')
-  const guLines = wrapLines(ctx, guFull, guW, 3)
-  // 三行装不下时给末行加省略号。wrapLines 会把装不下的部分整个丢弃，
+  const guLines = wrapLines(ctx, guFull, guW, 4)
+  // 四行装不下时给末行加省略号。wrapLines 会把装不下的部分整个丢弃，
   // 不补的话句子会突然断在半截，看着像渲染 bug（分享图同款处理）
   if (guFull && guLines.join('').length < guFull.length) {
     const last = guLines.length - 1
@@ -526,7 +534,7 @@ export function drawCardBase(ctx, opt) {
     const nLabelH = 22
     let nMaxLines = Math.floor((nAreaH - nLabelH) / nLineH)
     if (nMaxLines < 1) nMaxLines = 1
-    if (nMaxLines > 2) nMaxLines = 2
+    if (nMaxLines > 4) nMaxLines = 4
 
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'

@@ -7,26 +7,50 @@
       <view class="g-tab" :class="{ active: tab === 'notes' }" @tap="tab = 'notes'">手记</view>
     </view>
 
-    <!-- 香水列表。
-         :scroll-top 是给教程留的：聚光灯要亮第一张卡，用户若之前把列表滑到了下面，
-         卡片滚出视口就量不到尺寸。教程开跑时把列表拉回顶部（见下方 watch）。 -->
+    <!-- 香水：拍立得卡片组，左右滑。
+         原来是竖排「商品列表卡」（左图右文＋灰底进度条）——整页 AI 感的来源。
+         换成相册式拍立得：白框＋照片＋手写感短句，翻相册而不是挑货。
+
+         给教程留了两个复位，缺一不可：
+         ① :scroll-top —— 用户若把内容往下滑过，第一张卡滚出视口就量不到尺寸；
+         ② deckIndex 归 0 —— swiper 横滑后第一张卡被推出屏幕外，竖向滚动救不回来。
+         见下方 ensureCoachTargetVisible。 -->
     <scroll-view v-show="tab === 'perfumes'" scroll-y class="g-scroll" :show-scrollbar="false" :scroll-top="listScrollTop">
-      <button class="g-random" @tap="randomPick">随便来一瓶（懒人福音）</button>
-      <view class="p-card" v-for="(p, i) in perfumes" :key="p.id" :id="i === 0 ? 'coachGalleryCard' : ''" @tap="openPerfume(p)">
-        <image class="p-thumb" :src="imgSrc(p.id)" mode="aspectFill"
-               :style="{ background: imgBg(p.accords) }" @error="onImgError('thumb', p.id)"></image>
-        <view class="p-info">
-          <view class="p-name">{{ p.name }}</view>
-          <view class="p-sub">{{ p.brand }} · {{ p.year }}</view>
-          <view class="p-hook">「{{ p.hook }}」</view>
-          <view class="p-bars">
-            <view class="p-bar" v-for="a in topAccords(p.accords)" :key="a.k">
-              <text class="p-bar-label">{{ label(a.k) }}</text>
-              <view class="p-bar-track"><view class="p-bar-fill" :style="{ width: a.v + '%' }"></view></view>
+      <!-- circular 会复制首尾节点做无缝循环，教程期间必须关掉：
+           第 3 步高亮的 #coachGalleryCard 绑在第一张卡上，节点被复制后
+           createSelectorQuery 可能选中屏幕外的副本，聚光灯画到屏幕外 → 引导卡死在 3/5。
+           ensureCoachTargetVisible 只管切 tab 和 deckIndex 归零，救不了这个（成因不同）。
+           关掉后首尾滑动到边界会停住，但教程期间用户本就跟着引导走，可接受。 -->
+      <swiper class="deck" :current="deckIndex" :circular="!tut.active"
+              previous-margin="70rpx" next-margin="70rpx"
+              @change="onDeckChange">
+        <swiper-item v-for="(p, i) in perfumes" :key="p.id">
+          <view class="deck-cell">
+            <view class="pol" :id="i === 0 ? 'coachGalleryCard' : ''"
+                  :style="{ transform: cardTransform(i) }" @tap="openPerfume(p)">
+              <view class="pol-tape"></view>
+              <view class="pol-photo">
+                <image class="pol-img" :src="imgSrc(p.id)" mode="aspectFill"
+                       :style="{ background: imgBg(p.accords) }" @error="onImgError('polaroid', p.id)"></image>
+              </view>
+              <view class="pol-cap">{{ p.hook }}</view>
+              <view class="pol-foot">
+                <view class="pol-meta">
+                  <text class="pol-name">{{ p.name }}</text>
+                  <!-- 品牌不能省：原列表卡有「爱马仕 · 2005」，拍立得改版时一度漏掉，
+                       对香水图鉴来说品牌是有信息量的（娇兰/芦丹氏/爱马仕各有性格） -->
+                  <text class="pol-brand">{{ p.brand }} · {{ p.year }}</text>
+                </view>
+                <text class="pol-no">No.{{ i + 1 }}</text>
+              </view>
             </view>
           </view>
-        </view>
+        </swiper-item>
+      </swiper>
+      <view class="deck-dots">
+        <view class="deck-dot" v-for="(p, i) in perfumes" :key="p.id" :class="{ on: deckIndex === i }"></view>
       </view>
+      <button class="g-random" @tap="randomPick">随便来一瓶（懒人福音）</button>
       <view class="g-footer">共 {{ perfumes.length }} 款 · 图鉴收录</view>
     </scroll-view>
 
@@ -49,8 +73,14 @@
           <text class="ing-group-count">{{ g.items.length }}</text>
         </view>
         <view class="ing-grid">
-          <view class="ing-pill" v-for="(ing, i) in g.items" :key="g.key + '-' + i" @tap="openIngredient(ing)">
-            <text class="ing-pill-name">{{ ing.name }}</text>
+          <view class="ing-cell" v-for="(ing, i) in g.items" :key="g.key + '-' + i" @tap="openIngredient(ing)">
+            <text class="ing-cell-name">{{ ing.name }}</text>
+            <!-- 每格底下铺一条它自己的香调构成色带：不点开也能看出这味料偏什么，
+                 顺便让 104 个格子不再是清一色的灰药丸（标签云脸最重的就是它）。 -->
+            <view class="ing-strip">
+              <view class="ing-strip-i" v-for="(a, j) in ingParts(ing.accords)" :key="j"
+                    :style="{ width: a.w + '%', background: a.c }"></view>
+            </view>
           </view>
         </view>
       </view>
@@ -65,7 +95,7 @@
         <view class="n-lead" v-if="n.lead">{{ n.lead }}</view>
         <view class="n-foot">
           <text class="n-date" v-if="n.date">{{ n.date }}</text>
-          <text class="n-count">{{ n.sections.length }} 段 · 约 2 分钟</text>
+          <text class="n-count">约 {{ readMinutes(n) }} 分钟</text>
         </view>
       </view>
       <view class="g-footer">共 {{ notes.length }} 篇 · 古先生的调香日记</view>
@@ -78,35 +108,60 @@
           <button class="detail-back" @tap="closeDetail">← 返回</button>
         </view>
         <scroll-view scroll-y class="detail-scroll" :show-scrollbar="false">
+          <!-- 香水详情：先读一页日记，再看参数。
+               原来一进来就是「大图 → 香气结构进度条 → 雷达 → 古先生说」，
+               第一屏是规格表气质。现在把古先生说提到前面，
+               香气结构/雷达收进「查看香气成分」里，像翻到背面才看的东西。
+               雷达 canvas 在 v-if 里，展开后必须重新量一次才画得出来（见 drawRadarSoon）。 -->
           <template v-if="sel.type === 'perfume'">
-            <image class="d-perfume-img" :src="imgSrc(sel.data.id)" mode="aspectFill"
-                   :style="{ background: imgBg(sel.data.accords) }" @error="onImgError('detail', sel.data.id)"></image>
+            <view class="d-paste">
+              <image class="d-perfume-img" :src="imgSrc(sel.data.id)" mode="aspectFill"
+                     :style="{ background: imgBg(sel.data.accords) }" @error="onImgError('detail', sel.data.id)"></image>
+              <view class="d-paste-cap">{{ sel.data.hook }}</view>
+            </view>
             <view class="d-title">{{ sel.data.name }}</view>
             <view class="d-sub">{{ sel.data.brand }} · {{ sel.data.year }} · 调香师 {{ sel.data.perfumer }}</view>
-            <view class="d-hook">「{{ sel.data.hook }}」</view>
-            <view class="d-section-title">香气结构</view>
-            <view class="d-bar" v-for="a in allAccords(sel.data.accords)" :key="a.k">
-              <text class="d-bar-label">{{ label(a.k) }}</text>
-              <view class="d-bar-track"><view class="d-bar-fill" :style="{ width: a.v + '%' }"></view></view>
-              <text class="d-bar-val">{{ a.v }}%</text>
-            </view>
-            <view class="d-section-row">
-              <view class="d-section-title-wrap">
-                <text class="d-section-title">香水六维</text>
-                <text class="dim-help" @tap="radarHelpOpen = true">说明 ⓘ</text>
-              </view>
-              <view class="radar-mode">
-                <text class="rm-label" :class="{ on: radarMode === 'relative' }">按比例</text>
-                <switch class="rm-switch" :checked="radarMode === 'absolute'" color="#2e5c45" @change="onRadarMode" />
-                <text class="rm-label" :class="{ on: radarMode === 'absolute' }">按数值</text>
-              </view>
-            </view>
-            <view class="d-radar-wrap">
-              <canvas type="2d" id="galleryRadar" class="d-radar"></canvas>
-            </view>
-            <view class="d-radar-cap" v-if="selRadarCaption">气息特征：{{ selRadarCaption }}</view>
+
             <view class="d-section-title">古先生说</view>
             <view class="d-desc">{{ sel.data.description }}</view>
+
+            <view class="d-fold" @tap="toggleData">
+              <text class="d-fold-txt">{{ dataOpen ? '收起香气成分' : '查看香气成分' }}</text>
+              <text class="d-fold-arrow">{{ dataOpen ? '↑' : '↓' }}</text>
+            </view>
+
+            <view v-if="dataOpen" class="d-data">
+              <view class="d-section-title">香气结构</view>
+              <!-- 堆叠色带取代原来的灰底进度条：一眼看到整瓶的配比，
+                   也顺手用上香调本身的颜色（原来 12 个香调共用同一个绿） -->
+              <view class="ribbon">
+                <view class="rib-i" v-for="a in allAccords(sel.data.accords)" :key="a.k"
+                      :style="{ width: a.v + '%', background: accordColor(a.k) }"></view>
+              </view>
+              <view class="legend">
+                <view class="lg-row" v-for="a in allAccords(sel.data.accords)" :key="a.k">
+                  <view class="lg-dot" :style="{ background: accordColor(a.k) }"></view>
+                  <text class="lg-name">{{ label(a.k) }}</text>
+                  <text class="lg-val">{{ a.v }}%</text>
+                </view>
+              </view>
+
+              <view class="d-section-row">
+                <view class="d-section-title-wrap">
+                  <text class="d-section-title">香水六维</text>
+                  <text class="dim-help" @tap="radarHelpOpen = true">说明 ⓘ</text>
+                </view>
+                <view class="radar-mode">
+                  <text class="rm-pill" :class="{ on: radarMode === 'relative' }" @tap="setRadarMode('relative')">按结构</text>
+                  <text class="rm-pill" :class="{ on: radarMode === 'absolute' }" @tap="setRadarMode('absolute')">按数值</text>
+                </view>
+              </view>
+              <view class="d-radar-wrap">
+                <canvas type="2d" id="galleryRadar" class="d-radar"></canvas>
+              </view>
+              <view class="d-radar-cap" v-if="selRadarCaption">气息特征：{{ selRadarCaption }}</view>
+            </view>
+
             <button class="d-blend-btn" @tap="blendFromGallery(sel.data)">以这瓶为基调去调香 →</button>
           </template>
 
@@ -182,14 +237,15 @@
 import { ref, computed, nextTick, watch } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { galleryPerfumes, ACCORDS, INGREDIENT_LIBRARY, notesData, RADAR_LABELS, RADAR_DIM_DESC } from '@/utils/data.js'
-import { ACCORD_COLORS, THEME } from '@/utils/theme.js'
+import { THEME, accordColor } from '@/utils/theme.js'
 import { computeRadarValues, radarSummary } from '@/utils/mix.js'
 import { drawRadar } from '@/utils/canvas-draw.js'
 import { setPendingBlend } from '@/utils/wxacode.js'
 import { track } from '@/utils/analytics.js'
-import { tut, TUTORIAL_STEPS } from '@/utils/tutorial.js'
+import { tut, TUTORIAL_STEPS, bumpCoach } from '@/utils/tutorial.js'
 
-function accordColor(key) { return ACCORD_COLORS[key] || '#2e5c45' }
+// accordColor 用 theme.js 的公共实现，不在这里另写一份 ——
+// 本地那版的 fallback 是硬编码的 '#2e5c45'，主题色一改就会漏掉这里。
 
 // 图片底色：加载中和加载失败时露出来的都是这瓶香的主色调，不会是个白洞。
 // 本地图理论上不会失败，但万一打包漏了或文件损坏，至少还能看出这是瓶什么香。
@@ -207,10 +263,21 @@ function onImgError(where, id) {
 const tab = ref('perfumes')
 // 列表滚动位置，仅供教程复位用（:scroll-top 绑定在香水列表上）
 const listScrollTop = ref(0)
+// 拍立得卡片组当前页。教程要亮第一张卡，横滑之后必须能归 0
+const deckIndex = ref(0)
+function onDeckChange(e) { deckIndex.value = e.detail.current }
+// 每张拍立得给一个固定小倾角，别让整叠卡像复制粘贴；非当前页缩一点点
+function cardTransform(i) {
+  const tilt = i % 2 === 0 ? -1.4 : 1.2
+  const scale = deckIndex.value === i ? 1 : 0.92
+  return `rotate(${tilt}deg) scale(${scale})`
+}
 const perfumes = galleryPerfumes
 const accords = ACCORDS
 const notes = notesData
 const sel = ref(null)
+// 详情里的「香气成分」默认收起：首屏只讲古先生的话，参数翻到背面才看
+const dataOpen = ref(false)
 const radarHelpOpen = ref(false)
 const radarDimList = RADAR_LABELS.map((lab) => ({ label: lab, desc: RADAR_DIM_DESC[lab] || '' }))
 // 雷达视角：默认「结构」（相对值看名香自身气息）；切「绝对」按全局刻度，方便和别的香横比
@@ -222,15 +289,21 @@ function resetListScroll() {
   setTimeout(() => { listScrollTop.value = 0 }, 30)
 }
 
-// 教程第 3 步要亮的是香水列表第一张卡（#coachGalleryCard）。
-// 用户若停在「香调/香料/手记」tab，列表是 v-show 隐藏的 —— 量不到宽高，
-// CoachMask 会一直重试，表现就是引导卡在 2/5 不动了。这里先切回「香水」并复位滚动。
+// 教程第 3 步要亮的是拍立得组第一张卡（#coachGalleryCard）。
+// 两种「看不见」都得先救回来，否则 CoachMask 一直重试，表现就是引导卡在 2/5 不动了：
+// ① 用户停在「香调/香料/手记」tab —— 列表被 v-show 藏着，量不到宽高；
+// ② 用户把卡片组往左滑过 —— 第一张被推出视口外，竖向滚动救不回来，必须把 swiper 归位。
 function ensureCoachTargetVisible() {
   if (!tut.active) return
   const s = TUTORIAL_STEPS[tut.index]
   if (!s || s.page !== 'gallery') return
   if (tab.value !== 'perfumes') tab.value = 'perfumes'
+  if (deckIndex.value !== 0) deckIndex.value = 0
   nextTick(resetListScroll)
+  // 复位（含 scroll-view 滚动归零）真正生效要等一帧多，
+  // 等它落定再让 CoachMask 重新量一次位置，
+  // 否则会量到提前逛图鉴时缓存的旧坐标、兜底到屏幕中段错误亮框。
+  setTimeout(bumpCoach, 80)
 }
 onShow(ensureCoachTargetVisible)
 watch([() => tut.active, () => tut.index], ensureCoachTargetVisible)
@@ -283,31 +356,39 @@ const ingredientGroups = computed(() => {
 })
 const totalIngredients = computed(() => INGREDIENT_LIBRARY.length)
 
-function topAccords(acc) {
-  return Object.keys(acc)
-    .map((k) => ({ k, v: acc[k] }))
-    .filter((x) => x.v > 0)
-    .sort((a, b) => b.v - a.v)
-    .slice(0, 3)
-}
 function allAccords(acc) {
   return Object.keys(acc)
     .map((k) => ({ k, v: acc[k] }))
     .filter((x) => x.v > 0)
     .sort((a, b) => b.v - a.v)
 }
+// 香料格子底下的「气味指纹」色带（归一化后的百分比 + 本色）。
+// 香料的 accords 是「香调贡献度」，104 种里有 3 种不求和为 1（0.92~0.95），
+// 直接按原始值堆叠会在末尾留一段空白，看着像数据缺了一块 —— 所以先归一到 100。
+function ingParts(acc) {
+  const parts = ingAccords(acc)
+  const total = parts.reduce((s, x) => s + (Number(x.v) || 0), 0)
+  if (!total) return []
+  return parts.map((x) => ({ k: x.k, w: ((Number(x.v) || 0) / total) * 100, c: accordColor(x.k) }))
+}
 function ingAccords(acc) {
-  return Object.keys(acc || {})
-    .map((k) => ({ k, v: acc[k] }))
+  const parts = Object.keys(acc || {})
+    .map((k) => ({ k, v: Number(acc[k]) || 0 }))
     .filter((x) => x.v > 0)
+  const total = parts.reduce((s, x) => s + x.v, 0)
+  // 归一化到占比（占非零香调之和），这样「柠檬 0.9 / 果香 0.1」这类求和不足 1 的
+  // 香料，详情条百分比也能加起来是 100%，不会看着像数据缺一块
+  return parts
+    .map((x) => ({ k: x.k, v: total ? x.v / total : 0 }))
     .sort((a, b) => b.v - a.v)
 }
 
 function openPerfume(p) {
   sel.value = { type: 'perfume', data: p }
-  // 详情弹层刚打开时 canvas 可能尚未渲染到 DOM，nextTick 不够稳，
-  // 再加一层 setTimeout 确保 createSelectorQuery 能取到节点。
-  nextTick(() => setTimeout(() => drawPerfumeRadar(p.accords, radarMode.value), 50))
+  // 每次打开都从「读日记」开始，参数区收着。
+  // 这里不能顺便画雷达：canvas 在 v-if 里，此刻根本没渲染，
+  // createSelectorQuery 取不到节点，画了也是白画。
+  dataOpen.value = false
 }
 function openAccord(a) { sel.value = { type: 'accord', data: a } }
 function openIngredient(ing) { sel.value = { type: 'ingredient', data: ing } }
@@ -347,9 +428,23 @@ function drawPerfumeRadar(accords, mode = 'relative') {
   })
 }
 
-function onRadarMode(e) {
-  radarMode.value = e.detail.value ? 'absolute' : 'relative'
-  if (sel.value && sel.value.type === 'perfume') drawPerfumeRadar(sel.value.data.accords, radarMode.value)
+// 展开「香气成分」：雷达 canvas 此刻才第一次进 DOM，必须重新量一次才画得出来。
+// nextTick 不够稳（弹层刚挂载），再加一层 setTimeout，和原来的做法一致。
+function drawRadarSoon() {
+  nextTick(() => setTimeout(() => {
+    if (sel.value && sel.value.type === 'perfume') {
+      drawPerfumeRadar(sel.value.data.accords, radarMode.value)
+    }
+  }, 60))
+}
+function toggleData() {
+  dataOpen.value = !dataOpen.value
+  if (dataOpen.value) drawRadarSoon()
+}
+// 六维视角切换：原来是原生 switch（表单控件气质），换成两枚文字 pill
+function setRadarMode(m) {
+  radarMode.value = m
+  if (sel.value && sel.value.type === 'perfume') drawPerfumeRadar(sel.value.data.accords, m)
 }
 
 // 以图鉴某瓶为基调去工坊调香：暂存配方 → 跳工坊（lab 页 onShow 接住）
@@ -379,6 +474,16 @@ function noteLabel(title) {
   if (idx2 > 0) return title.slice(0, idx2)
   return title
 }
+// 阅读时长按实际字数估（中文约 400 字/分钟）。原先写死「约 2 分钟」——
+// 这篇三千字那篇八百字，报同一个数，是假信息。
+// 「N 段」也去掉了：那是内容的结构，读者不关心一篇文章分了几段。
+function readMinutes(n) {
+  let chars = (n.lead || '').length
+  ;(n.sections || []).forEach((s) => {
+    chars += (s.heading || '').length + (s.text || '').length
+  })
+  return Math.max(1, Math.round(chars / 400))
+}
 // 香料的主导香调（用于详情配矢量图标）
 function ingMainKey(accords) {
   const sorted = Object.entries(accords || {}).sort((a, b) => b[1] - a[1])
@@ -397,23 +502,44 @@ function ingMainKey(accords) {
 
 .g-scroll { flex: 1; min-height: 0; height: 0; padding: 24rpx 28rpx 60rpx; box-sizing: border-box; }
 
-.p-card {
-  display: flex; gap: 20rpx; background: #f6f3ea; border-radius: 16rpx;
-  padding: 22rpx; margin-bottom: 20rpx;
+/* ---------- 拍立得卡片组 ----------
+   swiper 默认高度 150px，必须显式给高，否则卡片被压扁。
+   760rpx 的来路：卡体约 684（上内边距 20 + 胶带净 8 + 照片 440 + 短句 22+84
+   + 底部两行 16+72 + 下内边距 26），胶带在卡顶外露约 10、倾角再吃约 6，
+   视觉总高约 700，留 60rpx 余量防止裁切。
+   改照片高度或底部行数时，这里必须跟着重算。 */
+.deck { width: 100%; height: 760rpx; }
+.deck-cell { height: 100%; display: flex; align-items: center; justify-content: center; }
+.pol {
+  width: 500rpx; box-sizing: border-box; background: #fff;
+  border-radius: 4rpx; padding: 20rpx 20rpx 26rpx;
+  box-shadow: 0 8rpx 24rpx rgba(60,50,30,0.16);
+  transition: transform 240ms ease;
 }
-.p-thumb {
-  width: 150rpx; height: 200rpx; border-radius: 16rpx; flex-shrink: 0;
-  display: block;
+/* 胶带：让卡看起来是被贴上去的，不是排版排出来的 */
+.pol-tape {
+  width: 96rpx; height: 26rpx; margin: -30rpx auto 8rpx;
+  background: rgba(214,196,140,0.85); transform: rotate(-2.5deg);
 }
-.p-info { flex: 1; min-width: 0; }
-.p-name { font-size: 32rpx; font-weight: 700; color: #2b2b2e; }
-.p-sub { font-size: 22rpx; color: #6b6a6a; margin: 4rpx 0 8rpx; }
-.p-hook { font-size: 22rpx; color: #8a5f18; line-height: 1.5; margin-bottom: 12rpx; }
-.p-bars { display: flex; flex-direction: column; gap: 6rpx; }
-.p-bar { display: flex; align-items: center; gap: 10rpx; }
-.p-bar-label { font-size: 20rpx; color: #6b6a6a; width: 60rpx; flex-shrink: 0; }
-.p-bar-track { flex: 1; height: 8rpx; background: rgba(26,26,30,0.08); border-radius: 4rpx; overflow: hidden; }
-.p-bar-fill { height: 100%; background: #2e5c45; border-radius: 4rpx; }
+/* 照片高度要让位给下面两行文字（香名 + 品牌·年份），否则整张卡超出 .deck 会被裁 */
+.pol-photo { width: 100%; height: 440rpx; border-radius: 2rpx; overflow: hidden; background: #e7e3d5; }
+.pol-img { width: 100%; height: 100%; display: block; }
+/* 手写感字体栈见 App.vue 的 --font-hand（楷体，不引字体文件）。
+   别加 font-style: italic —— 理由写在 App.vue 里了。 */
+.pol-cap {
+  font-family: var(--font-hand);
+  font-size: 27rpx; color: #8a5f18;
+  line-height: 1.55; text-align: center;
+  margin-top: 22rpx; padding: 0 6rpx;
+}
+.pol-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 16rpx; gap: 12rpx; }
+.pol-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4rpx; }
+.pol-name { font-size: 28rpx; font-weight: 700; color: #2b2b2e; }
+.pol-brand { font-size: 21rpx; color: #6b6a6a; }
+.pol-no { font-size: 20rpx; color: #9a958a; letter-spacing: 1rpx; flex-shrink: 0; }
+.deck-dots { display: flex; justify-content: center; gap: 10rpx; margin: 18rpx 0 6rpx; }
+.deck-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: rgba(46,92,69,0.22); transition: background 200ms ease; }
+.deck-dot.on { background: #2e5c45; }
 
 .a-grid { display: flex; flex-wrap: wrap; gap: 18rpx; }
 .a-chip {
@@ -424,10 +550,13 @@ function ingMainKey(accords) {
 .a-dot { width: 24rpx; height: 24rpx; border-radius: 50%; }
 .a-label { font-size: 26rpx; color: #2b2b2e; }
 
-/* 详情大图（香水/香调/香料共用） */
+/* 详情大图：只有香水走「贴上去的照片」，香调/香料走下面的 .d-accord-img 小图 */
+.d-paste { width: 480rpx; margin: 0 auto 26rpx; }
 .d-perfume-img {
-  width: 100%; height: 460rpx; border-radius: 16rpx;
-  display: block; margin-bottom: 24rpx;
+  width: 100%; height: 560rpx; border-radius: 4rpx;
+  display: block; background: #e7e3d5;
+  box-shadow: 0 10rpx 26rpx rgba(60,50,30,0.18);
+  transform: rotate(-1.2deg);
 }
 .d-accord-img {
   width: 200rpx; height: 200rpx; display: block;
@@ -442,12 +571,17 @@ function ingMainKey(accords) {
 .ing-group-label { font-size: 28rpx; font-weight: 700; color: #2e5c45; flex: 1; }
 .ing-group-count { font-size: 22rpx; color: #6b6a6a; }
 .ing-grid { display: flex; flex-wrap: wrap; gap: 12rpx; }
-.ing-pill {
-  background: #fff; border-radius: 24rpx; padding: 12rpx 24rpx;
-  border: 1rpx solid rgba(46,92,69,0.08);
+/* 标本格：不再是全圆角药丸。min-width 是给底下那条色带留的——
+   两三个字的料名撑不出宽度，色带太短就看不出主次了。 */
+.ing-cell {
+  background: #fff; border-radius: 12rpx; padding: 14rpx 22rpx 12rpx;
+  border: 1rpx solid rgba(46,92,69,0.10); min-width: 148rpx;
 }
-.ing-pill:active { background: #e7e3d5; }
-.ing-pill-name { font-size: 24rpx; color: #2b2b2e; }
+.ing-cell:active { background: #e7e3d5; }
+.ing-cell-name { font-size: 24rpx; color: #2b2b2e; display: block; text-align: center; }
+/* 香调构成色带：104 种各有各的指纹，一眼能分出「纯柑橘」和「柑橘带点绿」 */
+.ing-strip { display: flex; height: 4rpx; border-radius: 2rpx; overflow: hidden; margin-top: 10rpx; }
+.ing-strip-i { height: 100%; }
 
 .detail-mask {
   position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4);
@@ -466,7 +600,33 @@ function ingMainKey(accords) {
 .detail-scroll { flex: 1; min-height: 0; height: 0; padding: 28rpx 32rpx 60rpx; box-sizing: border-box; }
 .d-title { font-size: 40rpx; font-weight: 700; color: #2b2b2e; }
 .d-sub { font-size: 24rpx; color: #6b6a6a; margin: 8rpx 0 14rpx; }
-.d-hook { font-size: 26rpx; color: #8a5f18; line-height: 1.6; margin-bottom: 22rpx; }
+/* 贴在照片下的手写感短句。字体栈与 .pol-cap 一致（App.vue 的 --font-hand） */
+.d-paste-cap {
+  font-family: var(--font-hand);
+  font-size: 27rpx; color: #8a5f18;
+  line-height: 1.6; text-align: center; margin-top: 24rpx;
+}
+/* 香气成分折叠入口：首屏只讲故事，参数翻到背面才看 */
+.d-fold {
+  display: flex; align-items: center; justify-content: center; gap: 10rpx;
+  margin-top: 34rpx; padding: 18rpx 0;
+  border: 2rpx dashed rgba(46,92,69,0.32); border-radius: 14rpx;
+}
+.d-fold:active { background: rgba(46,92,69,0.06); }
+.d-fold-txt { font-size: 25rpx; color: #2e5c45; }
+.d-fold-arrow { font-size: 24rpx; color: #2e5c45; }
+.d-data { margin-top: 8rpx; }
+/* 堆叠色带取代灰底进度条：一眼看到整瓶配比，并用上香调本身的颜色 */
+.ribbon { display: flex; height: 30rpx; border-radius: 15rpx; overflow: hidden; margin-bottom: 20rpx; }
+.rib-i { height: 100%; box-sizing: border-box; }
+/* 相邻色块之间压一条极细白线：琥珀/木质/香草/烟草都是棕调，挨在一起分不出来。
+   最小非零占比只有 1%（约 7rpx），所以分隔线只能取 1rpx，再粗就把细色块吃掉了。 */
+.rib-i + .rib-i { border-left: 1rpx solid rgba(255,255,255,0.7); }
+.legend { display: flex; flex-direction: column; gap: 10rpx; }
+.lg-row { display: flex; align-items: center; gap: 12rpx; }
+.lg-dot { width: 18rpx; height: 18rpx; border-radius: 50%; flex-shrink: 0; }
+.lg-name { font-size: 23rpx; color: #6b6a6a; flex: 1; min-width: 0; }
+.lg-val { font-size: 23rpx; color: #8a5f18; flex-shrink: 0; }
 .d-section-title {
   font-size: 26rpx; font-weight: 600; color: #2e5c45; margin: 26rpx 0 14rpx;
   border-left: 6rpx solid #2e5c45; padding-left: 14rpx;
@@ -480,10 +640,7 @@ function ingMainKey(accords) {
 /* 香水六维雷达 */
 .d-section-row { display: flex; align-items: center; justify-content: space-between; }
 .d-section-row .d-section-title { margin-bottom: 0; }
-.radar-mode { display: flex; align-items: center; gap: 8rpx; }
-.rm-label { font-size: 22rpx; color: #9a958a; }
-.rm-label.on { color: #2e5c45; font-weight: 600; }
-.rm-switch { transform: scale(0.7); }
+/* .radar-mode / .rm-pill 已提到 App.vue 全局（工坊「香气画像」用同一套），此处不再重复定义 */
 .d-radar-wrap { display: flex; justify-content: center; margin: 6rpx 0 4rpx; }
 .d-radar { width: 460rpx; height: 460rpx; display: block; }
 .d-radar-cap { text-align: center; font-size: 24rpx; color: #2e5c45; letter-spacing: 1rpx; margin-bottom: 6rpx; }

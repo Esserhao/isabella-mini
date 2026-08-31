@@ -2,11 +2,12 @@
   "name": "uni-preset-vue",
   "version": "0.0.0",
   "scripts": {
-    "audit": "node scripts/audit-card-layout.mjs && node scripts/audit-tutorial.mjs && node scripts/audit-blend.mjs && node scripts/audit-egg.mjs && node scripts/func/run.mjs",
+    "audit": "node scripts/audit-card-layout.mjs && node scripts/audit-tutorial.mjs && node scripts/audit-blend.mjs && node scripts/audit-egg.mjs && node scripts/func/run.mjs && node scripts/audit-selectors.mjs",
     "audit:card": "node scripts/audit-card-layout.mjs",
     "audit:tour": "node scripts/audit-tutorial.mjs",
     "audit:blend": "node scripts/audit-blend.mjs",
     "audit:egg": "node scripts/audit-egg.mjs",
+    "audit:sel": "node scripts/audit-selectors.mjs",
     "func": "node scripts/func/run.mjs",
     "dev:custom": "uni -p",
     "dev:h5": "uni",

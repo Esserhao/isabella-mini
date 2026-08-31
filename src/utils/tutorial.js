@@ -24,8 +24,19 @@ const PAGE_URL = {
 
 export const tut = reactive({
   active: false,
-  index: 0
+  index: 0,
+  // 复位信号：图鉴页把教程目标所在的 tab / 滚动 / 横滑复位后，
+  // 自增一下，让 CoachMask 在「复位真正生效」之后重新量一次位置。
+  // 不这么做的话，用户提前逛过图鉴（列表被滚下去 / 停在别的 tab），
+  // 教程跳到第 3 步时 CoachMask 可能在上次缓存的坐标上量到屏幕外，
+  // 一路兜底到屏幕中段的错误亮框。
+  coachBump: 0
 })
+
+// 图鉴页复位完成后调用：触发 CoachMask 重新取位
+export function bumpCoach() {
+  tut.coachBump++
+}
 
 export function startTour() {
   tut.active = true

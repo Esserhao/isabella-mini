@@ -49,10 +49,12 @@
           <text class="panel-title">香气画像</text>
           <text class="dim-help" @tap="radarHelpOpen = true">六维是什么 ⓘ</text>
         </view>
+        <!-- 六维视角切换用文字 pill，与图鉴页保持一致。
+             原生 switch 是表单控件气质，而且「我的风格 / 对比名香」是两个并列选项，
+             不是开关的「开 / 关」，用 switch 语义上是错的。 -->
         <view class="radar-mode">
-          <text class="rm-label" :class="{ on: radarMode === 'relative' }">我的风格</text>
-          <switch class="rm-switch" :checked="radarMode === 'absolute'" color="#2e5c45" @change="onRadarMode" />
-          <text class="rm-label" :class="{ on: radarMode === 'absolute' }">对比名香</text>
+          <text class="rm-pill" :class="{ on: radarMode === 'relative' }" @tap="setRadarMode('relative')">我的风格</text>
+          <text class="rm-pill" :class="{ on: radarMode === 'absolute' }" @tap="setRadarMode('absolute')">对比名香</text>
         </view>
       </view>
       <!-- 雷达 canvas(type="2d")是微信原生组件，浮在视图层之上、z-index 盖不住。
@@ -842,10 +844,12 @@ function recompute() {
   return radarValues
 }
 
-function onRadarMode(e) {
-  radarMode.value = e.detail.value ? 'absolute' : 'relative'
+// 参数是目标模式名，不是 switch 的 event.detail.value —— 两个 pill 各传各的值。
+function setRadarMode(mode) {
+  if (radarMode.value === mode) return
+  radarMode.value = mode
   // 切到"对比名香"：冻结当前最贴近的图鉴香水六维作为虚线叠加
-  if (radarMode.value === 'absolute') {
+  if (mode === 'absolute') {
     const vals = getAccordValues()
     let best = null, bestS = 0
     galleryPerfumes.forEach((p) => {
@@ -1559,10 +1563,7 @@ onReady(async () => {
   font-family: inherit; letter-spacing: 0.5rpx;
 }
 .panel-title-row { display: flex; align-items: center; justify-content: space-between; }
-.radar-mode { display: flex; align-items: center; gap: 8rpx; }
-.rm-label { font-size: 22rpx; color: #9a958a; }
-.rm-label.on { color: #2e5c45; font-weight: 600; }
-.rm-switch { transform: scale(0.72); }
+/* .radar-mode / .rm-pill 已提到 App.vue 全局（图鉴详情用同一套），此处不再重复定义 */
 /* 画布下方留出呼吸：canvas 底部本身还压着轴标签，间距太小下面的文案会像糊在图上 */
 .canvas-wrap { padding-top: 28rpx; padding-bottom: 6rpx; }
 .rcanvas, .mcanvas { width: 600rpx; height: 600rpx; display: block; margin: 0 auto; }

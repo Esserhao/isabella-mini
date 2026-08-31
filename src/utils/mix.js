@@ -47,18 +47,23 @@ export function computeRadarValues(accordValues, mode = 'relative') {
 }
 
 // 香调比例 → 取 6 个最具代表性的香料名（用于卡片"配方"展示）
+// 纯水公约：SOLVENT 只是工坊里的稀释中间态，绝不进任何「香味分析」——
+// 所以这里把 SOLVENT.key 整个排除掉，既不会污染 total，也不会被当成一味香调。
 export function generateFormula(accordValues) {
     const src = accordValues && typeof accordValues === 'object' ? accordValues : {};
     let total = 0;
     for (const k in src) {
+        if (k === SOLVENT.key) continue;          // 纯水不计入香气配比
         const v = Number(src[k]);
         if (Number.isFinite(v) && v > 0) total += v;
     }
-    // 纯水态（全 0）：瓶里没有任何香调，配方留空（封存卡显示「—」），
+    // 纯水态（香调全 0，或整瓶只有水）：瓶里没有任何香调，配方留空（封存卡显示「—」），
     // 不能凭空印 6 味香料 —— 名字按分数排序全为 0 时取的是库序前六，纯属幻觉。
+    // 排除 SOLVENT 后，纯水整瓶在这里 total 也会是 0，与纯香调全 0 同样走空配方。
     if (total <= 0) return [];
     const ratio = {};
     for (const k in src) {
+        if (k === SOLVENT.key) continue;
         const v = Number(src[k]);
         ratio[k] = (Number.isFinite(v) && v > 0) ? v / total : 0;
     }
