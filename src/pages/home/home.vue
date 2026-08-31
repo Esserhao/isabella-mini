@@ -13,8 +13,14 @@
         </view>
 
         <view v-if="onboardStep < 3" class="onb-opts">
-          <view class="onb-opt" v-for="o in onboardOptions" :key="o.key" @tap.stop="chooseOnboard(o)">
-            <text class="onb-opt-label">{{ o.label }}</text>
+          <!-- 前四个分两拍（2×2），第五个「都行，你定」整宽居中，与上方 2×2 视觉分离 -->
+          <view class="onb-grid">
+            <view class="onb-opt" v-for="o in onboardMainOptions" :key="o.key" @tap.stop="chooseOnboard(o)">
+              <text class="onb-opt-label">{{ o.label }}</text>
+            </view>
+          </view>
+          <view class="onb-whatever" v-if="onboardWhatever" @tap.stop="chooseOnboard(onboardWhatever)">
+            <text class="onb-opt-label">{{ onboardWhatever.label }}</text>
           </view>
         </view>
 
@@ -410,8 +416,12 @@ watch(radarHidden, (hidden) => {
   if (!hidden && radar) nextTick(() => drawStatic())
 })
 
-const onboardOptions = computed(() =>
-  onboardStep.value < 3 ? ONBOARD_Q[onboardStep.value].options : []
+// 前四个主选项（2×2 网格）；第五个「都行，你定」单独整宽居中
+const onboardMainOptions = computed(() =>
+  onboardStep.value < 3 ? ONBOARD_Q[onboardStep.value].options.slice(0, 4) : []
+)
+const onboardWhatever = computed(() =>
+  onboardStep.value < 3 ? ONBOARD_Q[onboardStep.value].options[4] : null
 )
 const onboardTitle = computed(() =>
   onboardStep.value < 3 ? ONBOARD_Q[onboardStep.value].title : '为你挑了几款'
@@ -830,7 +840,9 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
 .onb-dot { width: 14rpx; height: 14rpx; border-radius: 50%; background: rgba(46, 92, 69, 0.2); }
 .onb-dot.on { background: #2e5c45; }
 
-.onb-opts { display: flex; flex-wrap: wrap; gap: 18rpx; justify-content: center; }
+.onb-opts { display: flex; flex-direction: column; gap: 18rpx; }
+/* 前四个：2×2 网格，列宽按容器百分比自适应，不写死像素，窄屏也不溢出 */
+.onb-grid { display: flex; flex-wrap: wrap; gap: 18rpx; justify-content: center; }
 .onb-opt {
   width: calc(50% - 9rpx); box-sizing: border-box;
   display: flex; flex-direction: column; align-items: center; gap: 12rpx;
@@ -838,6 +850,14 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   border-radius: 16rpx; padding: 30rpx 0;
 }
 .onb-opt:active { background: #eef3ef; border-color: #2e5c45; }
+/* 第五个「都行，你定」：整宽居中，与上方 2×2 视觉上分隔，样式与其余一致 */
+.onb-whatever {
+  width: 100%; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; gap: 12rpx;
+  background: #fff; border: 2rpx solid rgba(46, 92, 69, 0.12);
+  border-radius: 16rpx; padding: 30rpx 0;
+}
+.onb-whatever:active { background: #eef3ef; border-color: #2e5c45; }
 .onb-opt-label { font-size: 26rpx; color: #2b2b2e; font-weight: 600; }
 
 .onb-result { display: flex; flex-direction: column; gap: 18rpx; }
