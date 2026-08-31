@@ -13,7 +13,7 @@
         </view>
 
         <view v-if="onboardStep < 3" class="onb-opts">
-          <view class="onb-opt" v-for="o in onboardOptions" :key="o.key" :class="{ 'onb-opt--wide': o.key === 'whatever' }" @tap.stop="chooseOnboard(o)">
+          <view class="onb-opt" v-for="o in onboardOptions" :key="o.key" @tap.stop="chooseOnboard(o)">
             <text class="onb-opt-label">{{ o.label }}</text>
           </view>
         </view>
@@ -388,8 +388,7 @@ const ONBOARD_Q = [
       { key: 'daily', label: '日常通勤' },
       { key: 'date', label: '约会聚会' },
       { key: 'alone', label: '独处放松' },
-      { key: 'any', label: '都行' },
-      { key: 'whatever', label: '都行，你定' }
+      { key: 'any', label: '都行' }
     ]
   }
 ]
@@ -465,9 +464,10 @@ function chooseOnboard(o) {
   else if (onboardStep.value === 1) onboardAnswers.q2 = o.key
   else if (onboardStep.value === 2) {
     onboardAnswers.q3 = o.key
-    // 「佛系调香」彩蛋：三题全选「都行，你定」即视为把选香全盘交给古先生。
-    // achieveEgg 幂等，重复答也不会多记；结果页会额外显示一句古先生无奈批注。
-    const allWhatever = onboardAnswers.q1 === 'whatever' && onboardAnswers.q2 === 'whatever' && onboardAnswers.q3 === 'whatever'
+    // 「佛系调香」彩蛋：三题都交出去（Q1/Q2 选「都行，你定」，Q3 选「都行」）即视为把选香全盘交了出去。
+    // achieveEgg 幂等，重复答也不会多记；结果页会额外显示一句无奈批注。
+    const handedQ3 = onboardAnswers.q3 === 'whatever' || onboardAnswers.q3 === 'any'
+    const allWhatever = onboardAnswers.q1 === 'whatever' && onboardAnswers.q2 === 'whatever' && handedQ3
     slackerMode.value = allWhatever
     if (allWhatever) achieveEgg('slacker')
     onboardReco.value = computeReco(onboardAnswers)
@@ -838,13 +838,6 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
 }
 .onb-opt:active { background: #eef3ef; border-color: #2e5c45; }
 .onb-opt-label { font-size: 26rpx; color: #2b2b2e; font-weight: 600; }
-/* 「都行，你定」：跨两列占满整行，用虚线弱化，提示这是「交权」而非普通选项 */
-.onb-opt--wide {
-  width: 100%; flex-basis: 100%;
-  background: rgba(46, 92, 69, 0.05);
-  border-style: dashed; border-color: rgba(46, 92, 69, 0.28);
-}
-.onb-opt--wide:active { background: rgba(46, 92, 69, 0.1); }
 
 .onb-result { display: flex; flex-direction: column; gap: 18rpx; }
 .onb-reco {

@@ -54,9 +54,9 @@
       <view class="g-footer">共 {{ perfumes.length }} 款 · 图鉴收录</view>
     </scroll-view>
 
-    <!-- 香调列表：原来是一排扁平灰药丸（图标＋文字），数据库脸最重的一栏。
-         改成与香水拍立得同一套语言：白卡＋主色色块（香调本色）＋楷体手写标签＋指纹色带，
-         翻「香调图鉴」而不是查「香料表」。 -->
+    <!-- 香调列表：原是扁平灰药丸（数据库脸最重的一栏）。
+         现与香水拍立得同语言：白卡＋主色晕染＋楷体名＋诗笺短注＋细色签，
+         翻「香调图鉴」而非查「香料表」。 -->
     <scroll-view v-show="tab === 'accords'" scroll-y class="g-scroll" :show-scrollbar="false">
       <view class="a-grid">
         <view class="a-chip" v-for="a in accords" :key="a.key" @tap="openAccord(a)">
@@ -64,7 +64,8 @@
             <view class="a-badge"><image class="a-icon" :src="accordImg(a.key)" mode="aspectFit"></image></view>
           </view>
           <text class="a-label">{{ a.label }}</text>
-          <view class="a-band" :style="{ background: accordColor(a.key) }"></view>
+          <text class="a-desc">{{ a.description }}</text>
+          <view class="a-band" :style="{ background: 'linear-gradient(90deg, ' + accordColor(a.key) + '00, ' + accordColor(a.key) + ', ' + accordColor(a.key) + '00)' }"></view>
         </view>
       </view>
     </scroll-view>
@@ -549,25 +550,47 @@ function ingMainKey(accords) {
 .deck-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: rgba(46,92,69,0.22); transition: background 200ms ease; }
 .deck-dot.on { background: #2e5c45; }
 
-/* 香调卡：白卡＋主色块＋楷体标签＋指纹色带，与香水拍立得同一套视觉语言 */
-.a-grid { display: flex; flex-wrap: wrap; gap: 18rpx; }
+/* 香调卡：白卡＋主色晕染＋楷体名＋诗笺短注＋细色签，与香水拍立得同气 */
+.a-grid { display: flex; flex-wrap: wrap; gap: 20rpx; padding: 4rpx 2rpx; }
 .a-chip {
-  flex: 0 0 calc((100% - 36rpx) / 3);
-  background: #fff; border-radius: 14rpx; padding: 16rpx 12rpx 14rpx;
-  border: 1rpx solid rgba(46,92,69,0.10);
-  box-shadow: 0 4rpx 12rpx rgba(60,50,30,0.08);
+  flex: 0 0 calc((100% - 40rpx) / 3);
+  background: #fffdf8;
+  border-radius: 18rpx; padding: 16rpx 12rpx 14rpx;
+  border: 1rpx solid rgba(46,92,69,0.08);
+  box-shadow: 0 6rpx 16rpx rgba(60,50,30,0.07);
   display: flex; flex-direction: column; align-items: center; gap: 10rpx;
+  transition: transform .18s ease, box-shadow .18s ease;
 }
-/* 主色色块：香调本色，当作拍立得里的「照片」 */
-.a-swatch { width: 100%; height: 96rpx; border-radius: 10rpx; display: flex; align-items: center; justify-content: center; }
-/* 白底圆章托住图标：不管香调主色深浅，图标都看得清 */
-.a-badge { width: 60rpx; height: 60rpx; border-radius: 50%; background: rgba(255,255,255,0.92); display: flex; align-items: center; justify-content: center; }
-.a-icon { width: 40rpx; height: 40rpx; flex-shrink: 0; }
+.a-chip:active { transform: translateY(-4rpx); box-shadow: 0 12rpx 22rpx rgba(60,50,30,0.14); }
+/* 主色晕染：香调本色打底，叠一层白光让颜色像被水化开，不再是死板实色块 */
+.a-swatch {
+  position: relative; width: 100%; height: 108rpx; border-radius: 12rpx; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.a-swatch::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(140deg, rgba(255,255,255,0.45), rgba(255,255,255,0) 60%);
+}
+/* 白底圆章托图标：不论主色深浅，图标都看得清 */
+.a-badge {
+  position: relative; z-index: 1;
+  width: 60rpx; height: 60rpx; border-radius: 50%;
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.10);
+  display: flex; align-items: center; justify-content: center;
+}
+.a-icon { width: 38rpx; height: 38rpx; flex-shrink: 0; }
 .a-dot { width: 24rpx; height: 24rpx; border-radius: 50%; }
-/* 楷体手写感标签，呼应拍立得短句 */
-.a-label { font-family: var(--font-hand); font-size: 26rpx; color: #2b2b2e; }
-/* 指纹色带：本香调单色，呼应香料格的气味指纹 */
-.a-band { width: 100%; height: 6rpx; border-radius: 3rpx; }
+/* 楷体手写感名，呼应拍立得短句 */
+.a-label { font-family: var(--font-hand); font-size: 28rpx; color: #3a342b; letter-spacing: 1rpx; margin-top: 2rpx; }
+/* 诗笺短注：香调的一句气味素描，限两行，静下来读 */
+.a-desc {
+  font-family: var(--font-hand); font-size: 20rpx; line-height: 1.45; color: #8a8276;
+  text-align: center; padding: 0 4rpx;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+/* 细色签：主色向两端淡出，比实色条更轻，像落款一道 */
+.a-band { width: 52%; height: 4rpx; border-radius: 2rpx; margin-top: 2rpx; }
 
 /* 详情大图：只有香水走「贴上去的照片」，香调/香料走下面的 .d-accord-img 小图 */
 .d-paste { width: 480rpx; margin: 0 auto 26rpx; }
