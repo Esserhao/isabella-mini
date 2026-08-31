@@ -549,7 +549,7 @@ onShareTimeline(() => {
 .cp-share-canvas { width: 750px; height: 600px; }
 .cp-canvas-wrap { display: flex; justify-content: center; }
 .cp-canvas {
-  width: 600rpx; height: 900rpx; display: block; background: #f6f3ea;
+  width: 600rpx; height: 900rpx; display: block;
   border-radius: 8rpx; box-shadow: 0 12rpx 36rpx rgba(46,92,69,0.12);
 }
 

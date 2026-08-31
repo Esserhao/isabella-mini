@@ -1584,7 +1584,7 @@ onReady(async () => {
 }
 
 /* 极端反馈/相似名香/彩蛋横幅已合并进常驻状态行 .panel-status（防抖动），旧样式随 v-if 一并移除 */
-.ccanvas { width: 600rpx; height: 900rpx; display: block; margin: 0 auto; background: #f6f3ea; }
+.ccanvas { width: 600rpx; height: 900rpx; display: block; margin: 0 auto; }
 /* 离屏画布：移出视口而不是 display:none，避免部分基础库拿不到 node */
 .lab-share-wrap {
   position: fixed; left: -9999px; top: 0;
@@ -1610,7 +1610,7 @@ onReady(async () => {
 .strength-desc { font-size: 20rpx; color: #6b6a6a; }
 .slider-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rpx; }
 .slider-name { font-size: 26rpx; color: #2b2b2e; font-family: inherit; }
-.slider-val { font-size: 24rpx; color: #8a5f18; font-weight: 600; font-family: inherit; min-width: 70rpx; text-align: center; }
+.slider-val { font-size: 24rpx; color: #8a5f18; font-weight: 600; font-family: inherit; min-width: 70rpx; text-align: center; font-variant-numeric: tabular-nums; }
 /* ± 步进：44rpx 触控目标（全站触控标准），数值列定宽，位数变化不左右顶腾 */
 .slider-stepper { display: flex; align-items: center; gap: 10rpx; flex-shrink: 0; }
 .step-btn {
@@ -1690,7 +1690,7 @@ onReady(async () => {
 .cb-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4rpx; }
 .cb-hint { font-size: 22rpx; color: #6b6a6a; line-height: 1.4; }
 .cb-score { font-size: 22rpx; color: #6b6a6a; }
-.cb-num { font-size: 30rpx; font-weight: 700; color: #8a5f18; margin: 0 4rpx; }
+.cb-num { font-size: 30rpx; font-weight: 700; color: #8a5f18; margin: 0 4rpx; font-variant-numeric: tabular-nums; }
 .cb-tip { color: #2e5c45; }
 .cb-close {
   font-size: 40rpx; color: #6b6a6a; flex-shrink: 0;

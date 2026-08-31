@@ -300,13 +300,24 @@ export function drawCardBase(ctx, opt) {
     rarity = '', tierTitle = '', sealLabel = '', qrCode = false, note = '', sealTime = 0,
     accent = '', origin = '' } = opt
   const M = 60
-  // 背景
+  // 背景：顶部手撕锯齿（透明缺口）——试香纸母题的形状语言。
+  // 内容最深从 y≈38（香名）开始，撕口最深 22px，不会碰到文字；
+  // 整圈描边随撕边一并移除（撕边替代描边，导出图带透明边）。
+  ctx.clearRect(0, 0, width, height)
+  ctx.beginPath()
+  ctx.moveTo(0, 22)
+  const step = width / 22
+  let up = false
+  for (let x = step / 2; x < width; x += step / 2) {
+    ctx.lineTo(x, up ? 8 : 22)
+    up = !up
+  }
+  ctx.lineTo(width, 22)
+  ctx.lineTo(width, height)
+  ctx.lineTo(0, height)
+  ctx.closePath()
   ctx.fillStyle = theme.paper
-  ctx.fillRect(0, 0, width, height)
-  // 外边框
-  ctx.strokeStyle = theme.primary
-  ctx.lineWidth = 3
-  ctx.strokeRect(10, 10, width - 20, height - 20)
+  ctx.fill()
 
   // 顶部标题区：香名居中（8 字上限，旧数据超长截断加省略号），
   // 称号徽章是额外的叠层——斜贴在香名左侧的一枚小票（右缘轻压名字首字），
@@ -527,7 +538,9 @@ export function drawCardBase(ctx, opt) {
     ctx.fillStyle = THEME.goldDeep
     ctx.fillText('调香感言', width / 2, nTop + 8)
     ctx.fillStyle = theme.ink
-    ctx.font = '16px sans-serif'
+    // 感言是用户生成的中文（无法子集化），按 qiaomu 中文字体规范走系统栈；
+    // 字距 +2px 用间距补出手账的疏朗感
+    ctx.font = '16px "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif'
     nLines.forEach((l, i) => {
       ctx.fillText(l, width / 2, nTop + nLabelH + i * nLineH + nLineH / 2)
     })
@@ -676,12 +689,33 @@ export function drawShareCard(ctx, opt) {
   const cx = width / 2
   const border = Math.max(3, width * 0.006)
 
-  // 背景 + 外边框（与封存卡同一套纸感）
+  // 背景：同封存卡的顶部手撕锯齿（分享图与封存卡同一形状语言）
+  ctx.clearRect(0, 0, width, height)
+  ctx.beginPath()
+  ctx.moveTo(0, 18)
+  const stepS = width / 26
+  let upS = false
+  for (let x = stepS / 2; x < width; x += stepS / 2) {
+    ctx.lineTo(x, upS ? 7 : 18)
+    upS = !upS
+  }
+  ctx.lineTo(width, 18)
+  ctx.lineTo(width, height)
+  ctx.lineTo(0, height)
+  ctx.closePath()
   ctx.fillStyle = theme.paper
-  ctx.fillRect(0, 0, width, height)
+  ctx.fill()
   ctx.strokeStyle = theme.primary
   ctx.lineWidth = border
-  ctx.strokeRect(border, border, width - border * 2, height - border * 2)
+  ctx.beginPath()
+  ctx.moveTo(0, 18)
+  upS = false
+  for (let x = stepS / 2; x < width; x += stepS / 2) {
+    ctx.lineTo(x, upS ? 7 : 18)
+    upS = !upS
+  }
+  ctx.lineTo(width, 18)
+  ctx.stroke()
 
   // 主香调的颜色就是这瓶香的性格，拿它当视觉锤的主色
   let topKey = ''

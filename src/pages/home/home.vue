@@ -48,7 +48,7 @@
            做完小调查后这张卡会换成最贴合使用者的那一款（matched=true 时给出标记） -->
       <view class="card">
         <view class="card-head">
-          <text class="card-no">{{ matched ? '为你匹配 · 已封存' : 'NO.001 · 已封存' }}</text>
+          <text class="card-no">{{ matched ? '为你匹配 · 已封存' : 'NO.' + String(demo.id).padStart(3, '0') + ' · 已封存' }}</text>
           <text class="card-name">{{ demo.name }}</text>
           <view class="card-rule"></view>
         </view>
@@ -553,8 +553,18 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* 卡片本体轻微浮入，不用 transform 以外的属性影响 canvas 布局 */
+  position: relative;
+  /* 动画结束后开始呼吸，把视线从卡片引到按钮 */
   animation: cardIn 0.5s ease-out both;
+}
+/* 试香纸母题：样卡顶部撕边（页面底色的锯齿咬进口卡上缘） */
+.card::before {
+  content: '';
+  position: absolute;
+  top: -9rpx; left: -2rpx; right: -2rpx; height: 10rpx;
+  background:
+    linear-gradient(135deg, #f0eee5 50%, transparent 50%) 0 0 / 14rpx 10rpx repeat-x,
+    linear-gradient(-135deg, #f0eee5 50%, transparent 50%) 7rpx 0 / 14rpx 10rpx repeat-x;
 }
 .card-head {
   width: 100%;
@@ -626,6 +636,7 @@ function onImgError(id) { console.warn('[home] 推荐图加载失败:', id) }
   text-align: right;
   font-size: 22rpx;
   color: #6b6a6a;
+  font-variant-numeric: tabular-nums;
 }
 .card-formula {
   display: block;
