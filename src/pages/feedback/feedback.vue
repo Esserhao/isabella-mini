@@ -140,16 +140,16 @@ async function submit() {
 .letter-body { min-height: 340rpx; }
 .letter-input {
   width: 100%; min-height: 340rpx;
-  font-size: 28rpx; color: #3a3a38; line-height: 28rpx;
-  padding-top: 6rpx;
-  /* 信纸横线：回退为原密度（周期 56rpx 一条线）；文字行高改一个字大小，不依赖横线对齐 */
+  font-size: 28rpx; color: #3a3a38; line-height: 35rpx;
+  padding-top: 14rpx;
+  /* 一行横线只容一行字：横线周期=行高(35rpx)；占位符整体下移半个字(14rpx)，横线同步下移保持对齐 */
   background-image: repeating-linear-gradient(
-    transparent, transparent 56rpx, rgba(169,120,38,0.15) 56rpx, rgba(169,120,38,0.15) 58rpx
+    transparent, transparent 33rpx, rgba(169,120,38,0.15) 33rpx, rgba(169,120,38,0.15) 35rpx
   );
-  background-position: 0 0;
+  background-position: 0 14rpx;
 }
 .letter-input::placeholder {
-  line-height: 28rpx;
+  line-height: 35rpx;
   color: #a08b6a;
   opacity: 0.7;
 }
