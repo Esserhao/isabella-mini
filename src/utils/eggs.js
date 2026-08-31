@@ -21,7 +21,7 @@ export const EGGS = [
     { key: 'midnight',     name: '深夜调香师', desc: '在凌晨 0 点到 5 点之间封存一瓶香。' },
     { key: 'namesake',     name: '撞名大胆', desc: '亲手给自己的香起一个与图鉴名香一模一样的名字。' },
     { key: 'perfect',      name: '主题正解', desc: '在挑战模式下，以 ≥95 分的契合度封存当日挑战。' },
-    { key: 'slacker',      name: '佛系调香', desc: '开屏三题小调查，你每题都回了「都行」——选香的事，全交了出去。' },
+    { key: 'slacker',      name: '佛系调香', desc: '开屏三题小调查，你每题都回了「都行，你定」——选香的事，全交了出去。' },
     { key: 'night_owl',    name: '夜猫子',   desc: '在深夜（22 点至次日 5 点）走进调香工坊，与一盏灯作伴到很晚。' },
     { key: 'single_note',  name: '一味成香',   desc: '同一次进工坊，只留一个香调非 0 就封存 —— 把别的都忍住，只留一味。' },
     { key: 'mirror',       name: '镜中配方',   desc: '12 个香调首尾对称（第 1 个 = 第 12 个，第 2 个 = 第 11 个……）地封存一瓶。' },
@@ -34,7 +34,7 @@ export const EGGS = [
     { key: 'split_even',   name: '并蒂',   desc: '同一回里，两味并肩而立，谁也不肯多让谁半分。' },
     { key: 'three_way',    name: '三叠',   desc: '三味依次排开，像案上三只杯，各斟了同样的量。' },
     { key: 'round_ten',    name: '拾阶',   desc: '一阶一阶地走，每步都刚好落在整数上，利落得很。' },
-    { key: 'golden',       name: '金线',   desc: '主调占了约莫六成，余韵收在四成——这是老天定的比例，不抢。' },
+    { key: 'lean',         name: '偏锋',   desc: '主调占了上风，约莫六成，余韵在旁轻轻应着。不必每回都势均力敌。' },
     { key: 'noon',         name: '当午',   desc: '日头最盛的时辰走进来，香也跟着精神了几分。' },
     { key: 'twilight',     name: '向晚',   desc: '天将暗未暗，这一瓶，就留给黄昏吧。' },
     { key: 'first_share',  name: '递香',   desc: '你把这瓶递了出去。香要有人闻过，才算真正活过。' }

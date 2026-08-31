@@ -388,7 +388,8 @@ const ONBOARD_Q = [
       { key: 'daily', label: '日常通勤' },
       { key: 'date', label: '约会聚会' },
       { key: 'alone', label: '独处放松' },
-      { key: 'any', label: '都行' }
+      { key: 'outdoor', label: '户外出行' },
+      { key: 'whatever', label: '都行，你定' }
     ]
   }
 ]
@@ -442,6 +443,7 @@ function computeReco(ans) {
     if (ans.q3 === 'daily') { bump(0, 1.0); bump(5, 1.0) }
     else if (ans.q3 === 'date') { bump(2, 1.0); bump(3, 0.8) }
     else if (ans.q3 === 'alone') { bump(4, 1.0); bump(1, 0.6) }
+    else if (ans.q3 === 'outdoor') { bump(0, 0.8); bump(5, 0.8) }
   }
 
   const cats = catMap[ans.q1] || []
@@ -464,10 +466,9 @@ function chooseOnboard(o) {
   else if (onboardStep.value === 1) onboardAnswers.q2 = o.key
   else if (onboardStep.value === 2) {
     onboardAnswers.q3 = o.key
-    // 「佛系调香」彩蛋：三题都交出去（Q1/Q2 选「都行，你定」，Q3 选「都行」）即视为把选香全盘交了出去。
+    // 「佛系调香」彩蛋：三题都选「都行，你定」，把选香全盘交出去。
     // achieveEgg 幂等，重复答也不会多记；结果页会额外显示一句无奈批注。
-    const handedQ3 = onboardAnswers.q3 === 'whatever' || onboardAnswers.q3 === 'any'
-    const allWhatever = onboardAnswers.q1 === 'whatever' && onboardAnswers.q2 === 'whatever' && handedQ3
+    const allWhatever = onboardAnswers.q1 === 'whatever' && onboardAnswers.q2 === 'whatever' && onboardAnswers.q3 === 'whatever'
     slackerMode.value = allWhatever
     if (allWhatever) achieveEgg('slacker')
     onboardReco.value = computeReco(onboardAnswers)

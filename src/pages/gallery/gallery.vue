@@ -54,18 +54,17 @@
       <view class="g-footer">共 {{ perfumes.length }} 款 · 图鉴收录</view>
     </scroll-view>
 
-    <!-- 香调列表：原是扁平灰药丸（数据库脸最重的一栏）。
-         现与香水拍立得同语言：白卡＋主色晕染＋楷体名＋诗笺短注＋细色签，
-         翻「香调图鉴」而非查「香料表」。 -->
+    <!-- 香调列表：方案 E 色谱索引——左侧细色脊代替满铺色块，克制留白，不堆图标。
+         三列网格（列宽由屏宽三等分算出），每列左起一道竖脊＋香调名＋两字短注。 -->
     <scroll-view v-show="tab === 'accords'" scroll-y class="g-scroll" :show-scrollbar="false">
-      <view class="a-grid">
+      <view class="a-grid" :style="{ '--accord-col-w': accordColW }">
         <view class="a-chip" v-for="a in accords" :key="a.key" @tap="openAccord(a)">
-          <view class="a-swatch" :style="{ background: accordColor(a.key) }">
-            <view class="a-badge"><image class="a-icon" :src="accordImg(a.key)" mode="aspectFit"></image></view>
+          <!-- 左侧竖脊：像书脊/索引标签，香调本色一道，颜色与香调名强绑定 -->
+          <view class="a-spine" :style="{ background: accordColor(a.key) }"></view>
+          <view class="a-text">
+            <text class="a-label">{{ a.label }}</text>
+            <text class="a-desc">{{ accordEpithet(a.key) }}</text>
           </view>
-          <text class="a-label">{{ a.label }}</text>
-          <text class="a-desc">{{ a.description }}</text>
-          <view class="a-band" :style="{ background: 'linear-gradient(90deg, ' + accordColor(a.key) + '00, ' + accordColor(a.key) + ', ' + accordColor(a.key) + '00)' }"></view>
         </view>
       </view>
     </scroll-view>
@@ -284,6 +283,20 @@ function cardTransform(i) {
 const perfumes = galleryPerfumes
 const accords = ACCORDS
 const notes = notesData
+// 香调卡自适应：检测屏宽 → 三等分（每列 = (屏宽 − 横向内外边距 − 两道列间隙) / 3）
+// g-scroll 用 border-box，左右共 28rpx×2；a-grid 左右共 2rpx×2；3 列间隙 20rpx×2 → 合计 100rpx
+const accordColW = ref('')
+function getScreenW() {
+  if (uni.getWindowInfo) { const i = uni.getWindowInfo(); if (i && i.windowWidth) return i.windowWidth }
+  if (uni.getSystemInfoSync) { const i = uni.getSystemInfoSync(); if (i && i.windowWidth) return i.windowWidth }
+  return 375
+}
+function calcAccordLayout() {
+  const w = getScreenW()
+  const rpx = w / 750
+  const used = 100 * rpx            // 横向内外边距 + 两道列间隙，单位 px
+  accordColW.value = ((w - used) / 3).toFixed(2) + 'px'
+}
 const sel = ref(null)
 // 详情里的「香气成分」默认收起：首屏只讲古先生的话，参数翻到背面才看
 const dataOpen = ref(false)
@@ -315,6 +328,7 @@ function ensureCoachTargetVisible() {
   setTimeout(bumpCoach, 80)
 }
 onShow(ensureCoachTargetVisible)
+onShow(calcAccordLayout)
 watch([() => tut.active, () => tut.index], ensureCoachTargetVisible)
 
 // 香水详情六维雷达下方的「气息特征」字幕，帮小白读懂雷达
@@ -344,6 +358,13 @@ const IMG_EXT = { 1: 'jpg', 2: 'jpg', 3: 'jpg', 4: 'jpg', 5: 'jpg', 6: 'jpg', 7:
 function imgSrc(id) { return '/static/gallery/p' + id + '.' + (IMG_EXT[id] || 'png') }
 // 香调矢量图标（SVG→PNG 静态图，体积小保留本地）
 function accordImg(key) { return '/static/gallery/accords/' + key + '.png' }
+// 香调卡短注：从「一句气味素描」压到「两三个字」，作标签而非说明。
+const ACCORD_EPITHET = {
+  citrus: '明亮', floral: '温柔', fruity: '清甜', woody: '沉静',
+  oriental: '异情', fougere: '古典', green: '清醒', musk: '贴肤',
+  amber: '温润', vanilla: '暖甜', tobacco: '微醺', aquatic: '清冽'
+}
+function accordEpithet(key) { return ACCORD_EPITHET[key] || '' }
 
 // 香料按主导香调分组
 const ingredientGroups = computed(() => {
@@ -550,47 +571,27 @@ function ingMainKey(accords) {
 .deck-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: rgba(46,92,69,0.22); transition: background 200ms ease; }
 .deck-dot.on { background: #2e5c45; }
 
-/* 香调卡：白卡＋主色晕染＋楷体名＋诗笺短注＋细色签，与香水拍立得同气 */
+/* 香调卡：三列白卡＋左侧竖脊＋楷体名＋两字短注（方案 E 色谱索引） */
 .a-grid { display: flex; flex-wrap: wrap; gap: 20rpx; padding: 4rpx 2rpx; }
 .a-chip {
-  flex: 0 0 calc((100% - 40rpx) / 3);
+  flex: 0 0 var(--accord-col-w, calc((100% - 40rpx) / 3));
+  width: var(--accord-col-w, calc((100% - 40rpx) / 3));
   background: #fffdf8;
-  border-radius: 18rpx; padding: 16rpx 12rpx 14rpx;
-  border: 1rpx solid rgba(46,92,69,0.08);
-  box-shadow: 0 6rpx 16rpx rgba(60,50,30,0.07);
-  display: flex; flex-direction: column; align-items: center; gap: 10rpx;
-  transition: transform .18s ease, box-shadow .18s ease;
+  border-radius: 16rpx; padding: 18rpx 14rpx 18rpx 16rpx;
+  border: 1rpx solid rgba(46,92,69,0.07);
+  display: flex; flex-direction: row; align-items: center; gap: 14rpx;
+  text-align: left;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
-.a-chip:active { transform: translateY(-4rpx); box-shadow: 0 12rpx 22rpx rgba(60,50,30,0.14); }
-/* 主色晕染：香调本色打底，叠一层白光让颜色像被水化开，不再是死板实色块 */
-.a-swatch {
-  position: relative; width: 100%; height: 108rpx; border-radius: 12rpx; overflow: hidden;
-  display: flex; align-items: center; justify-content: center;
-}
-.a-swatch::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(140deg, rgba(255,255,255,0.45), rgba(255,255,255,0) 60%);
-}
-/* 白底圆章托图标：不论主色深浅，图标都看得清 */
-.a-badge {
-  position: relative; z-index: 1;
-  width: 60rpx; height: 60rpx; border-radius: 50%;
-  background: rgba(255,255,255,0.95);
-  box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.10);
-  display: flex; align-items: center; justify-content: center;
-}
-.a-icon { width: 38rpx; height: 38rpx; flex-shrink: 0; }
+.a-chip:active { transform: translateY(-4rpx); border-color: rgba(46,92,69,0.18); box-shadow: 0 10rpx 20rpx rgba(60,50,30,0.10); }
+/* 脊 + 文字块：文字左对齐，竖脊像书脊把这一格和它的香调绑在一起 */
+.a-text { display: flex; flex-direction: column; align-items: flex-start; gap: 6rpx; min-width: 0; }
+/* 方案 E 左侧细色脊：香调本色一道竖脊，替代满铺色块，克制不抢戏 */
+.a-spine { width: 6rpx; height: 52rpx; border-radius: 3rpx; flex-shrink: 0; }
 .a-dot { width: 24rpx; height: 24rpx; border-radius: 50%; }
-/* 楷体手写感名，呼应拍立得短句 */
-.a-label { font-family: var(--font-hand); font-size: 28rpx; color: #3a342b; letter-spacing: 1rpx; margin-top: 2rpx; }
-/* 诗笺短注：香调的一句气味素描，限两行，静下来读 */
-.a-desc {
-  font-family: var(--font-hand); font-size: 20rpx; line-height: 1.45; color: #8a8276;
-  text-align: center; padding: 0 4rpx;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
-}
-/* 细色签：主色向两端淡出，比实色条更轻，像落款一道 */
-.a-band { width: 52%; height: 4rpx; border-radius: 2rpx; margin-top: 2rpx; }
+/* 楷体名 + 两字短注（方案 E），左对齐贴合索引感 */
+.a-label { font-family: var(--font-hand); font-size: 28rpx; color: #3a342b; letter-spacing: 1rpx; text-align: left; }
+.a-desc { font-family: var(--font-hand); font-size: 20rpx; color: #8a8276; line-height: 1; text-align: left; }
 
 /* 详情大图：只有香水走「贴上去的照片」，香调/香料走下面的 .d-accord-img 小图 */
 .d-paste { width: 480rpx; margin: 0 auto 26rpx; }

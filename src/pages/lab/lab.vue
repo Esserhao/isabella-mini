@@ -1369,13 +1369,13 @@ async function triggerSeal() {
   if (nzCount === 3 && evenish(nzVals)) sealEgg('three_way')
   // ⑩ 拾阶：所有非 0 香调值都是 10 的整数倍（整十整十地调）。
   if (nzVals.length && nzVals.every((v) => v % 10 === 0)) sealEgg('round_ten')
-  // ⑪ 金线：主调占比约 55%~66% 即黄金分割感；整十配比让给「拾阶」，不在此重复计。
+  // ⑪ 偏锋：主调占比约 55%~66%（约六成、余韵四成），非整十；整十配比让给「拾阶」，不在此重复计。
   if (nzVals.length >= 2) {
     const total = nzVals.reduce((s, v) => s + v, 0)
     const sorted = [...nzVals].sort((a, b) => b - a)
     const ratio = sorted[0] / total
     const allTens = nzVals.every((v) => v % 10 === 0)
-    if (!allTens && ratio >= 0.55 && ratio <= 0.66) sealEgg('golden')
+    if (!allTens && ratio >= 0.55 && ratio <= 0.66) sealEgg('lean')
   }
   const sealLabelText = sealLabelOf({
     tierLabel: tier.sealLabel, streak: streakNow, hour: sealHour, pureWater: isPureWater
