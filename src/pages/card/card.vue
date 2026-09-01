@@ -55,6 +55,7 @@ import { computeRadarValues, generateFormula, getGuQuote, topAccordDesc, getDail
 import { drawCard, drawShareCard, SHARE_SIZE, mainAccordColor } from '@/utils/canvas-draw.js'
 import { THEME } from '@/utils/theme.js'
 import { isFaved, toggleFav as toggleFavStore, stableFavId } from '@/utils/favorites.js'
+import { achieveEgg } from '@/utils/eggs.js'
 import { track } from '@/utils/analytics.js'
 import { currentTier } from '@/utils/progress.js'
 import { getWxacodePath, decodeAccordParams, setPendingBlend } from '@/utils/wxacode.js'
@@ -478,6 +479,8 @@ function shareTitleOf() {
 // 只传递核心数据（name, accords, radarMode），其他数据在接收端重新计算
 // 注意：path 不能以 / 开头，否则部分微信版本会丢弃 query 参数
 onShareAppMessage(() => {
+  // 首次把封存卡分享出去，记入「递香与人」彩蛋（幂等，重复不计数）
+  achieveEgg('first_share')
   // 对决模式：挑战完成的卡分享出去自带分数与题名，好友同题应战
   if (data.value.challenge) {
     const c = data.value.challenge
