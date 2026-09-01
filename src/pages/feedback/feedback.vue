@@ -28,6 +28,15 @@
     <button class="send-btn" :disabled="sending" @tap="submit">
       {{ sending ? '寄出中…' : '寄出这封信' }}
     </button>
+
+    <!-- 寄出后的仪式感：全屏「投进邮筒」时刻，点一下即可离开，也会自动返回 -->
+    <view v-if="mailed" class="mailed" @tap="leaveMailed">
+      <view class="mailed-card">
+        <view class="mailed-icon">✉</view>
+        <view class="mailed-title">信已投进邮筒</view>
+        <view class="mailed-sub">回信若来，会夹在下一瓶香里</view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -39,9 +48,15 @@ import { track } from '@/utils/analytics.js'
 
 const content = ref('')
 const sending = ref(false)
+// 寄出成功后的「投进邮筒」时刻
+const mailed = ref(false)
+let mailedTimer = null
 // 页面是否已卸载。提交成功后的延迟返回要挡住「用户自己先返回了」这种情况
 let unloaded = false
-onUnload(() => { unloaded = true })
+onUnload(() => {
+  unloaded = true
+  if (mailedTimer) { clearTimeout(mailedTimer); mailedTimer = null }
+})
 
 const today = (() => {
   const d = new Date()
@@ -79,10 +94,9 @@ async function submit() {
     if (r && r.ok) {
       track('feedback_submit')
       content.value = ''
-      uni.showToast({ title: '信已寄出，谢谢你', icon: 'success', duration: 2200 })
-      // 页面已卸载就别再退了：用户可能在这 1.6s 内自己点了返回，
-      // 定时器照常触发会多退一层，直接退掉用户的上一个页面。
-      setTimeout(() => { if (!unloaded) uni.navigateBack() }, 1600)
+      // 仪式感：先给一段全屏的「投进邮筒」时刻，再回上一页
+      mailed.value = true
+      mailedTimer = setTimeout(() => { leaveMailed() }, 2600)
     } else {
       // 87014 = 审核未通过；其余为写入失败（如集合未建）
       const msg = (r && r.errMsg) || '寄出失败，稍后再试'
@@ -102,6 +116,15 @@ async function submit() {
   } finally {
     sending.value = false
   }
+}
+
+// 离开邮筒时刻：点一下或定时器到点都会走这里。
+// 页面已卸载就别再退了：用户可能在这期间自己点了返回，
+// 再 navigateBack 会多退一层，直接退掉用户的上一个页面。
+function leaveMailed() {
+  if (mailedTimer) { clearTimeout(mailedTimer); mailedTimer = null }
+  mailed.value = false
+  if (!unloaded) uni.navigateBack()
 }
 </script>
 
@@ -172,4 +195,19 @@ async function submit() {
 }
 .send-btn::after { border: none; }
 .send-btn[disabled] { background: #9db3a6; color: #fff; }
+
+/* 投进邮筒时刻：全屏暗幕 + 居中一张卡片，楷体手写感 */
+.mailed {
+  position: fixed; left: 0; top: 0; right: 0; bottom: 0;
+  background: rgba(26, 26, 30, 0.55); z-index: 999;
+  display: flex; align-items: center; justify-content: center;
+}
+.mailed-card {
+  background: #fbf8f0; border-radius: 24rpx;
+  padding: 56rpx 64rpx; text-align: center;
+  box-shadow: 0 8rpx 40rpx rgba(26, 26, 30, 0.2);
+}
+.mailed-icon { font-size: 64rpx; color: #2e5c45; margin-bottom: 20rpx; }
+.mailed-title { font-family: var(--font-hand); font-size: 40rpx; color: #2b2b2e; }
+.mailed-sub { font-size: 22rpx; color: #6b6a6a; margin-top: 14rpx; }
 </style>
