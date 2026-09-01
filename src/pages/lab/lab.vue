@@ -140,7 +140,6 @@
           <text class="tpl-label">{{ t.label }}</text>
         </view>
       </view>
-      <view class="normalize-hint">加香调就是从纯水里置换，纯水让完了才轮到香调互让，总和始终是 100%</view>
       <view class="scent-broadcast" :class="{ show: scentBroadcast }">{{ scentBroadcast }}</view>
 
       <!-- 纯水：单独一根放在最上面。它是「瓶子里的空位」，不是一种气味，
@@ -2060,9 +2059,6 @@ onReady(async () => {
 }
 .tpl-btn:active { background: rgba(46,92,69,0.06); }
 .tpl-label { font-size: 22rpx; color: #2b2b2e; font-family: inherit; }
-
-/* 归一化解释 */
-.normalize-hint { font-size: 20rpx; color: #6b6a6a; margin-bottom: 12rpx; }
 
 /* 靠近名香提示 / 复刻名香彩蛋横幅：已合并进常驻状态行 .panel-status（防抖动） */
 

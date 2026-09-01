@@ -74,7 +74,8 @@
         </view>
         <view class="menu-item" @tap="goContact">
           <view class="menu-left">
-            <text class="menu-icon">✉</text>
+            <!-- 联系我用 @（邮箱语义），与留言建议的 ✉ 区分 -->
+            <text class="menu-icon contact-icon">@</text>
             <view class="menu-text">
               <view class="menu-title">联系我</view>
               <view class="menu-sub">邮箱联系，欢迎来聊</view>
@@ -283,6 +284,7 @@ onShow(() => {
 .menu-left { display: flex; align-items: center; gap: 18rpx; min-width: 0; }
 .menu-icon { font-size: 34rpx; }
 .egg-icon { color: #8a5f18; }
+.contact-icon { color: #8a5f18; font-weight: 700; }
 .menu-title { font-size: 28rpx; font-weight: 600; color: #2b2b2e; }
 .menu-sub { font-size: 20rpx; color: #6b6a6a; margin-top: 4rpx; }
 </style>
