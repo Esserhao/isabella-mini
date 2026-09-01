@@ -241,17 +241,17 @@
       <text class="night-tip-name">夜话</text>
       <text class="night-tip-quote">夜深了，慢慢调。这一瓶，只为你自己。</text>
     </view>
-    <!-- 迎晨：首次清晨进店弹寄语气泡，点按关闭 -->
+    <!-- 晨光入室：首次清晨进店弹寄语气泡，点按关闭 -->
     <view v-if="dawnTip" class="dawn-tip" @tap="dawnTip = false">
       <text class="dawn-tip-name">晨语</text>
       <text class="dawn-tip-quote">天刚亮你就来了。这一瓶，沾着晨光。</text>
     </view>
-    <!-- 当午：首次正午进店弹寄语气泡，点按关闭 -->
+    <!-- 日正当午：首次正午进店弹寄语气泡，点按关闭（气泡署名仍用两字「当午」） -->
     <view v-if="noonTip" class="night-tip" @tap="noonTip = false">
       <text class="night-tip-name">当午</text>
       <text class="night-tip-quote">日头最盛的时辰走进来，香也跟着精神了几分。</text>
     </view>
-    <!-- 向晚：首次黄昏进店弹寄语气泡，点按关闭 -->
+    <!-- 向晚未晚：首次黄昏进店弹寄语气泡，点按关闭（气泡署名仍用两字「向晚」） -->
     <view v-if="twilightTip" class="night-tip" @tap="twilightTip = false">
       <text class="night-tip-name">向晚</text>
       <text class="night-tip-quote">天将暗未暗，这一瓶，就留给黄昏吧。</text>
@@ -301,14 +301,14 @@ function checkNight() {
   if (isNight && !nightTipShown) {
     nightTipShown = true
     nightTip.value = true
-    // 首次深夜进店记入「夜猫子」彩蛋（幂等，重复不计数）
+    // 首次深夜进店记入「夜半灯下」彩蛋（幂等，重复不计数）
     achieveEgg('night_owl')
     setTimeout(() => { nightTip.value = false }, 4500)
   }
 }
 
-// 迎晨（5:00–8:00 进店）：与夜猫子成一对冷暖时段彩蛋。
-// 铺一层晨光薄雾 + 弹古先生晨语（仅首弹，避免每次切回都烦），并记入「迎晨」彩蛋。
+// 晨光入室（5:00–8:00 进店）：与「夜半灯下」成一对冷暖时段彩蛋。
+// 铺一层晨光薄雾 + 弹古先生晨语（仅首弹，避免每次切回都烦），并记入「晨光入室」彩蛋。
 const dawnMode = ref(false)
 const dawnTip = ref(false)
 let dawnTipShown = false
@@ -324,7 +324,7 @@ function checkDawn() {
   }
 }
 
-// 当午（11:00–14:00 进店）：与夜话 / 晨语成一组时段寄语气泡，记入「当午」彩蛋。
+// 日正当午（11:00–14:00 进店）：与夜话 / 晨语成一组时段寄语气泡，记入「日正当午」彩蛋。
 const noonTip = ref(false)
 let noonTipShown = false
 function checkNoon() {
@@ -337,7 +337,7 @@ function checkNoon() {
   }
 }
 
-// 向晚（17:00–19:00 进店）：黄昏寄语气泡，记入「向晚」彩蛋。
+// 向晚未晚（17:00–19:00 进店）：黄昏寄语气泡，记入「向晚未晚」彩蛋。
 const twilightTip = ref(false)
 let twilightTipShown = false
 function checkTwilight() {
@@ -1337,7 +1337,7 @@ async function triggerSeal() {
     }
     if (sym) sealEgg('mirror')
   }
-  // ③ 初调 / ④ 百瓶记：累计封存数（bumpSealCount 已在本函数上方 +1）
+  // ③ 初香入册 / ④ 百瓶记：累计封存数（bumpSealCount 已在本函数上方 +1）
   if (count === 1) sealEgg('first_bottle')
   if (count >= 100) sealEgg('centurion')
   // ⑤ 一日高产：同一自然日封存满 5 瓶（bumpTodaySeal 跨天自动从 1 重数）
@@ -1362,14 +1362,14 @@ async function triggerSeal() {
     ACCORDS.forEach((a) => { if ((ac[a.key] || 0) > 0) covered.add(a.key) })
   })
   if (covered.size >= ACCORDS.length) sealEgg('collector')
-  // ⑧ 并蒂 / ⑨ 三叠：恰好两味 / 三味非 0，且彼此分量近乎相等（差 ≤ 2，容归一化舍入）。
+  // ⑧ 并蒂双生 / ⑨ 案上三杯：恰好两味 / 三味非 0，且彼此分量近乎相等（差 ≤ 2，容归一化舍入）。
   const nzVals = ACCORDS.map((a) => sealVals[a.key] || 0).filter((v) => v > 0)
   const evenish = (arr) => arr.length >= 2 && arr.every((v) => Math.abs(v - arr[0]) <= 2)
   if (nzCount === 2 && evenish(nzVals)) sealEgg('split_even')
   if (nzCount === 3 && evenish(nzVals)) sealEgg('three_way')
-  // ⑩ 拾阶：所有非 0 香调值都是 10 的整数倍（整十整十地调）。
+  // ⑩ 拾阶而上：所有非 0 香调值都是 10 的整数倍（整十整十地调）。
   if (nzVals.length && nzVals.every((v) => v % 10 === 0)) sealEgg('round_ten')
-  // ⑪ 偏锋：主调占比约 55%~66%（约六成、余韵四成），非整十；整十配比让给「拾阶」，不在此重复计。
+  // ⑪ 偏锋取香：主调占比约 55%~66%（约六成、余韵四成），非整十；整十配比让给「拾阶而上」，不在此重复计。
   if (nzVals.length >= 2) {
     const total = nzVals.reduce((s, v) => s + v, 0)
     const sorted = [...nzVals].sort((a, b) => b - a)
@@ -1584,7 +1584,7 @@ async function ensureShareTemp() {
 // card 页已接管分享，lab 页保留原生分享钩子供微信右上角菜单用。
 // path 带上 p（配方）/n（香名）：好友点进来直接还原这瓶香，与扫码闭环同一套参数。
 onShareAppMessage(() => {
-  // 首次把封存卡分享出去，记入「递香」彩蛋（幂等，重复不计数）
+  // 首次把封存卡分享出去，记入「递香与人」彩蛋（幂等，重复不计数）
   achieveEgg('first_share')
   const vals = getAccordValues()
   const isRealName = name.value && name.value !== '未命名香氛'
@@ -1614,8 +1614,8 @@ onShow(() => {
   track('enter_lab')
   checkNight()  // 深夜进店：铺烛光蒙层 + 弹夜话气泡（幂等，仅首弹）
   checkDawn()  // 清晨进店：铺晨光薄雾 + 弹晨语气泡（幂等，仅首弹）
-  checkNoon()  // 正午进店：弹当午气泡（幂等，仅首弹）
-  checkTwilight()  // 黄昏进店：弹向晚气泡（幂等，仅首弹）
+  checkNoon()  // 正午进店：弹当午气泡 + 记入「日正当午」彩蛋（幂等，仅首弹）
+  checkTwilight()  // 黄昏进店：弹向晚气泡 + 记入「向晚未晚」彩蛋（幂等，仅首弹）
   // 「十二味全开」按「同一次进工坊」计：每次进入都从零重新收集。
   // 注意 onShow 在切回小程序后台时也会触发，收集进度会重开——
   // 宁可重收一遍也不让条件跨天累积（登记条件写的是哪次就算哪次）。
@@ -1721,7 +1721,7 @@ onReady(async () => {
   font-size: 27rpx; color: #f3ead8; line-height: 1.7;
 }
 
-/* 迎晨：清晨薄雾（不挡操作）+ 古先生晨语气泡。与深夜夜调成一对冷暖。 */
+/* 晨光入室：清晨薄雾（不挡操作）+ 晨语气泡。与深夜夜调成一对冷暖。 */
 .lab.dawn { background: #eef1ea; }
 .dawn-veil {
   position: fixed; left: 0; right: 0; top: 0; bottom: 0;

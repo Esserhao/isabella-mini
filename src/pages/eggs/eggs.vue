@@ -19,6 +19,9 @@
         <!-- 收藏细节只在点亮后揭晓：未点亮的连条件都不给，保持撞见时的惊喜 -->
         <view class="egg-desc" v-if="e.time">{{ e.desc }}</view>
         <view class="egg-desc egg-locked" v-else>达成后揭晓</view>
+        <!-- 只给要集齐 N 项的彩蛋挂进度。不给数字的话用户不知道还差多少，
+             翻到一半就放弃了；这里只报数量，不点破是哪几项，保留撞见的惊喜。 -->
+        <view class="egg-prog" v-if="e.progress">已翻 {{ e.progress.count }} / {{ e.progress.total }}</view>
       </view>
     </view>
 
@@ -30,6 +33,7 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getEggs } from '@/utils/eggs.js'
+import { getSeenProgress, SEEN_EGG } from '@/utils/seen.js'
 import { track } from '@/utils/analytics.js'
 
 const list = ref([])
@@ -45,7 +49,9 @@ function fmt(t) {
 onShow(() => {
   track('view_eggs')
   const g = getEggs()
-  list.value = g.list
+  const sp = getSeenProgress()
+  // 进度只挂在「卷末余香」上（唯一一枚集齐型彩蛋）；其余彩蛋不给 progress 字段。
+  list.value = g.list.map((e) => (e.key === SEEN_EGG ? { ...e, progress: sp } : e))
   achieved.value = g.achieved
   total.value = g.total
 })
@@ -85,6 +91,8 @@ onShow(() => {
 .egg-desc { font-size: 22rpx; color: #6b6a6a; line-height: 1.7; margin-top: 6rpx; }
 .egg.on .egg-desc { color: #6b6a6a; }
 .egg-locked { color: #c9c5b4; }
+.egg-prog { font-size: 20rpx; color: #a08b6a; margin-top: 10rpx; letter-spacing: 1rpx; }
+.egg.on .egg-prog { color: #8a5f18; }
 
 .foot { font-size: 22rpx; color: #b0ae9f; text-align: center; padding: 24rpx 0 6rpx; line-height: 1.7; }
 </style>

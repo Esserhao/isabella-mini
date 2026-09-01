@@ -22,22 +22,25 @@ export const EGGS = [
     { key: 'namesake',     name: '撞名大胆', desc: '亲手给自己的香起一个与图鉴名香一模一样的名字。' },
     { key: 'perfect',      name: '主题正解', desc: '在挑战模式下，以 ≥95 分的契合度封存当日挑战。' },
     { key: 'slacker',      name: '佛系调香', desc: '开屏三题小调查，你每题都回了「都行，你定」——选香的事，全交了出去。' },
-    { key: 'night_owl',    name: '夜猫子',   desc: '在深夜（22 点至次日 5 点）走进调香工坊，与一盏灯作伴到很晚。' },
+    { key: 'night_owl',    name: '夜半灯下',   desc: '在深夜（22 点至次日 5 点）走进调香工坊，与一盏灯作伴到很晚。' },
     { key: 'single_note',  name: '一味成香',   desc: '同一次进工坊，只留一个香调非 0 就封存 —— 把别的都忍住，只留一味。' },
     { key: 'mirror',       name: '镜中配方',   desc: '12 个香调首尾对称（第 1 个 = 第 12 个，第 2 个 = 第 11 个……）地封存一瓶。' },
-    { key: 'dawn',         name: '迎晨',       desc: '清晨 5 点到 8 点之间走进调香工坊，迎着第一缕光调一瓶。' },
-    { key: 'first_bottle', name: '初调',       desc: '封存人生第一瓶香。不管好不好闻，它都在日记里了。' },
+    { key: 'dawn',         name: '晨光入室',       desc: '清晨 5 点到 8 点之间走进调香工坊，迎着第一缕光调一瓶。' },
+    { key: 'first_bottle', name: '初香入册',       desc: '封存人生第一瓶香。不管好不好闻，它都在日记里了。' },
     { key: 'daily_rush',   name: '一日高产',   desc: '同一天里封存满 5 瓶。香，要慢慢养。' },
     { key: 'centurion',    name: '百瓶记',     desc: '累计封存满 100 瓶。日记快写不下，给你腾个地方。' },
     { key: 'opposite',     name: '唱反调',     desc: '这一瓶的每一味，都正好是上一瓶的反相（v = 100 − 上瓶那味）。你这是在跟自己抬杠。' },
     { key: 'collector',    name: '十二味巡礼', desc: '历史累计，十二种香调你都亲手调过一遍。这一趟巡礼，记着了。' },
-    { key: 'split_even',   name: '并蒂',   desc: '同一回里，两味并肩而立，谁也不肯多让谁半分。' },
-    { key: 'three_way',    name: '三叠',   desc: '三味依次排开，像案上三只杯，各斟了同样的量。' },
-    { key: 'round_ten',    name: '拾阶',   desc: '一阶一阶地走，每步都刚好落在整数上，利落得很。' },
-    { key: 'lean',         name: '偏锋',   desc: '主调占了上风，约莫六成，余韵在旁轻轻应着。不必每回都势均力敌。' },
-    { key: 'noon',         name: '当午',   desc: '日头最盛的时辰走进来，香也跟着精神了几分。' },
-    { key: 'twilight',     name: '向晚',   desc: '天将暗未暗，这一瓶，就留给黄昏吧。' },
-    { key: 'first_share',  name: '递香',   desc: '你把这瓶递了出去。香要有人闻过，才算真正活过。' }
+    { key: 'split_even',   name: '并蒂双生',   desc: '同一回里，两味并肩而立，谁也不肯多让谁半分。' },
+    { key: 'three_way',    name: '案上三杯',   desc: '三味依次排开，像案上三只杯，各斟了同样的量。' },
+    { key: 'round_ten',    name: '拾阶而上',   desc: '一阶一阶地走，每步都刚好落在整数上，利落得很。' },
+    { key: 'lean',         name: '偏锋取香',   desc: '主调占了上风，约莫六成，余韵在旁轻轻应着。不必每回都势均力敌。' },
+    { key: 'noon',         name: '日正当午',   desc: '日头最盛的时辰走进来，香也跟着精神了几分。' },
+    { key: 'twilight',     name: '向晚未晚',   desc: '天将暗未暗，这一瓶，就留给黄昏吧。' },
+    { key: 'first_share',  name: '递香与人',   desc: '你把这瓶递了出去。香要有人闻过，才算真正活过。' },
+    // 触发点不在工坊：由 src/utils/seen.js 在图鉴三个打开详情的入口里记笔，
+    // 记满后回调本表。范围见 seen.js 头注（香水 11 + 香调 12 + 手记 9 = 32）。
+    { key: 'read_all',     name: '卷末余香',   desc: '图鉴里的每一瓶、每一味、每一篇手记，你都翻开过一遍。合上图鉴时，香气还没散。' }
 ];
 
 const KEY = 'isabella_eggs';

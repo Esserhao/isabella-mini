@@ -11,6 +11,7 @@ installEnv()
 await import('./cases-mix.mjs')
 await import('./cases-flow.mjs')
 await import('./cases-eggs.mjs')
+await import('./cases-seen.mjs')
 await import('./cases-store.mjs')
 await import('./cases-journey.mjs')
 

@@ -251,6 +251,7 @@ import { drawRadar } from '@/utils/canvas-draw.js'
 import { setPendingBlend } from '@/utils/wxacode.js'
 import { track } from '@/utils/analytics.js'
 import { tut, TUTORIAL_STEPS, bumpCoach } from '@/utils/tutorial.js'
+import { markSeen } from '@/utils/seen.js'
 
 // accordColor 用 theme.js 的公共实现，不在这里另写一份 ——
 // 本地那版的 fallback 是硬编码的 '#2e5c45'，主题色一改就会漏掉这里。
@@ -413,16 +414,27 @@ function ingAccords(acc) {
     .sort((a, b) => b.v - a.v)
 }
 
+// 翻阅记录：打开一次详情记一笔，三类（香水/香调/手记）都翻过就点亮「卷末余香」。
+// toast 延后 700ms：详情弹层此刻正在展开，立刻弹会被展开动画盖过去看不见。
+function noteSeen(kind, id) {
+  if (!markSeen(kind, id)) return
+  setTimeout(() => {
+    uni.showToast({ title: '✦ 卷末余香 · 新彩蛋已收入「我的 · 彩蛋收藏」', icon: 'none' })
+  }, 700)
+}
+
 function openPerfume(p) {
   sel.value = { type: 'perfume', data: p }
   // 每次打开都从「读日记」开始，参数区收着。
   // 这里不能顺便画雷达：canvas 在 v-if 里，此刻根本没渲染，
   // createSelectorQuery 取不到节点，画了也是白画。
   dataOpen.value = false
+  noteSeen('perfume', p.id)
 }
-function openAccord(a) { sel.value = { type: 'accord', data: a } }
+function openAccord(a) { sel.value = { type: 'accord', data: a }; noteSeen('accord', a.key) }
+// 香料不计入翻阅记录：104 种工具书条目，逐条点开只是机械打卡（详见 seen.js 头注）
 function openIngredient(ing) { sel.value = { type: 'ingredient', data: ing } }
-function openNote(n, i) { sel.value = { type: 'note', data: n, index: i } }
+function openNote(n, i) { sel.value = { type: 'note', data: n, index: i }; noteSeen('note', n.title) }
 function closeDetail() { sel.value = null }
 // 仅当点击遮罩层（而非详情内容区）时关闭
 function closeDetailIfMask(e) {
