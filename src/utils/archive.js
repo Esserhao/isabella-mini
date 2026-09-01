@@ -11,13 +11,26 @@
 //   isabella_seal_count 累计封存瓶数（百瓶记/阶梯称号）
 //   isabella_stats     埋点漏斗计数
 //
-// 文本格式：单行 `ISABELLA1|<校验码>|<JSON>`。
-//   单行是为了「全选复制」零遗漏；校验码（djb2·base36）挡截断/乱改，
-//   粘贴不完整时解析直接报错，绝不写脏本机数据。
+// 文本格式（当前 ISABELLA2）：单行 `ISABELLA2|<校验码>|<压缩串>`。
+//   单行是为了「全选复制」零遗漏。压缩分两层：
+//   1) 数据瘦身——键名缩短、accords 只存非 0 项（`香调序号:占比`）、
+//      formula 不带走（它由 accords 经 generateFormula 现算得出，导入时重建）；
+//   2) lz-string 压缩 + base64——满仓档案（50 调香史+100 收藏）实测
+//      44,485 字 → 约 6,500 字，微信输入框一屏能看全。
+//   校验码（djb2·base36）挂在压缩串上：先验后解，粘贴不完整/被改动
+//   直接拒收，绝不写脏本机数据。旧版 ISABELLA1（纯 JSON）保留兼容导入。
 // ============================================================
 import { galleryPerfumes, ACCORDS, notesData } from './data.js'
+import { generateFormula } from './mix.js'
+import LZString from 'lz-string'
 
-const MARK = 'ISABELLA1'
+// 兼容不同打包/运行时对 CJS 默认导出的处理：两种形态都兜住
+const LZ = LZString && LZString.compressToBase64 ? LZString : LZString.default
+
+const MARK = 'ISABELLA2'      // 当前格式：瘦身 JSON → lz-string 压缩 → base64
+const MARK_V1 = 'ISABELLA1'   // 旧格式（纯 JSON），保留兼容导入
+
+const ACCORD_KEYS = ACCORDS.map((a) => a.key)
 
 // 各类内容总数（与 seen.js 同源算法：数据源长度即封顶）
 const SEEN_CAPS = {
@@ -70,29 +83,115 @@ function hashOf(str) {
     return h.toString(36).padStart(7, '0')
 }
 
-// 档案对象 → 可复制文本。序列化后重新算校验码，保证与内容严格对应。
+// ---------- 瘦身（wire 上只带不可再生成的数据） ----------
+
+// 每条记录压成 { t, n, a, q, o, m }：
+//   t=time n=香名 q=台词 o=出处 m=感言（空的不带）
+//   a=配比，只存非 0 项，`香调序号:占比` 逗号相连（序号按 data.js ACCORDS 顺序）
+//   formula 刻意不带走：它是 accords 的纯函数，导入时用当前香料库现算
+function packEntry(e) {
+    if (!e || typeof e.time !== 'number' || !isFinite(e.time)) return null
+    const a = []
+    if (e.accords && typeof e.accords === 'object') {
+        ACCORD_KEYS.forEach((k, i) => {
+            const v = Number(e.accords[k])
+            if (Number.isFinite(v) && v > 0) a.push(i + ':' + Math.round(v))
+        })
+    }
+    const o = { t: Math.round(e.time), n: String(e.name || '') }
+    if (a.length) o.a = a.join(',')
+    if (e.quote) o.q = String(e.quote)
+    if (e.origin) o.o = String(e.origin)
+    if (e.note) o.m = String(e.note)
+    return o
+}
+
+// 瘦身记录还原成完整记录。配比重建为全 12 香调对象（0 补齐），
+// formula 由 accords 现算——香料库若日后扩充，导入即得当前版本配方。
+function unpackEntry(p) {
+    if (!p || typeof p.t !== 'number' || !isFinite(p.t)) return null
+    const accords = {}
+    if (typeof p.a === 'string' && p.a) {
+        ACCORD_KEYS.forEach((k) => { accords[k] = 0 })
+        p.a.split(',').forEach((seg) => {
+            const m = seg.match(/^(\d{1,2}):(\d{1,3})$/)
+            if (!m) return
+            const i = Number(m[1])
+            if (i < 0 || i >= ACCORD_KEYS.length) return
+            accords[ACCORD_KEYS[i]] = Number(m[2])
+        })
+    }
+    const e = { time: p.t, name: p.n || '', accords, formula: generateFormula(accords) }
+    if (p.q) e.quote = p.q
+    if (p.o) e.origin = p.o
+    if (p.m) e.note = p.m
+    return e
+}
+
+function packArchive(archive) {
+    const d = archive.d || {}
+    const out = { v: 1, t: archive.t, d: {} }
+    if (Array.isArray(d.h)) out.d.h = d.h.map(packEntry).filter(Boolean)
+    if (Array.isArray(d.f)) out.d.f = d.f.map(packEntry).filter(Boolean)
+    if (d.e) out.d.e = d.e
+    if (d.s) out.d.s = d.s
+    if (d.k) out.d.k = d.k
+    return out
+}
+
+function unpackArchive(slim) {
+    const d = slim.d || {}
+    const out = { v: 1, t: slim.t, d: {} }
+    if (Array.isArray(d.h)) out.d.h = d.h.map(unpackEntry).filter(Boolean)
+    if (Array.isArray(d.f)) out.d.f = d.f.map(unpackEntry).filter(Boolean)
+    if (d.e && typeof d.e === 'object' && !Array.isArray(d.e)) out.d.e = d.e
+    if (d.s && typeof d.s === 'object' && !Array.isArray(d.s)) out.d.s = d.s
+    if (d.k && typeof d.k === 'object' && !Array.isArray(d.k)) out.d.k = d.k
+    return out
+}
+
+// ---------- 序列化 / 解析 ----------
+
+// 档案对象 → 可复制文本。瘦身后压缩，校验码挂在压缩串上。
 export function serializeArchive(archive) {
     if (!archive || archive.v !== 1) return ''
-    const json = JSON.stringify(archive)
-    return MARK + '|' + hashOf(json) + '|' + json
+    let compressed = ''
+    try { compressed = LZ.compressToBase64(JSON.stringify(packArchive(archive))) } catch (e) { return '' }
+    if (!compressed) return ''
+    return MARK + '|' + hashOf(compressed) + '|' + compressed
 }
 
 // ---------- 解析 ----------
 
 // 文本 → 档案对象。任何一步不对都返回 { ok:false, error }，绝不半途写库。
+// 先认新格式 ISABELLA2，再认旧格式 ISABELLA1（早期导出的纯 JSON 档案）。
 export function parseArchive(text) {
     const raw = String(text || '').trim()
     if (!raw) return { ok: false, error: '还没有粘贴档案文本' }
-    const m = raw.match(new RegExp('^' + MARK + '\\|([0-9a-z]+)\\|(.+)$'))
-    if (!m) return { ok: false, error: '没认出这是本店的档案，检查一下是否复制完整' }
-    const json = m[2]
-    if (hashOf(json) !== m[1]) return { ok: false, error: '档案不完整或被改动过（校验码对不上）' }
-    let archive
-    try { archive = JSON.parse(json) } catch (e) { return { ok: false, error: '档案内容解析失败' } }
-    if (!archive || archive.v !== 1 || !archive.d || typeof archive.d !== 'object') {
-        return { ok: false, error: '档案版本对不上，请更新小程序后再试' }
+    let m = raw.match(new RegExp('^' + MARK + '\\|([0-9A-Za-z+/=]+)\\|(.+)$'))
+    if (m) {
+        if (hashOf(m[2]) !== m[1]) return { ok: false, error: '档案不完整或被改动过（校验码对不上）' }
+        let json = null
+        try { json = LZ.decompressFromBase64(m[2]) } catch (e) { json = null }
+        if (!json) return { ok: false, error: '档案内容解析失败' }
+        let slim
+        try { slim = JSON.parse(json) } catch (e) { return { ok: false, error: '档案内容解析失败' } }
+        if (!slim || slim.v !== 1 || !slim.d || typeof slim.d !== 'object') {
+            return { ok: false, error: '档案版本对不上，请更新小程序后再试' }
+        }
+        return { ok: true, archive: unpackArchive(slim) }
     }
-    return { ok: true, archive }
+    m = raw.match(new RegExp('^' + MARK_V1 + '\\|([0-9a-z]+)\\|(.+)$'))
+    if (m) {
+        if (hashOf(m[2]) !== m[1]) return { ok: false, error: '档案不完整或被改动过（校验码对不上）' }
+        let archive
+        try { archive = JSON.parse(m[2]) } catch (e) { return { ok: false, error: '档案内容解析失败' } }
+        if (!archive || archive.v !== 1 || !archive.d || typeof archive.d !== 'object') {
+            return { ok: false, error: '档案版本对不上，请更新小程序后再试' }
+        }
+        return { ok: true, archive }
+    }
+    return { ok: false, error: '没认出这是本店的档案，检查一下是否复制完整' }
 }
 
 // ---------- 合并预览 ----------

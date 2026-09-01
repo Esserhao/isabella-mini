@@ -9,9 +9,9 @@ import {
 } from '../../src/utils/archive.js'
 
 suite('档案行囊', () => {
-    test('空机器导出：往返解析成功，概要全为 0', () => {
+    test('空机器导出：往返解析成功，概要全为 0，走压缩格式 ISABELLA2', () => {
         const text = serializeArchive(collectArchive())
-        expect(text.startsWith('ISABELLA1|')).toBe(true)
+        expect(text.startsWith('ISABELLA2|')).toBe(true)
         const p = parseArchive(text)
         expect(p.ok).toBe(true)
         const info = describeArchive(p.archive)
@@ -45,15 +45,52 @@ suite('档案行囊', () => {
         expect(info.streak).toBe(4)
     })
 
-    test('坏档拒收：空文本/缺标记/校验不符/JSON 损坏，均不写库', () => {
+    test('坏档拒收：空文本/缺标记/校验不符/压缩损坏，均不写库', () => {
         expect(parseArchive('').ok).toBe(false)
         expect(parseArchive('随便一段话').ok).toBe(false)
         expect(parseArchive('ISABELLA1|0000000|{"v":1}').ok).toBe(false) // 校验码对不上
+        expect(parseArchive('ISABELLA2|0000000|AAAA').ok).toBe(false) // 校验码对不上
         const good = serializeArchive(collectArchive())
         expect(parseArchive(good.slice(0, good.length - 3)).ok).toBe(false) // 截断
+        const tampered = good.slice(0, -1) + (good.endsWith('A') ? 'B' : 'A') // 改末字符
+        expect(tampered).not.toBe(good)
+        expect(parseArchive(tampered).ok).toBe(false)
         // 全部拒收后，本机存储仍是干净的
         expect(peek('isabella_history')).toBe('')
         expect(peek('isabella_favorites')).toBe('')
+    })
+
+    test('压缩往返：配比按非 0 项带走，回来重建全 12 香调并现算 formula', () => {
+        const accords = { citrus: 30, woody: 70 }
+        poke('isabella_history', [{
+            time: 1000, name: '松间雪', accords,
+            formula: ['不该带走的旧配方'], quote: '松风入盏', origin: 'tpl:x', note: '感言'
+        }])
+        const text = serializeArchive(collectArchive())
+        expect(text.length).toBeLessThan(400) // 单条记录的档案应很短
+        const p = parseArchive(text)
+        expect(p.ok).toBe(true)
+        const h = p.archive.d.h[0]
+        expect(h.time).toBe(1000)
+        expect(h.name).toBe('松间雪')
+        expect(h.quote).toBe('松风入盏')
+        expect(h.origin).toBe('tpl:x')
+        expect(h.note).toBe('感言')
+        expect(h.accords.citrus).toBe(30)
+        expect(h.accords.woody).toBe(70)
+        expect(Object.keys(h.accords).length).toBe(12) // 0 补齐
+        expect(Array.isArray(h.formula)).toBe(true) // formula 现算重建
+        expect(h.formula).not.toEqual(['不该带走的旧配方'])
+    })
+
+    test('旧版兼容：ISABELLA1 纯 JSON 档案仍可导入', () => {
+        const json = JSON.stringify({ v: 1, t: 1, d: { e: { first_bottle: 123 } } })
+        let hsh = 5381
+        for (let i = 0; i < json.length; i++) hsh = ((hsh * 33) ^ json.charCodeAt(i)) >>> 0
+        const text = 'ISABELLA1|' + hsh.toString(36).padStart(7, '0') + '|' + json
+        const p = parseArchive(text)
+        expect(p.ok).toBe(true)
+        expect(describeArchive(p.archive).eggs).toBe(1)
     })
 
     test('合并：历史/收藏按 time 去重并集，新的在前', () => {
