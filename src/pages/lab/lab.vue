@@ -768,7 +768,15 @@ let cardDrawn = false
 // 雷达 canvas 是微信原生组件，浮在视图层之上、z-index 盖不住。
 // 聚光灯教程(CoachMask)高亮它时遮罩会被它穿透——教程激活时隐藏，关闭后重绘恢复。
 const labRadarHidden = computed(() => tut.active || coachmarkOpen.value)
-watch(labRadarHidden, (hidden) => { if (!hidden) nextTick(() => drawLive()) })
+watch(labRadarHidden, (hidden) => {
+  if (!hidden) nextTick(async () => {
+    // 教程期间切到工坊时，画布在 display:none 下初始化（量不到尺寸）得到 null，
+    // 重试 300ms 远短于教程停留时间——此后 drawLive 全部空转（真机 bug）。
+    // 画布重新可见且仍无节点时，补一次初始化再画。
+    if (!radar) radar = await initCanvas('#radarCanvas')
+    drawLive()
+  })
+})
 
 const cardTempPath = ref('')
 const cardOpen = ref(true)  // 封存卡默认展开，作为调香台页面底部（与实际一致，避免隐藏画布重影）

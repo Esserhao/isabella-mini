@@ -412,7 +412,11 @@ const slackerMode = ref(false)
 // 注意：必须放在 onboardOpen 定义之后，否则 computed 访问 undefined.value 会报错。
 const radarHidden = computed(() => onboardOpen.value || tut.active)
 watch(radarHidden, (hidden) => {
-  if (!hidden && radar) nextTick(() => drawStatic())
+  if (!hidden) nextTick(async () => {
+    // 同工坊：教程/弹层期间画布隐藏导致初始化失败的话，重新可见后补初始化
+    if (!radar) radar = await initCanvas('#heroRadarCanvas')
+    drawStatic()
+  })
 })
 
 // 前四个主选项（2×2 网格）；第五个「都行，你定」单独整宽居中
