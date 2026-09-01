@@ -242,17 +242,23 @@ export function genPerfumeName() {
 // 归一化：最大余数法，保证 12 项都是整数、总和恰好 100。
 // 直接 Math.round 会凑不满 100（99 或 101 都出过），滑块上方显示的总和就对不上。
 export function normalizeAccords(rawObj) {
-    const keys = ACCORDS.map(a => a.key);
+    return normalizeTo(rawObj, 100, ACCORDS.map(a => a.key));
+}
+
+// 归一化的一般形式：把指定 keys 按比例摊成整数，且总和恰好等于 total。
+// 只在模块内用——randomAccords 要留纯水时，得把 12 香调按 (100 - 水) 重新摊一次。
+// 抽出来而不是复制一份，是为了让两处的取整规则永远一致（都是最大余数法）。
+function normalizeTo(rawObj, total, keys) {
     const sum = keys.reduce((s, k) => s + (Number(rawObj[k]) || 0), 0);
     const out = {};
     if (sum <= 0) {
         keys.forEach(k => { out[k] = 0; });
-        out[keys[0]] = 100;
+        out[keys[0]] = total;
         return out;
     }
-    const exact = keys.map(k => (Number(rawObj[k]) || 0) / sum * 100);
+    const exact = keys.map(k => (Number(rawObj[k]) || 0) / sum * total);
     const floors = exact.map(Math.floor);
-    let remainder = 100 - floors.reduce((s, v) => s + v, 0);
+    let remainder = total - floors.reduce((s, v) => s + v, 0);
     const order = exact
         .map((v, i) => ({ i, frac: v - Math.floor(v) }))
         .sort((a, b) => b.frac - a.frac);
@@ -283,13 +289,20 @@ export function blankBlend() {
 // 浓淡：纯水剩多少决定这瓶香闻起来有多重（香调占比 = 100 - 纯水）。
 // 档位名刻意口语化——不出现香精/古龙水这类行业词，小白一眼能懂；
 // 只影响纯水滑块下的一行提示，不参与雷达、评分等任何行为。
+//
+// 阈值是对着「滑块怎么用」定的，不是对着真实香水的香精占比定的。
+// 旧表照搬了行业刻度（EDT 5-15% / EDP 15-20%），于是 25 就偏浓、40 就浓郁，
+// 「浓郁」一个档吃掉整条轴的 60%——手动配个方子（主调 30 + 辅调 20）必然浓郁，
+// 而摇一瓶/图鉴接力把纯水归 0 后 essence 恒为 100，档位对它们完全没区分度。
+// 界面里纯水是「瓶子里的空位」，那浓郁就该接近水让光，所以按实际落点重划：
+// 日常调香落在 35-59 这一段的「适中」，把水拖到只剩两成以下才算浓郁。
 export function strengthOf(blend) {
     const essence = Math.max(0, Math.min(100, 100 - (Number(blend && blend[SOLVENT.key]) || 0)));
     const table = [
-        { min: 40, name: '浓郁', desc: '水几乎让光了，一点味道就很饱满' },
-        { min: 25, name: '偏浓', desc: '存在感强，靠近就能闻到全部' },
-        { min: 15, name: '适中', desc: '日常刚刚好，最顺手的一档' },
-        { min: 8, name: '清淡', desc: '清爽干净，适合白天和夏天' },
+        { min: 80, name: '浓郁', desc: '水几乎让光了，一点味道就很饱满' },
+        { min: 60, name: '偏浓', desc: '存在感强，靠近就能闻到全部' },
+        { min: 35, name: '适中', desc: '日常刚刚好，最顺手的一档' },
+        { min: 15, name: '清淡', desc: '清爽干净，适合白天和夏天' },
         { min: 1, name: '若有似无', desc: '很轻很轻，一两个小时就散了' }
     ];
     const hit = table.find(t => essence >= t.min);
@@ -307,7 +320,13 @@ export function strengthOf(blend) {
 // 每瓶都是「十二味各来一点」的大杂烩，抽十次长得都差不多，按钮等于白做。
 // 真实香水都有明确主调（图鉴里木质最高到 78、花香到 52），
 // 所以这里先随机定 2~4 个主调吃掉 62%~85%，余量再分给 0~3 个辅调。
-export function randomAccords() {
+//
+// solvent：留多少纯水（0~60）。默认 0 = 12 香调归一到 100、不含纯水键，
+// 与改之前逐键一致。首页/工坊的「摇一瓶」传 15~25，让摇出来的瓶子留点水——
+// 否则纯水恒为 0、essence 恒为 100，浓淡那行永远显示「浓郁」，等于没有信息。
+// 图鉴接力、套模板、每日挑战都不走这里：它们的配比要和图鉴逐键相等，
+// 掺一点水进去「调出这一瓶」的复刻彩蛋就再也调不出来了。
+export function randomAccords(solvent = 0) {
     const keys = ACCORDS.map(a => a.key);
     const pool = keys.slice().sort(() => Math.random() - 0.5);
     const mainCount = 2 + Math.floor(Math.random() * 3);   // 2~4 个主调
@@ -331,7 +350,21 @@ export function randomAccords() {
     } else {
         raw[mains[0]] += 100 - mainTotal;   // 没有辅调时余量全归第一主调
     }
-    return normalizeAccords(raw);
+    const out = normalizeAccords(raw);
+    const water = Math.max(0, Math.min(60, Math.round(Number(solvent) || 0)));
+    if (water <= 0) return out;
+    // 香调整体缩到 (100 - water)，余下的额度归纯水。
+    // 主次结构不受影响——缩放是等比的，主调仍吃香调部分的 62%~85%。
+    const scaled = normalizeTo(out, 100 - water, keys);
+    scaled[SOLVENT.key] = water;
+    return scaled;
+}
+
+// 「摇一瓶」留多少纯水：15~25，每次现摇。
+// 放在这里而不是各页面各写一遍，是为了首页和工坊共用同一个口径——
+// 否则两处各摇各的，从首页摇进工坊和直接在工坊摇，浓淡手感会不一样。
+export function shakeSolvent() {
+    return 15 + Math.floor(Math.random() * 11);
 }
 
 // 完全复刻检测：12 个香调的数值逐个相同，才算「调出了这一瓶」。

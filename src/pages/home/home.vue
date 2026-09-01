@@ -122,7 +122,7 @@ import { ref, computed, reactive, watch, nextTick } from 'vue'
 import { onReady, onShow } from '@dcloudio/uni-app'
 import { drawRadar, drawRadarGrow } from '@/utils/canvas-draw.js'
 import { galleryPerfumes, ACCORDS, RADAR_LABELS } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, getDailyChallenge, isChallengeDone, setDailyChallengeTarget, randomAccords, genPerfumeName } from '@/utils/mix.js'
+import { computeRadarValues, generateFormula, getDailyChallenge, isChallengeDone, setDailyChallengeTarget, randomAccords, shakeSolvent, genPerfumeName } from '@/utils/mix.js'
 import { THEME, accordColor } from '@/utils/theme.js'
 import { track } from '@/utils/analytics.js'
 import { achieveEgg } from '@/utils/eggs.js'
@@ -331,7 +331,7 @@ function goLab() {
 // 旧逻辑是从图鉴挑一瓶，配比就那固定的 11 种；现在是每次都现摇，
 // 且配比带主次结构（见 mix.js 的说明），不然摇出来的都是「十二味各来一点」。
 function randomPick() {
-  const accords = randomAccords()
+  const accords = randomAccords(shakeSolvent())
   const nm = genPerfumeName()
   setPendingBlend(accords, nm)
   track('home_random')

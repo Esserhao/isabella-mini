@@ -266,7 +266,7 @@
 import { ref, reactive, nextTick, computed, watch } from 'vue'
 import { onLoad, onShow, onReady, onUnload, onPageScroll, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { ACCORDS, SOLVENT, BLEND_KEYS, RADAR_LABELS, CORE_INGREDIENTS, galleryPerfumes, RADAR_DIM_DESC, SCENT_TEMPLATES } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, isChallengeDone, topAccordDesc, randomAccords, findExactMatch, blankBlend, strengthOf } from '@/utils/mix.js'
+import { computeRadarValues, generateFormula, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, isChallengeDone, topAccordDesc, randomAccords, shakeSolvent, findExactMatch, blankBlend, strengthOf } from '@/utils/mix.js'
 import { drawRadar, drawRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE, mainAccordColor } from '@/utils/canvas-draw.js'
 import { THEME } from '@/utils/theme.js'
 import { recordSeal, getStreak } from '@/utils/streak.js'
@@ -718,8 +718,10 @@ function loadSelfHistory() {
 function randomBlend() {
   pushHistory()
   // 走 applyTemplateVals 而不是逐键赋值：那样会漏掉纯水，把「总和恒 100」的
-  // 约定打破（纯水还停在拖动前的值上）。归一化后纯水归 0，摇出来的是纯香精。
-  applyTemplateVals(randomAccords())
+  // 约定打破（纯水还停在拖动前的值上）。
+  // 留 15~25 点纯水：不留的话纯水归 0、摇出来的瓶一律是满档浓缩，
+  // 纯水滑块下那行浓淡提示永远显示「浓郁」，摇十次也看不出区别。
+  applyTemplateVals(randomAccords(shakeSolvent()))
   originRef.value = ''  // 现摇的新配方，无接力来源
   syncIngFromAccord()
   armEgg()
