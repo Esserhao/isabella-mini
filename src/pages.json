@@ -57,6 +57,10 @@
     {
       "path": "pages/tutorial/tutorial",
       "style": { "navigationBarTitleText": "操作教程" }
+    },
+    {
+      "path": "pages/archive/archive",
+      "style": { "navigationBarTitleText": "档案行囊" }
     }
   ],
   "globalStyle": {

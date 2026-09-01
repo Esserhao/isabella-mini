@@ -58,6 +58,23 @@
       </view>
     </view>
 
+    <!-- 档案行囊：导出/导入全部调香记忆，换机不丢 -->
+    <view class="menu-group">
+      <view class="menu-label">行囊</view>
+      <view class="menu">
+        <view class="menu-item" @tap="goArchive">
+          <view class="menu-left">
+            <text class="menu-icon">✈</text>
+            <view class="menu-text">
+              <view class="menu-title">档案行囊</view>
+              <view class="menu-sub">调香记忆打包带走，换机不丢</view>
+            </view>
+          </view>
+          <text class="entry-arrow">›</text>
+        </view>
+      </view>
+    </view>
+
     <!-- 留言建议 / 联系我：点击进入独立页面 -->
     <view class="menu-group">
       <view class="menu-label">关于</view>
@@ -142,6 +159,11 @@ function goHistory() {
 function goFeedback() {
   track('open_feedback')
   uni.navigateTo({ url: '/pages/feedback/feedback' })
+}
+
+function goArchive() {
+  track('open_archive')
+  uni.navigateTo({ url: '/pages/archive/archive' })
 }
 
 function goContact() {
