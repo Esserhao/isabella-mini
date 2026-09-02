@@ -128,7 +128,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getDailyChallenge, setDailyChallengeTarget, isChallengeDone } from '@/utils/mix.js'
+import { getDailyChallenge, setDailyChallengeTarget, isChallengeDone, getChallengeScore } from '@/utils/mix.js'
 import { getStreak } from '@/utils/streak.js'
 import { getStats, track } from '@/utils/analytics.js'
 import { getFavorites } from '@/utils/favorites.js'
@@ -202,11 +202,13 @@ function acceptChallenge() {
     uni.showToast({ title: '去工坊调出这个主题', icon: 'none' })
     uni.switchTab({ url: '/pages/lab/lab' })
   }
-  // 当天已完成过：再接受 = 从纯水重新来一遍（且不再弹完成提示），先确认再重置
+  // 当天已完成过：再接受 = 从纯水重新来一遍。分数只会被更高的覆盖，
+  // 说清楚规则用户才敢放心冲分，否则以为重调会弄丢今天的成绩。
   if (isChallengeDone()) {
+    const cur = getChallengeScore()
     uni.showModal({
       title: '今日已完成',
-      content: '今天的挑战已经完成，再接受会从头再调一次。要重来吗？',
+      content: `今天已${cur != null ? `拿下 ${cur}/95` : '完成'}。重调会从头再来，只有分数更高才更新成绩。要再试一次吗？`,
       confirmText: '再来一次',
       cancelText: '先不了',
       success: (m) => { if (m.confirm) accept() }

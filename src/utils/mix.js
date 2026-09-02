@@ -76,7 +76,16 @@ export function generateFormula(accordValues) {
         return { name: ing.name, score };
     });
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, 6).map(i => i.name);
+    // 重名自动归并：同味香料只输出一次（理论上一名一味，这里兜底防脏数据/未来改动）
+    const seen = new Set();
+    const out = [];
+    for (const it of scored) {
+        if (seen.has(it.name)) continue;
+        seen.add(it.name);
+        out.push(it.name);
+        if (out.length >= 6) break;
+    }
+    return out;
 }
 
 // 根据雷达最高维挑选古先生台词（random=true 时为随机灵感台词）
@@ -160,17 +169,39 @@ export function radarSummary(values) {
         .map((x) => RADAR_LABELS[x.i]);
 }
 
-// 今日挑战是否已完成（封存时写入）。给首页卡片换一套「已完成」文案用。
+// 今日挑战完成记录（封存时写入）：{ date, score }。
+// 给首页/我的页卡片换「已完成」文案，并当天回显「今日 X 分」。
 const KEY_CHALLENGE_DONE = 'isabella_challenge_done';
-export function isChallengeDone() {
+// 兼容旧版只存日期字符串的格式：读到字符串按 { date, score: null } 处理
+function readChallengeDone() {
     try {
-        return uni.getStorageSync(KEY_CHALLENGE_DONE) === getTodayKey();
+        const v = uni.getStorageSync(KEY_CHALLENGE_DONE);
+        if (!v) return null;
+        if (typeof v === 'string') return { date: v, score: null };
+        return v && v.date ? v : null;
     } catch (e) {
-        return false;
+        return null;
     }
 }
-export function markChallengeDone() {
-    try { uni.setStorageSync(KEY_CHALLENGE_DONE, getTodayKey()); } catch (e) { /* 忽略 */ }
+export function isChallengeDone() {
+    const v = readChallengeDone();
+    return !!v && v.date === getTodayKey();
+}
+// 当天完成记录里的分数；未完成或旧格式（无分数）返回 null
+export function getChallengeScore() {
+    const v = readChallengeDone();
+    return (v && v.date === getTodayKey() && typeof v.score === 'number') ? v.score : null;
+}
+export function markChallengeDone(score) {
+    // 冲分语义：当天已记录更高的分就不回退——上午 88、下午失手 60，
+    // 记录仍保持 88，首页「今日 X 分」不被低分刷低；拿到 90 才覆盖。
+    // 新分为空（异常路径）也保留已有成绩，不让「已完成」降级成无分数。
+    const prev = readChallengeDone();
+    const s = typeof score === 'number' ? score : null;
+    if (prev && prev.date === getTodayKey()) {
+        if (s == null || (prev.score != null && s <= prev.score)) return;
+    }
+    try { uni.setStorageSync(KEY_CHALLENGE_DONE, { date: getTodayKey(), score: s }); } catch (e) { /* 忽略 */ }
 }
 
 // 每日挑战评分：用户配方与目标配方余弦相似度
@@ -389,7 +420,6 @@ export function findExactMatch(accordValues, list) {
     }
     return null;
 }
-
 
 // 文本显示宽度：汉字/全角算 1，ASCII 字母数字半角标点算 0.5（窄一半）。
 // 一把尺三处用：香名/感言的长度限制（英文数字名公平限额）、

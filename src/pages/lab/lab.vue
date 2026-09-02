@@ -17,11 +17,11 @@
         <text class="cb-hint-toggle" @tap="hintOpen = !hintOpen">{{ hintOpen ? '收起提示' : '看提示' }}</text>
       </view>
       <view class="cb-meta">
-        <text class="cb-intro">挑战介绍：根据标题推测香调</text>
+        <text class="cb-intro">挑战介绍：根据标题推测香调 · 满分 95 · 封存才记录</text>
         <text v-if="hintOpen" class="cb-hint">提示：{{ challengeInfo.hint }}</text>
-        <text class="cb-score">和目标的相似度 <text class="cb-num">{{ challengeScore }}%</text> <text class="cb-tip">{{ challengeScoreTip }}</text></text>
+        <text class="cb-score">契合度 <text class="cb-num">{{ challengeScore || '—' }}</text><text class="cb-max" v-if="challengeScore">/ 95</text> <text class="cb-tip">{{ challengeScoreTip }}</text></text>
       </view>
-      <view class="cb-close" @tap="exitChallenge">×</view>
+      <view class="cb-close" @tap="askExitChallenge">×</view>
     </view>
 
     <!-- 挑战吸顶条：滚过顶部横幅后从顶端淡入的一行紧凑条。
@@ -30,20 +30,20 @@
     <view v-if="challengeInfo" class="cb-sticky" :class="{ show: cbSticky }" @tap="scrollToChallenge">
       <text class="cb-sticky-tag">今日挑战</text>
       <text class="cb-sticky-theme">{{ challengeInfo.theme }}</text>
-      <text class="cb-sticky-score">{{ challengeScore }}%</text>
-      <view class="cb-sticky-close" @tap.stop="exitChallenge">×</view>
+      <text class="cb-sticky-score">{{ challengeScore || '—' }}<text class="cb-max" v-if="challengeScore">/95</text></text>
+      <view class="cb-sticky-close" @tap.stop="askExitChallenge">×</view>
     </view>
 
     <view class="name-row">
       <text class="name-label">香名</text>
-      <input class="name-input" :value="name" placeholder="为这瓶香起个名字（8字内）" @input="onName" @blur="checkName" :maxlength="nameMax" />
+      <input class="name-input" :value="name" placeholder="为这瓶香起个名字（8字内，英文算半字）" @input="onName" @blur="checkName" :maxlength="nameMax" />
       <text class="name-suggest" @tap="suggestName">帮我起名</text>
     </view>
 
     <!-- 调香感言：20 字内，记录调香时的感触。提交前过内容审查（moderate.js） -->
     <view class="name-row note-row">
       <text class="name-label">感言</text>
-      <input class="name-input" :value="note" placeholder="此刻的感触（20字内）" @input="onNote" @blur="checkNote" :maxlength="noteMax" />
+      <input class="name-input" :value="note" placeholder="此刻的感触（20字内，英文算半字）" @input="onNote" @blur="checkNote" :maxlength="noteMax" />
       <text class="note-count">{{ textWidth(note) }}/20</text>
     </view>
 
@@ -94,7 +94,7 @@
       <template v-if="activeAccordInfo.typicalIngredients">
         <view class="sheet-sub">常见原料</view>
         <view class="chip-row">
-          <text class="chip" v-for="(ing, i) in activeAccordInfo.typicalIngredients" :key="i">{{ ing }}</text>
+          <text class="chip" v-for="(ing, i) in activeAccordInfo.typicalIngredients" :key="i" :style="{ color: accordTextColor(activeAccordInfo.key) }">{{ ing }}</text>
         </view>
       </template>
       <button class="sheet-close" @tap="closeAccordDesc">知道了</button>
@@ -194,7 +194,7 @@
       <view class="slider-list adv-list" v-if="advOpen">
         <view class="slider-item" v-for="ing in coreIngredients" :key="ing.key">
           <view class="slider-meta">
-            <text class="slider-name">{{ ing.label }}</text>
+            <text class="slider-name" :style="{ color: ingStyle(ing.label) }">{{ ing.label }}</text>
             <view class="slider-stepper">
               <view class="step-btn" @tap="stepIng(ing.key, -1)">−</view>
               <text class="slider-val">{{ ingValues[ing.key] }}%</text>
@@ -211,7 +211,7 @@
 
     <view class="panel quote-panel">
       <text class="quote">「{{ quote }}」</text>
-      <text class="formula" v-if="formulaText">配方：{{ formulaText }}</text>
+      <text class="formula" v-if="formulaParts.length">配方：<text v-for="(p, i) in formulaParts" :key="i" :style="p.s">{{ p.n }}{{ p.t }}</text></text>
     </view>
 
     <view class="panel card-panel">
@@ -224,7 +224,7 @@
       </view>
       <view class="card-body" :class="{ hidden: !cardOpen }">
         <button class="btn ghost seal-cta" @tap="triggerSeal">封存这张卡片</button>
-        <canvas type="2d" id="cardCanvas" class="ccanvas"></canvas>
+        <canvas type="2d" id="cardCanvas" class="ccanvas" :style="{ height: cardCssH + 'rpx' }"></canvas>
         <!-- 封存卡预览区不设底部按钮：封存后直接跳转 card 页，保存/分享/收藏都在 card 页 -->
       </view>
     </view>
@@ -266,8 +266,8 @@ import { ref, reactive, nextTick, computed, watch } from 'vue'
 import { onLoad, onShow, onReady, onUnload, onPageScroll, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { ACCORDS, SOLVENT, BLEND_KEYS, RADAR_LABELS, CORE_INGREDIENTS, galleryPerfumes, RADAR_DIM_DESC, SCENT_TEMPLATES } from '@/utils/data.js'
 import { computeRadarValues, generateFormula, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, isChallengeDone, topAccordDesc, randomAccords, shakeSolvent, findExactMatch, blankBlend, strengthOf } from '@/utils/mix.js'
-import { drawRadar, drawRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE, mainAccordColor } from '@/utils/canvas-draw.js'
-import { THEME } from '@/utils/theme.js'
+import { drawRadar, drawRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE, mainAccordColor, measureCardHeight } from '@/utils/canvas-draw.js'
+import { THEME, accordTextColor, ingredientAccordTextColor } from '@/utils/theme.js'
 import { recordSeal, getStreak } from '@/utils/streak.js'
 import { achieveEgg, sealLabelOf } from '@/utils/eggs.js'
 import { track } from '@/utils/analytics.js'
@@ -485,6 +485,13 @@ function applyIncomingIfReady() {
 
 const quote = ref('')
 const formulaText = ref('')
+const formulaParts = ref([])
+// 香料名 → 香调「文字色」的 inline style（查不到回退空串，文字保持墨色）。
+// 滑块名/配方行都是小字，用对比度版文字色而非色带本色——浅色本色印字看不清。
+function ingStyle(name) {
+  const c = ingredientAccordTextColor(name)
+  return c ? 'color:' + c : ''
+}
 const blendFeedback = ref('')
 // 今日挑战（内存态，离开工坊即失）：载入目标配方 + 实时契合度 + 气息字幕
 const challengeTarget = ref(null)
@@ -763,11 +770,26 @@ const challengeScoreTip = computed(() => {
   if (v >= 60) return '· 方向对了，继续调'
   return '· 试试加重主导香调'
 })
-// 放弃挑战：清掉横幅与契合度，回到自由调香（不强制）
+// 放弃挑战：清掉横幅与契合度，回到自由调香（不强制）。
+// 完成挑战后程序自动收起也走这里；用户主动 ✕ 走 askExitChallenge（先确认）。
 function exitChallenge() {
   challengeTarget.value = null
   challengeInfo.value = null
   hintOpen.value = false
+}
+
+// 用户点 ✕ 放弃挑战：契合度只在封存时落库，误触 ✕ 会丢掉这瓶的进展与
+// 「主题正解」彩蛋。动过滑块（score > 10 保底分）才拦；没调出东西直接退，不烦人。
+function askExitChallenge() {
+  const sc = challengeScore.value
+  if (!sc || sc <= 10) { exitChallenge(); return }
+  uni.showModal({
+    title: '要离开挑战吗？',
+    content: `契合度只在封存时保存。现在离开，这瓶的 ${sc}/95 不会记录。`,
+    confirmText: '离开',
+    cancelText: '再调调',
+    success: (m) => { if (m.confirm) exitChallenge() }
+  })
 }
 
 let radar = null
@@ -934,11 +956,42 @@ function initCanvas(sel, designW, designH) {
   })
 }
 
+// 封存卡显示高度（rpx）：随量出的内容高度同步，避免画布缩了之后下面留一块透明死区。
+// 初值 940 = 870 逻辑高 × 648/600 显示宽比；绘制前 measureCardHeight 量完就更新。
+const cardCssH = ref(940)
+
+// 内容变矮/变高后重设画布 buffer 高度：宽度与 dpr 不变，只改 height 并恢复缩放。
+// 重设 buffer 会清空坐标变换，必须重新 scale，否则整张卡会被画小/画偏。
+function resizeCardCanvas(c, h) {
+  try {
+    let dpr = 1
+    try {
+      dpr = (uni.getWindowInfo && uni.getWindowInfo().pixelRatio) ||
+            (uni.getSystemInfoSync && uni.getSystemInfoSync().pixelRatio) || 1
+    } catch (e) { dpr = 1 }
+    c.canvas.height = Math.max(1, Math.round(h * dpr))
+    c.ctx.scale(dpr, dpr)
+    c.h = h
+    cardCssH.value = Math.round(h * 648 / 600)
+  } catch (e) { /* 重设失败沿用旧高度，不影响绘制 */ }
+}
+
+// 绘制前置步骤：按本次内容量出卡面高度，需要时重设画布。
+// opt 只要带齐 measureCardHeight 用到的字段（formula/quote/note/accords/accordValues/qrCode）。
+function fitCardHeight(opt) {
+  if (!card) return
+  const h = measureCardHeight(card.ctx, opt)
+  if (h && h !== card.h) resizeCardCanvas(card, h)
+}
+
 function recompute() {
   const vals = getAccordValues()
   const radarValues = computeRadarValues(vals, radarMode.value)
   quote.value = getGuQuote(radarValues)
-  formulaText.value = generateFormula(vals).join('、')
+  const formulaNames = generateFormula(vals)
+  formulaText.value = formulaNames.join('、')
+  // 逐味带香调色的配方段落（配方行模板 v-for 渲染）
+  formulaParts.value = formulaNames.map((n, i, arr) => ({ n, s: ingStyle(n), t: i < arr.length - 1 ? '、' : '' }))
   // 小白引导：把抽象雷达实时翻译成一句话；挑战模式同步契合度
   // 注意：radarSummary 吃的是 6 维雷达「数组」，不是 12 香调对象——
   // 传错会 vals.map is not a function，整条 drawLive 链路一起崩。
@@ -1190,7 +1243,6 @@ async function renderCard(opts = {}) {
   // 获取真小程序码（封存时才需要）
   const qrSrc = stamp ? await getWxacodePath(vals, name.value) : ''
   const cardOpt = {
-    width: card.w, height: card.h,
     name: name.value,
     radarValues: computeRadarValues(vals, radarMode.value),
     labels: RADAR_LABELS,
@@ -1204,6 +1256,10 @@ async function renderCard(opts = {}) {
     accent: mainAccordColor(vals),
     accords: ACCORDS, accordValues: vals, theme: THEME
   }
+  // 先量后画：卡面高度随内容伸缩（没感言/配方短的卡不再拖死白）
+  fitCardHeight({ ...cardOpt, qrCode: !!stamp })
+  cardOpt.width = card.w
+  cardOpt.height = card.h
   if (stamp) {
     await drawCard(card.ctx, {
       ...cardOpt,
@@ -1335,6 +1391,15 @@ async function triggerSeal() {
   let newEggCount = 0
   const sealEgg = (key) => { if (achieveEgg(key)) newEggCount++ }
   if (isPureWater) sealEgg('pure_water')
+  // 「写满字」系列：名字 / 感言输入框的字数上限被用户亲手写满（trim 后判定，
+  // 防止纯空格凑数）。两个输入框互不依赖，各自满足各自记，都满再多记一枚合体彩蛋。
+  // 「写满字」判定用宽度尺（textWidth），与封存闸门的 8/20 宽上限同一口径：
+  // 汉字算 1、英文数字算 0.5——「No.5001」占 2.5 宽不会误达成，真写满 8 宽才算数。
+  const nameFull = textWidth(name.value.trim()) >= 8
+  const noteFull = textWidth(note.value.trim()) >= 20
+  if (nameFull) sealEgg('full_name')
+  if (noteFull) sealEgg('full_note')
+  if (nameFull && noteFull) sealEgg('full_both')
   // 挑战只在「挑战模式」下计完成：challengeTarget 只有接受挑战的入口会写
   // （首页 / 我的页的每日挑战卡），平时直接进工坊封存时它是 null，
   // 正常封存不计入今日挑战。wasDone 保证当天只弹一次完成提示，
@@ -1344,7 +1409,8 @@ async function triggerSeal() {
   if (challengeTarget.value) {
     challengeDoneScore = challengeScore.value
     challengeJustDone = !isChallengeDone()
-    markChallengeDone()
+    // 完成记录带上分数，首页/我的页卡片当天回显「今日 X 分」
+    markChallengeDone(challengeDoneScore)
     // 「主题正解」：以正解级契合（≥95，即评分封顶的满分）完成当日挑战
     if (challengeDoneScore >= 95) sealEgg('perfect')
   }
@@ -1438,6 +1504,11 @@ async function triggerSeal() {
     if (isPureWater) quote.value = '你封存了一杯水。留白也是一种配方，我收下了。'
     // 获取这瓶香专属的真小程序码
     const qrSrc = await getWxacodePath(vals, name.value)
+    // 先量后画：封存卡带码、带感言，高度可能与预览时不同
+    fitCardHeight({
+      formula, quote: quote.value, note: note.value,
+      accords: ACCORDS, accordValues: vals, qrCode: true
+    })
     await drawCard(card.ctx, {
       width: card.w, height: card.h,
       name: name.value,
@@ -1519,12 +1590,15 @@ async function triggerSeal() {
   // 弹提示：挑战完成优先于层级解锁（同一次封存两者都触发时，
   // 先报挑战成绩，用户确认后再看封存成就，避免两个原生弹窗打架）。
   if (challengeJustDone) {
-    // 挑战已完成，收起横幅回到自由调香。文案分级：≥85 是漂亮收尾，
-    // 低于 85 诚实说「已提交」——不打击但也不硬夸（85 与提示语「很接近」的档位一致）
+    // 挑战已完成，收起横幅回到自由调香。文案分级：满分 95 点出「留 5 分」的设定，
+    // ≥85 是漂亮收尾，低于 85 诚实说「已提交」——不打击但也不硬夸（85 与提示语「很接近」的档位一致）
+    // 弹窗在横幅收起之后弹出，分数一律带「/95」基准，别让用户自己猜满分
     exitChallenge()
-    const verdict = challengeDoneScore >= 85
-      ? `今日挑战成功完成！你的得分是 ${challengeDoneScore} 分。`
-      : `今日挑战已提交，得分 ${challengeDoneScore} 分。练练手感，明天再来。`
+    const verdict = challengeDoneScore >= 95
+      ? `今日挑战成功完成！满分 95，你拿到了 ${challengeDoneScore} 分——剩下的 5 分，留给明天的题目。`
+      : challengeDoneScore >= 85
+      ? `今日挑战成功完成！你的得分是 ${challengeDoneScore}/95。`
+      : `今日挑战已提交，得分 ${challengeDoneScore}/95。练练手感，明天再来。`
     uni.showModal({
       title: '今日挑战',
       content: verdict + eggLine,
@@ -1702,7 +1776,7 @@ function consumePendingGrow() {
 
 onReady(async () => {
   radar = await initCanvas('#radarCanvas')
-  card = await initCanvas('#cardCanvas', 600, 900)
+  card = await initCanvas('#cardCanvas', 600, 870)
   if (restoreData) {
     // 扫码/分享进入：先把这瓶香写回滑块，再用生长动画「长出来」——
     // 让被分享者第一眼看到「这瓶香在我手里成形」，而不是干巴巴的数字
@@ -1823,7 +1897,7 @@ onReady(async () => {
 }
 
 /* 极端反馈/相似名香/彩蛋横幅已合并进常驻状态行 .panel-status（防抖动），旧样式随 v-if 一并移除 */
-.ccanvas { width: 600rpx; height: 900rpx; display: block; margin: 0 auto; }
+.ccanvas { width: 648rpx; height: 940rpx; display: block; margin: 0 auto; }
 /* 离屏画布：移出视口而不是 display:none，避免部分基础库拿不到 node */
 .lab-share-wrap {
   position: fixed; left: -9999px; top: 0;
@@ -1930,6 +2004,8 @@ onReady(async () => {
 .cb-hint { font-size: 22rpx; color: #6b6a6a; line-height: 1.4; }
 .cb-score { font-size: 22rpx; color: #6b6a6a; }
 .cb-num { font-size: 30rpx; font-weight: 700; color: #8a5f18; margin: 0 4rpx; font-variant-numeric: tabular-nums; }
+/* 满分分母「/ 95」：弱于主数字，横幅/吸顶共用（字号随父级继承） */
+.cb-max { color: #8a5f18; font-weight: 400; opacity: .75; }
 .cb-tip { color: #2e5c45; }
 .cb-close {
   font-size: 40rpx; color: #6b6a6a; flex-shrink: 0;

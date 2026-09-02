@@ -7,7 +7,7 @@ import {
 } from '../../src/utils/wxacode.js'
 import {
   setDailyChallengeTarget, takeDailyChallengeTarget,
-  isChallengeDone, markChallengeDone
+  isChallengeDone, markChallengeDone, getChallengeScore
 } from '../../src/utils/mix.js'
 import { ACCORDS } from '../../src/utils/data.js'
 
@@ -81,6 +81,20 @@ suite('挑战完成标记', () => {
   test('标记后当天为已完成', () => {
     expect(isChallengeDone()).toBe(false)
     markChallengeDone()
+    expect(isChallengeDone()).toBe(true)
+  })
+  test('当天重调：低分不覆盖高分，破纪录才更新（冲分不回退）', () => {
+    markChallengeDone(88)
+    expect(getChallengeScore()).toBe(88)
+    markChallengeDone(60)
+    expect(getChallengeScore()).toBe(88)   // 失手低分被拒，首页不回退
+    markChallengeDone(90)
+    expect(getChallengeScore()).toBe(90)   // 破纪录才覆盖
+  })
+  test('昨天的旧记录不挡今天（跨天正常写入新分数）', () => {
+    poke('isabella_challenge_done', { date: '2000-01-01', score: 88 })
+    markChallengeDone(60)
+    expect(getChallengeScore()).toBe(60)
     expect(isChallengeDone()).toBe(true)
   })
 })

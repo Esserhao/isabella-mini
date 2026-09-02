@@ -81,7 +81,7 @@
             </view>
             <text class="bar-value">{{ a.value }}%</text>
           </view>
-          <text class="card-formula">配方：{{ formulaText }}</text>
+          <text class="card-formula">配方：<text v-for="(p, i) in formulaParts" :key="i" :style="p.s">{{ p.n }}{{ p.t }}</text></text>
         </view>
 
         <!-- 台词：1.3s 淡入，收尾 -->
@@ -106,8 +106,8 @@
           </view>
           <view class="daily-tag">每日挑战</view>
           <view class="daily-theme">{{ daily.theme }}</view>
-          <view class="daily-hint">根据标题推测香调，来试试</view>
-          <view class="daily-cta">{{ dailyDone ? '✓ 已完成' : '接受挑战 →' }}</view>
+          <view class="daily-hint">{{ dailyDone ? '明天换新题 · 再来练手' : '根据标题推测香调，来试试' }}</view>
+          <view class="daily-cta">{{ dailyDone ? (challengeDoneScore != null ? '✓ 今日 ' + challengeDoneScore + '/95' : '✓ 已完成') : '接受挑战 →' }}</view>
         </view>
       </view>
     </view>
@@ -122,8 +122,8 @@ import { ref, computed, reactive, watch, nextTick } from 'vue'
 import { onReady, onShow } from '@dcloudio/uni-app'
 import { drawRadar, drawRadarGrow } from '@/utils/canvas-draw.js'
 import { galleryPerfumes, ACCORDS, RADAR_LABELS } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, getDailyChallenge, isChallengeDone, setDailyChallengeTarget, randomAccords, shakeSolvent, genPerfumeName } from '@/utils/mix.js'
-import { THEME, accordColor } from '@/utils/theme.js'
+import { computeRadarValues, generateFormula, getDailyChallenge, isChallengeDone, getChallengeScore, setDailyChallengeTarget, randomAccords, shakeSolvent, genPerfumeName } from '@/utils/mix.js'
+import { THEME, accordColor, ingredientAccordTextColor } from '@/utils/theme.js'
 import { track } from '@/utils/analytics.js'
 import { achieveEgg } from '@/utils/eggs.js'
 import { getStreak, todayStr } from '@/utils/streak.js'
@@ -153,6 +153,10 @@ const topAccords = computed(() =>
 )
 
 const formulaText = computed(() => generateFormula(demo.value.accords).slice(0, 4).join('、'))
+// 逐味带香调色的配方段落（卡片配方行 v-for 渲染，与封存卡 canvas 同一色源）。
+// 文字前景用对比度版文字色——本色浅调（柑橘/香草等）印小字看不清。
+const formulaParts = computed(() => generateFormula(demo.value.accords).slice(0, 4)
+  .map((n, i, arr) => ({ n, s: ingredientAccordTextColor(n) ? 'color:' + ingredientAccordTextColor(n) : '', t: i < arr.length - 1 ? '、' : '' })))
 
 // 把匹配结果落到封存卡上，并立刻重绘雷达（问卷是弹层，canvas 一直在，无需重新 init）
 function applyMatch(p, persist) {
@@ -230,6 +234,8 @@ const streak = ref(0)
 const sealAtRisk = ref(false)
 const daily = computed(() => getDailyChallenge())
 const dailyDone = ref(false)
+// 当天挑战完成时的分数（未完成/旧格式为 null）：完成态在卡片上回显「今日 X 分」
+const challengeDoneScore = ref(null)
 
 // 火苗等级：1天小火🔥，2-5天中火🔥🔥，10天+大火🔥🔥🔥
 const streakFlames = computed(() => {
@@ -241,6 +247,7 @@ const streakFlames = computed(() => {
 function refreshHooks() {
   streak.value = getStreak()
   dailyDone.value = isChallengeDone()
+  challengeDoneScore.value = getChallengeScore()
   try {
     const last = uni.getStorageSync('isabella_last_seal') || ''
     sealAtRisk.value = streak.value > 0 && last !== todayStr()
@@ -351,11 +358,13 @@ function goChallenge() {
     uni.showToast({ title: '去工坊调出这个主题', icon: 'none' })
     uni.switchTab({ url: '/pages/lab/lab' })
   }
-  // 当天已完成过：再接受 = 从纯水重新来一遍（且不再弹完成提示），先确认再重置
+  // 当天已完成过：再接受 = 从纯水重新来一遍。分数只会被更高的覆盖，
+  // 说清楚规则用户才敢放心冲分，否则以为重调会弄丢今天的成绩。
   if (isChallengeDone()) {
+    const cur = getChallengeScore()
     uni.showModal({
       title: '今日已完成',
-      content: '今天的挑战已经完成，再接受会从头再调一次。要重来吗？',
+      content: `今天已${cur != null ? `拿下 ${cur}/95` : '完成'}。重调会从头再来，只有分数更高才更新成绩。要再试一次吗？`,
       confirmText: '再来一次',
       cancelText: '先不了',
       success: (m) => { if (m.confirm) accept() }

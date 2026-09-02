@@ -82,7 +82,7 @@
             <!-- 每格顶上一道主导香调的色块：和香调卡的主色块、拍立得的照片同一语汇，
                  一眼就能把这味料归到它最像的那个香调家族。 -->
             <view class="ing-swatch" :style="{ background: accordColor(ingMainKey(ing.accords)) }"></view>
-            <text class="ing-cell-name">{{ ing.name }}</text>
+            <text class="ing-cell-name" :style="{ color: accordTextColor(ingMainKey(ing.accords)) }">{{ ing.name }}</text>
             <!-- 每格底下铺一条它自己的香调构成色带：不点开也能看出这味料偏什么，
                  顺便让 104 个格子不再是清一色的灰药丸（标签云脸最重的就是它）。 -->
             <view class="ing-strip">
@@ -202,9 +202,9 @@
               <view class="d-sec-text">{{ s.text }}</view>
             </view>
             <view class="d-pyramid" v-if="sel.data.pyramid">
-              <view class="pyr-row"><text class="pyr-label">前调</text><text class="pyr-val">{{ sel.data.pyramid.top.join('、') }}</text></view>
-              <view class="pyr-row"><text class="pyr-label">中调</text><text class="pyr-val">{{ sel.data.pyramid.middle.join('、') }}</text></view>
-              <view class="pyr-row"><text class="pyr-label">后调</text><text class="pyr-val">{{ sel.data.pyramid.base.join('、') }}</text></view>
+              <view class="pyr-row"><text class="pyr-label">前调</text><text class="pyr-val"><text v-for="(n, i) in sel.data.pyramid.top" :key="i" :style="ingStyle(n)">{{ n }}{{ pyrSep(i, sel.data.pyramid.top) }}</text></text></view>
+              <view class="pyr-row"><text class="pyr-label">中调</text><text class="pyr-val"><text v-for="(n, i) in sel.data.pyramid.middle" :key="i" :style="ingStyle(n)">{{ n }}{{ pyrSep(i, sel.data.pyramid.middle) }}</text></text></view>
+              <view class="pyr-row"><text class="pyr-label">后调</text><text class="pyr-val"><text v-for="(n, i) in sel.data.pyramid.base" :key="i" :style="ingStyle(n)">{{ n }}{{ pyrSep(i, sel.data.pyramid.base) }}</text></text></view>
             </view>
           </template>
 
@@ -216,7 +216,7 @@
             <view class="d-section-title">代表香料</view>
             <view class="ing-list">
               <view class="ing-item" v-for="(ing, i) in sel.data.typicalIngredients" :key="i">
-                <text class="ing-name">{{ ing }}</text>
+                <text class="ing-name" :style="{ color: accordTextColor(sel.data.key) }">{{ ing }}</text>
               </view>
             </view>
           </template>
@@ -245,7 +245,7 @@
 import { ref, computed, nextTick, watch } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { galleryPerfumes, ACCORDS, INGREDIENT_LIBRARY, notesData, RADAR_LABELS, RADAR_DIM_DESC } from '@/utils/data.js'
-import { THEME, accordColor } from '@/utils/theme.js'
+import { THEME, accordColor, accordTextColor, ingredientAccordTextColor } from '@/utils/theme.js'
 import { computeRadarValues, radarSummary } from '@/utils/mix.js'
 import { drawRadar } from '@/utils/canvas-draw.js'
 import { setPendingBlend } from '@/utils/wxacode.js'
@@ -366,6 +366,18 @@ const ACCORD_EPITHET = {
   amber: '温润', vanilla: '暖甜', tobacco: '微醺', aquatic: '清冽'
 }
 function accordEpithet(key) { return ACCORD_EPITHET[key] || '' }
+
+// 香料名 → 香调「文字色」inline style（前中后调逐味上色用；查不到回退空串保持墨色）。
+// 用对比度版 ACCORD_TEXT_COLORS——浅色色带色当 12px 小字前景只有 2~3:1，看不清。
+function ingStyle(name) {
+  const c = ingredientAccordTextColor(name)
+  return c ? 'color:' + c : ''
+}
+
+// 前中后调行的顿号跟在前一味同一个文本节点里：独立节点会在折行时被甩到行首
+function pyrSep(i, arr) {
+  return i < arr.length - 1 ? '、' : ''
+}
 
 // 香料按主导香调分组
 const ingredientGroups = computed(() => {

@@ -1,11 +1,94 @@
 // 小程序 canvas 2d 手绘库（替代网页版 Chart.js / html2canvas）
 // 调用方负责根据 dpr 对 ctx 做 scale，本文件统一使用「逻辑像素」坐标。
-import { THEME, ACCORD_COLORS } from './theme.js'
-import { ACCORDS, SOLVENT } from './data.js'
+import { THEME, ACCORD_COLORS, ACCORD_TEXT_COLORS } from './theme.js'
+import { ACCORDS, SOLVENT, INGREDIENT_LIBRARY } from './data.js'
 import { topAccordDesc, clipTextWidth } from './mix.js'
 
 function accordColor(key) {
   return ACCORD_COLORS[key] || THEME.primary
+}
+
+// 文字版香调色（对比度版）：配方香料名等 canvas 小字前景用；
+// 色带/彩条填充仍走上面的本色 accordColor。
+function accordTextColor(key) {
+  return ACCORD_TEXT_COLORS[key] || THEME.primary
+}
+
+// 香料名 → 主导香调：配方区文字与「主要香调」彩条同色，一眼看出每味香料归哪个香调。
+// 主导香调 = 该香料权重表里占比最高的那个；查不到的名字回退墨色（调用方 fallback）。
+const INGREDIENT_ACCORD = {}
+INGREDIENT_LIBRARY.forEach((ing) => {
+  let top = ''
+  let topV = -1
+  const ws = ing.accords || {}
+  for (const k in ws) {
+    if (ws[k] > topV) { topV = ws[k]; top = k }
+  }
+  if (top) INGREDIENT_ACCORD[ing.name] = top
+})
+
+// 配方按整味香料折行（不再是逐字折行：一味香料不会被拆到两行）。
+// 两行放不下时在行尾补省略号，与旧折行上限一致。
+function formulaLinesOf(ctx, items, maxW, maxLines = 2) {
+  const sep = '、'
+  const sepW = ctx.measureText(sep).width
+  const lines = [[]]
+  let lw = 0
+  for (let i = 0; i < items.length; i++) {
+    const it = String(items[i])
+    const w = ctx.measureText(it).width
+    const cur = lines[lines.length - 1]
+    const add = cur.length ? sepW + w : w
+    if (lw + add > maxW && cur.length) {
+      if (lines.length >= maxLines) {
+        // 省略号也占宽：放不下就退掉末一味给它腾位（一味香料宽 ≥ 一个 …，退一味必够）
+        const ellW = ctx.measureText('…').width
+        if (lw + ellW > maxW && cur.length) {
+          const last = cur.pop()
+          lw -= cur.length ? sepW + ctx.measureText(last).width : ctx.measureText(last).width
+        }
+        cur.push('…')
+        break
+      }
+      lines.push([it])
+      lw = w
+    } else {
+      cur.push(it)
+      lw += add
+    }
+  }
+  return lines
+}
+
+// 配方区彩色绘制：每味香料按主导香调着色，顿号淡墨。返回占用高度。
+// （x 为左起点，与「主要香调」的左对齐一致；top 为首行顶部，行高 21 与旧折行一致。）
+function drawFormulaColored(ctx, x, top, maxW, theme, items) {
+  ctx.textAlign = 'left'
+  ctx.font = '14px sans-serif'
+  const list = items && items.length ? items : ['—']
+  const lh = 21
+  const lines = formulaLinesOf(ctx, list, maxW, 2)
+  lines.forEach((line, li) => {
+    let px = x
+    const py = top + li * lh + lh / 2
+    line.forEach((it, ii) => {
+      if (it === '…') {
+        ctx.fillStyle = 'rgba(95,94,94,0.7)'
+      } else {
+        const ak = INGREDIENT_ACCORD[it]
+        // 成分行是小字前景，用文字色版（浅色本色印字只有 2~3:1）
+        ctx.fillStyle = ak ? accordTextColor(ak) : theme.ink
+      }
+      ctx.fillText(it, px, py)
+      px += ctx.measureText(it).width
+      if (ii < line.length - 1) {
+        // 顿号跟随前一味香料色（与页面上色规则一致）
+        ctx.fillText('、', px, py)
+        px += ctx.measureText('、').width
+      }
+    })
+  })
+  return lines.length * lh
 }
 
 // 主导香调颜色：卡面金线等「个性元素」随主调变色用；纯水态（全 0）回退主题金
@@ -453,11 +536,9 @@ export function drawCardBase(ctx, opt) {
   cursor += 20
 
   ctx.textAlign = 'left'
-  ctx.fillStyle = theme.ink
-  ctx.font = '14px sans-serif'
-  const formulaText = formula && formula.length ? formula.join('、') : '—'
-  const fH = wrapTextCenter(ctx, formulaText, ingX, cursor, ingW, 21, 2)
-  cursor += fH + 20
+  // 配方与香调同色：每味香料按主导香调着色（与「主要香调」彩条同一套色系），
+  // 顿号用淡墨弱化——扫一眼配方，就知道每味香料来自上面哪条彩带。
+  cursor += drawFormulaColored(ctx, ingX, cursor, ingW, theme, formula) + 20
 
   // ---------- 小程序码 + 品牌信息 + 古先生感言（金线之上，紧接配方）----------
   // 码本体由 drawCard 绘制（需要异步 loadImage），这里只排文案并算出码的位置。
@@ -557,6 +638,56 @@ export function drawCardBase(ctx, opt) {
 
   // 供 drawCard 定位二维码图片，避免码与右侧文案错位
   return { qr: { x: qrX, y: qrY, size: qrSize } }
+}
+
+// ---------- 卡片高度预估：画布随内容自适应伸缩 ----------
+// 与 drawCardBase 的纵向布局公式严格同源——改那边的布局（区块间距/行高/行数上限），
+// 必须回来同步这份，否则量出来的高度和实际画出来的内容对不上。
+// 用法：绘制前先量，拿返回值重设画布 buffer 高度（宽度/dpr 不变）。
+// 任何异常都回退默认 870，绝不阻塞绘制流程。
+export function measureCardHeight(ctx, opt = {}) {
+  const FALLBACK = 870
+  if (!ctx || !ctx.measureText) return FALLBACK
+  try {
+    const width = opt.width || 600
+    const M = 60
+    const ingW = width - M * 2
+    // 主要香调行数：与 drawCardBase 同样的排序/过滤/截断（纯水不进卡面）
+    const vals = opt.accordValues || {}
+    const topN = (opt.accords || []).slice()
+      .sort((a, b) => (vals[b.key] || 0) - (vals[a.key] || 0))
+      .filter((a) => (vals[a.key] || 0) > 0 && a.key !== SOLVENT.key)
+      .slice(0, 3).length
+    const rows = Math.max(1, topN)
+    const listTop = 432 + 20 + 14
+    // 末行彩条底缘（listTop + (rows-1)*(rowH+rowGap) + barY 偏移16 + barH 10）
+    let cursor = listTop + (rows - 1) * (30 + 14) + 26 + 30 // + 区块间距
+    cursor += 20 // 「配方」标题行
+    ctx.font = '14px sans-serif'
+    // 行数估算与 drawFormulaColored 的整词折行同源（逐字折行会低估行数）
+    const formulaItems = opt.formula && opt.formula.length ? opt.formula : ['—']
+    cursor += formulaLinesOf(ctx, formulaItems, ingW, 2).length * 21 + 20
+    // 码块：古先生感言栏宽取决于是否带码（工坊预览不带、封存/卡片页带），与绘制侧一致
+    const qrSize = CARD_QR.size
+    const colX = opt.qrCode ? CARD_QR.x + qrSize + 16 : M
+    const guW = (width - M) - (colX + 170)
+    ctx.font = '15px sans-serif'
+    const guLines = wrapLines(ctx, String(opt.quote || ''), guW, 4)
+    const qrBlockH = Math.max(qrSize, 76, guLines.length * 22)
+    const footerY = cursor + qrBlockH + 22
+    // 感言区：写了才占高度（最多 4 行，与绘制一致）；没写就到金线为止
+    const noteText = String(opt.note || '').trim()
+    let bottom = footerY
+    if (noteText) {
+      ctx.font = '16px "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif'
+      const nLines = wrapLines(ctx, noteText, width - M * 2, 4)
+      bottom = footerY + 14 + 22 + nLines.length * 26
+    }
+    // 上限 900：不高于旧固定高度（超出时绘制侧的 nMaxLines 会自然截断多出的行）
+    return Math.round(Math.min(900, Math.max(700, bottom + 30)))
+  } catch (e) {
+    return FALLBACK
+  }
 }
 
 // ---------- 程序化印章（替代已删除的 name.png 手写签名） ----------
@@ -750,7 +881,7 @@ export function drawShareCard(ctx, opt) {
   if (duel) {
     ctx.fillStyle = THEME.goldDeep
     ctx.font = `${Math.round(width * 0.026)}px sans-serif`
-    ctx.fillText(`⚔ 今日挑战「${duel.theme}」 · ${duel.score} 分`, cx, height * 0.14 + Math.round(width * 0.055))
+    ctx.fillText(`⚔ 今日挑战「${duel.theme}」 · ${duel.score}/95`, cx, height * 0.14 + Math.round(width * 0.055))
   }
 
   // 2) 雷达色块：画面中心，直径约占短边 42%

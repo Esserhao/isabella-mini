@@ -15,13 +15,13 @@
     <!-- 对决条：从「发起对决」分享进来的好友可见——同一天打开即同一道题 -->
     <view class="duel-banner" v-if="duelInfo">
       <text class="duel-line"><text class="duel-name">{{ duelInfo.name }}</text> 在「{{ duelInfo.theme }}」拿下</text>
-      <text class="duel-score">{{ duelInfo.score }}<text class="duel-unit"> 分</text></text>
+      <text class="duel-score">{{ duelInfo.score }}<text class="duel-unit">/95</text></text>
       <button class="cp-duel-accept" @tap="acceptDuel">用今天的题目应战 →</button>
     </view>
 
     <!-- 封存卡：与工坊同一份 drawCard，避免三处复制 canvas 代码 -->
     <view class="cp-canvas-wrap">
-      <canvas type="2d" id="cardPageCanvas" class="cp-canvas"></canvas>
+      <canvas type="2d" id="cardPageCanvas" class="cp-canvas" :style="{ height: cardCssH + 'rpx' }"></canvas>
     </view>
 
     <!-- 分享图：转发好友 5:4、朋友圈 1:1。离屏绘制，只为导出图片，不展示 -->
@@ -52,7 +52,7 @@ import { ref, computed } from 'vue'
 import { onLoad, onReady, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { ACCORDS, RADAR_LABELS } from '@/utils/data.js'
 import { computeRadarValues, generateFormula, getGuQuote, topAccordDesc, getDailyChallenge, setDailyChallengeTarget } from '@/utils/mix.js'
-import { drawCard, drawShareCard, SHARE_SIZE, mainAccordColor } from '@/utils/canvas-draw.js'
+import { drawCard, drawShareCard, SHARE_SIZE, mainAccordColor, measureCardHeight } from '@/utils/canvas-draw.js'
 import { THEME } from '@/utils/theme.js'
 import { isFaved, toggleFav as toggleFavStore, stableFavId } from '@/utils/favorites.js'
 import { achieveEgg } from '@/utils/eggs.js'
@@ -222,9 +222,40 @@ function initCanvas(sel, designW, designH) {
   })
 }
 
-onReady(async () => {
-  card = await initCanvas('#cardPageCanvas', 600, 900)
+// 封存卡显示高度（rpx）：随量出的内容高度同步，避免画布缩了之后按钮区上方留透明死区。
+// 初值 803 = 870 逻辑高 × 694/600 显示宽比；绘制前量完就更新。
+const cardCssH = ref(803)
+
+// 重设画布 buffer 高度：宽度与 dpr 不变，只改 height 并重新 scale（重设会清变换）。
+function resizeCardCanvas(c, h) {
+  try {
+    let dpr = 1
+    try {
+      dpr = (uni.getWindowInfo && uni.getWindowInfo().pixelRatio) ||
+            (uni.getSystemInfoSync && uni.getSystemInfoSync().pixelRatio) || 1
+    } catch (e) { dpr = 1 }
+    c.canvas.height = Math.max(1, Math.round(h * dpr))
+    c.ctx.scale(dpr, dpr)
+    c.h = h
+    cardCssH.value = Math.round(h * 694 / 600)
+  } catch (e) { /* 重设失败沿用旧高度，不影响绘制 */ }
+}
+
+// 按本次内容量出卡面高度，需要时重设画布
+function fitCardHeight(opt) {
   if (!card) return
+  const h = measureCardHeight(card.ctx, opt)
+  if (h && h !== card.h) resizeCardCanvas(card, h)
+}
+
+onReady(async () => {
+  card = await initCanvas('#cardPageCanvas', 600, 870)
+  if (!card) return
+  // 卡面高度随内容伸缩：先量后画，没感言/配方短的卡不再拖着一片死白
+  fitCardHeight({
+    formula: data.value.formula, quote: data.value.quote, note: data.value.note,
+    accords: ACCORDS, accordValues: data.value.accords, qrCode: true
+  })
   // 这瓶香专属的真小程序码：扫码直达封存卡并还原配方。
   // 云开发未开通/生成失败时 qrSrc 为空串，drawCard 会跳过码图（不阻塞画卡）。
   const qrSrc = await getWxacodePath(data.value.accords, data.value.name)
@@ -485,8 +516,13 @@ onShareAppMessage(() => {
   if (data.value.challenge) {
     const c = data.value.challenge
     const duelShare = { name: data.value.name, accords: data.value.accords, radarMode: data.value.radarMode }
+    // 分享标题分级：85+ 才是「应战」语气；低分用自嘲式「交作业」，
+    // 62 分还喊「敢来应战吗」会让人不好意思分享，自嘲反而更容易被点开
+    const duelTitle = c.score >= 85
+      ? `我在「${c.theme}」拿下 ${c.score}/95，敢来应战吗`
+      : `我在「${c.theme}」交了 ${c.score}/95 的作业，不服来战`
     const obj = {
-      title: `我在「${c.theme}」拿下 ${c.score} 分，敢来应战吗`,
+      title: duelTitle,
       path: `pages/card/card?s=${encodeURIComponent(JSON.stringify(duelShare))}&ds=${c.score}&dn=${encodeURIComponent(data.value.name)}&dt=${encodeURIComponent(c.theme)}`
     }
     if (tempPathFriend.value) obj.imageUrl = tempPathFriend.value
@@ -552,7 +588,7 @@ onShareTimeline(() => {
 .cp-share-canvas { width: 750px; height: 600px; }
 .cp-canvas-wrap { display: flex; justify-content: center; }
 .cp-canvas {
-  width: 600rpx; height: 900rpx; display: block;
+  width: 694rpx; height: 940rpx; display: block;
   border-radius: 8rpx; box-shadow: 0 12rpx 36rpx rgba(46,92,69,0.12);
 }
 
