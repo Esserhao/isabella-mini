@@ -2,7 +2,7 @@
 // 调用方负责根据 dpr 对 ctx 做 scale，本文件统一使用「逻辑像素」坐标。
 import { THEME, ACCORD_COLORS } from './theme.js'
 import { ACCORDS, SOLVENT } from './data.js'
-import { topAccordDesc } from './mix.js'
+import { topAccordDesc, clipTextWidth } from './mix.js'
 
 function accordColor(key) {
   return ACCORD_COLORS[key] || THEME.primary
@@ -319,10 +319,11 @@ export function drawCardBase(ctx, opt) {
   ctx.fillStyle = theme.paper
   ctx.fill()
 
-  // 顶部标题区：香名居中（8 字上限，旧数据超长截断加省略号）。
+  // 顶部标题区：香名居中（8 字宽上限，按显示宽度截断——汉字 1、英文数字 0.5，
+  // 与工坊输入限制同一把尺，旧数据超长或 iOS 拼音残骸截断加省略号）。
   // 称号徽章是额外的叠层——斜贴的一枚小票，左缘与「主要香调 / 配方」左对齐
   // （ingX = M = 60），和左栏看齐，不再浮在香名左侧随香名宽度乱跑。
-  const displayName = (name && name.length > 8) ? name.slice(0, 8) + '…' : (name || '未命名香氛')
+  const displayName = clipTextWidth(name, 8) || '未命名香氛'
   ctx.fillStyle = theme.primary
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'

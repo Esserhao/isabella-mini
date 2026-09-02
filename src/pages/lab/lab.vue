@@ -36,15 +36,15 @@
 
     <view class="name-row">
       <text class="name-label">香名</text>
-      <input class="name-input" :value="name" placeholder="为这瓶香起个名字（8字内）" @input="onName" @blur="checkName" maxlength="8" />
+      <input class="name-input" :value="name" placeholder="为这瓶香起个名字（8字内）" @input="onName" @blur="checkName" :maxlength="nameMax" />
       <text class="name-suggest" @tap="suggestName">帮我起名</text>
     </view>
 
     <!-- 调香感言：20 字内，记录调香时的感触。提交前过内容审查（moderate.js） -->
     <view class="name-row note-row">
       <text class="name-label">感言</text>
-      <input class="name-input" :value="note" placeholder="此刻的感触（20字内）" @input="onNote" @blur="checkNote" maxlength="20" />
-      <text class="note-count">{{ note.length }}/20</text>
+      <input class="name-input" :value="note" placeholder="此刻的感触（20字内）" @input="onNote" @blur="checkNote" :maxlength="noteMax" />
+      <text class="note-count">{{ textWidth(note) }}/20</text>
     </view>
 
     <view class="panel" id="coachRadar">
@@ -275,6 +275,7 @@ import { bumpSealCount } from '@/utils/progress.js'
 import { getRarity } from '@/utils/rarity.js'
 import { moderateText } from '@/utils/moderate.js'
 import { decodeAccordParams, encodeAccordParams, takePendingBlend, getWxacodePath } from '@/utils/wxacode.js'
+import { textWidth } from '@/utils/mix.js'
 import { tut } from '@/utils/tutorial.js'
 
 const accords = ACCORDS
@@ -285,6 +286,14 @@ const strength = computed(() => strengthOf(values))
 const name = ref('未命名香氛')
 const note = ref('')  // 调香感言（20 字内），随封存记录入库，card 页展示
 let nameTouched = false  // 用户是否手动起名（未起名则封存时自动生成）
+
+// iOS 拼音组合输入期间，未上屏的拼音字母会先进输入框占 maxlength 的坑
+//（安卓逐字上屏无此问题；小程序没有 composition 事件可感知组合状态）。
+// iOS 上放宽原生上限让拼音打满，真正的限制交给失焦/封存时按「显示宽度」严校；
+// 安卓保持原值，行为零变化。
+const isIOS = uni.getSystemInfoSync().platform === 'ios'
+const nameMax = isIOS ? 24 : 8   // 8 宽 ≈ 16 个英文字符，再留拼音残留余量
+const noteMax = isIOS ? 64 : 20  // 20 宽 ≈ 40 个英文字符，同上放宽
 // 接力链印记：当前配方的上一代名字（卡面印「改编自 ××」），非接力创作时为空
 const originRef = ref('')
 // 高级区（单方香料）默认收起：首屏只暴露香调这一套滑块
@@ -1138,13 +1147,18 @@ function onNote(e) {
   note.value = e.detail.value
 }
 
-// 失焦时本地审查：命中敏感词立即清空并提示，不让脏内容等到封存才暴露
+// 失焦时本地审查：命中敏感词立即清空并提示，不让脏内容等到封存才暴露。
+// 宽度超限则提示用户手动删减（不自动截断——混合中英文时截断会切坏词）。
 function checkNote() {
   if (!note.value) return
   const r = moderateText(note.value)
   if (!r.pass) {
     note.value = ''
     uni.showToast({ title: r.reason || '感言包含不当内容', icon: 'none', duration: 2500 })
+    return
+  }
+  if (textWidth(note.value) > 20) {
+    uni.showToast({ title: '感言最多 20 个字（英文数字按半个算），删一点吧', icon: 'none', duration: 2500 })
   }
 }
 
@@ -1157,6 +1171,10 @@ function checkName() {
     name.value = ''
     nameTouched = false
     uni.showToast({ title: r.reason || '香名包含不当内容', icon: 'none', duration: 2500 })
+    return
+  }
+  if (textWidth(name.value) > 8) {
+    uni.showToast({ title: '香名最多 8 个字（英文数字按半个算），删一点吧', icon: 'none', duration: 2500 })
   }
 }
 
@@ -1280,12 +1298,22 @@ async function triggerSeal() {
     uni.showToast({ title: nameCheck.reason || '香名包含不当内容，换个名字再封存', icon: 'none', duration: 2500 })
     return
   }
+  // 宽度闸：iOS 放宽了 maxlength，拼音/长英文在这里按显示宽度拦最后一道。
+  // 不自动截断，让用户自己删——混合中英文的自动截断会切坏词。
+  if (textWidth(name.value) > 8) {
+    uni.showToast({ title: '香名最多 8 个字（英文数字按半个算）', icon: 'none', duration: 2500 })
+    return
+  }
   // 感言同闸：失焦检查依赖「点按钮先触发 blur」的跨端顺序，不保证；
   // 这里不依赖事件顺序，脏感言一律拦在封存之前。
   const noteCheck = moderateText(note.value)
   if (!noteCheck.pass) {
     note.value = ''
     uni.showToast({ title: noteCheck.reason || '感言包含不当内容，改一句再封存', icon: 'none', duration: 2500 })
+    return
+  }
+  if (textWidth(note.value) > 20) {
+    uni.showToast({ title: '感言最多 20 个字（英文数字按半个算）', icon: 'none', duration: 2500 })
     return
   }
 

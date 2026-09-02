@@ -389,3 +389,33 @@ export function findExactMatch(accordValues, list) {
     }
     return null;
 }
+
+
+// 文本显示宽度：汉字/全角算 1，ASCII 字母数字半角标点算 0.5（窄一半）。
+// 一把尺三处用：香名/感言的长度限制（英文数字名公平限额）、
+// iOS 拼音组合期间的字数虚高（拼音按半宽计）、封存卡画布的截断。
+// 小程序没有 composition 事件，无法感知「正在打拼音」，只能从计量口径上绕。
+export function textWidth(s) {
+    let w = 0;
+    const str = String(s || '');
+    for (const ch of str) {
+        w += ch.charCodeAt(0) < 128 ? 0.5 : 1;
+    }
+    return w;
+}
+
+// 按显示宽度截断文本，超宽补省略号（用于画布等不能换行的场景）。
+// 宽度落在 0.5 步进上，最后一个 ASCII 字符恰好到限不截。
+export function clipTextWidth(s, maxW) {
+    const str = String(s || '');
+    if (textWidth(str) <= maxW) return str;
+    let w = 0;
+    let out = '';
+    for (const ch of str) {
+        const cw = ch.charCodeAt(0) < 128 ? 0.5 : 1;
+        if (w + cw > maxW) break;
+        w += cw;
+        out += ch;
+    }
+    return out + '…';
+}
