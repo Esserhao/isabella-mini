@@ -45,7 +45,8 @@ export function startTour() {
 
 export function finishTour() {
   tut.active = false
-  try { uni.setStorageSync('gu_tour_done', 1) } catch (e) { /* 忽略 */ }
+  // 注：原先这里还写了个 gu_tour_done 标记，但全库没有任何地方读它，
+  // 属于只写不读的孤儿键，已移除（引导是否重复弹由 gu_lab_guided 闭环）
   // 第 4/5 步在工坊，已经讲过雷达和滑块。若是在这两步完成或跳过的，
   // 就别再让工坊弹「第一次来工坊？」把同样的内容重复一遍——
   // 教程结束那一刻 tut.active 已置 false，下次进工坊 onShow 就会弹。

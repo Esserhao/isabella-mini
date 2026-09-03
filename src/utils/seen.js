@@ -42,7 +42,9 @@ function readAll() {
 }
 
 function writeAll(obj) {
-    try { uni.setStorageSync(KEY, obj) } catch (e) { /* 存储异常不影响翻开内容 */ }
+    // 返回成败：写失败时 markSeen 不假成功（记录态本来就是局部重建，下次重读重记，
+    // 幂等无损），避免「彩蛋进度白攒」
+    try { uni.setStorageSync(KEY, obj); return true } catch (e) { return false }
 }
 
 // 已翻开的总项数。每类都按各自总数封顶 —— 数据源删条目后
@@ -75,7 +77,8 @@ export function markSeen(kind, id) {
     if (arr.indexOf(key) >= 0) return false
     arr.push(key)
     rec[kind] = arr
-    writeAll(rec)
+    // 存储写失败：这笔不算数，也不返回点亮信号（下次翻开会重新记）
+    if (!writeAll(rec)) return false
 
     return getSeenCount() >= SEEN_TOTAL ? achieveEgg(SEEN_EGG) : false
 }

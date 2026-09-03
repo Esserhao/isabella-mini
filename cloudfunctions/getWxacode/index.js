@@ -66,9 +66,9 @@ exports.main = async (event = {}) => {
         errCode: e.errCode !== undefined ? e.errCode : (e.errcode || -1),
         errMsg: e.errMsg || e.errmsg || (e && e.message) || '云函数异常'
       }
-      // 449 = 未发布无法生成 release 码 → 降级重试；
-      // 85014 = 未开通云开发、40001 = token 无效等 → 直接返回
-      if (lastErr.errCode !== 449 && lastErr.errCode !== 41001) break
+      // 449 = 未发布无法生成 release 码 → 换 envVersion 降级重试；
+      // 85014 = 未开通云开发、41001/40001 = token 无效等 → 换码也救不了，直接返回
+      if (lastErr.errCode !== 449) break
     }
   }
   return { ok: false, errCode: lastErr ? lastErr.errCode : -1, errMsg: lastErr ? lastErr.errMsg : '生成失败' }

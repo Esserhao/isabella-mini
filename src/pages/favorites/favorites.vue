@@ -7,11 +7,11 @@
       <view class="sum-row">
         <text class="sum-num">{{ summary.count }}</text>
         <text class="sum-unit">款</text>
-        <text class="sum-meta">我的收藏 · 始于 {{ summary.first }} · 最近 {{ summary.last }}</text>
+        <text class="sum-meta">我的收藏 · {{ summary.span }}</text>
       </view>
       <view class="sum-pref" v-if="summary.pref">你偏爱的香调：{{ summary.pref }}</view>
     </view>
-    <view class="row" v-for="f in favorites" :key="f.time" @tap="openCard(f)">
+    <view class="row" v-for="f in visibleFavorites" :key="f.time" @tap="openCard(f)">
       <view class="row-main">
         <view class="row-name">{{ f.name }}</view>
         <view class="row-quote" v-if="f.quote">「{{ f.quote }}」</view>
@@ -28,18 +28,40 @@
         <view class="row-del" @tap.stop="del(f)">✕</view>
       </view>
     </view>
+    <!-- 审计 P2-5：收藏上限 100，全量渲染低端机首屏卡；分批 20/次，
+         触底自动加载 + 底部按钮兜底（内容不满一屏时 onReachBottom 不触发） -->
+    <view class="list-more" v-if="favHasMore" @tap="loadMoreFav">
+      还有 {{ favRemain }} 条 · 点开更多
+    </view>
+    <!-- 中13：取消收藏给 5 秒反悔期，底栏一个「撤销」——误触不用去历史里重新找那瓶 -->
+    <view class="undo-bar" v-if="undoVisible">
+      <text class="undo-text">已取消收藏</text>
+      <text class="undo-btn" @tap="undoRemove">撤销</text>
+    </view>
   </view>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onShow, onReachBottom } from '@dcloudio/uni-app'
 import { ACCORDS, SOLVENT } from '@/utils/data.js'
 import { accordColor } from '@/utils/theme.js'
-import { getFavorites, removeFav } from '@/utils/favorites.js'
+import { getFavorites, removeFav, toggleFav, isSealedTime } from '@/utils/favorites.js'
 import { track } from '@/utils/analytics.js'
 
 const favorites = ref([])
+
+// 审计 P2-5：列表分批渲染（上限 100，全量 setData 低端机卡）。
+// onShow 重置到首屏 20 条，触底/点按钮再 +20；单条增删不重置，保留展开位置。
+const FAV_STEP = 20
+const favVisible = ref(FAV_STEP)
+const visibleFavorites = computed(() => favorites.value.slice(0, favVisible.value))
+const favHasMore = computed(() => favVisible.value < favorites.value.length)
+const favRemain = computed(() => favorites.value.length - favVisible.value)
+function loadMoreFav() {
+  favVisible.value = Math.min(favVisible.value + FAV_STEP, favorites.value.length)
+}
+onReachBottom(() => { if (favHasMore.value) loadMoreFav() })
 
 const accordLabelMap = {}
 ACCORDS.forEach((a) => { accordLabelMap[a.key] = a.label })
@@ -49,7 +71,9 @@ function accordLabel(k) { return accordLabelMap[k] || k }
 const summary = computed(() => {
   const arr = favorites.value || []
   if (!arr.length) return null
-  const times = arr.map((x) => x.time).filter(Boolean).sort((a, b) => a - b)
+  // 时间跨度只统计真实封存时间戳：扫码得来的收藏主键是哈希，
+  // 混进去会出现「始于 1970.01.01」
+  const times = arr.map((x) => x.time).filter(isSealedTime).sort((a, b) => a - b)
   const freq = {}
   arr.forEach((x) => {
     const t = topOf(x.accords)[0]
@@ -58,8 +82,9 @@ const summary = computed(() => {
   const topKey = Object.keys(freq).sort((a, b) => freq[b] - freq[a])[0]
   return {
     count: arr.length,
-    first: fmtDate(times[0]),
-    last: fmtDate(times[times.length - 1]),
+    span: times.length
+      ? `始于 ${fmtDate(times[0])} · 最近 ${fmtDate(times[times.length - 1])}`
+      : '扫码收入 · 还没有自己封存的记录',
     pref: topKey ? accordLabel(topKey) : ''
   }
 })
@@ -89,7 +114,8 @@ function topOf(acc) {
 }
 
 function formatTime(t) {
-  if (!t) return ''
+  // 哈希主键（扫码/分享收藏）不是日期，别拿去 new Date() 弄出 1970/NaN
+  if (!isSealedTime(t)) return '扫码得来'
   const d = new Date(t)
   const p = (n) => ('' + n).padStart(2, '0')
   return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
@@ -105,6 +131,10 @@ function openCard(item) {
       accords: item.accords,
       quote: item.quote,
       formula: item.formula,
+      // 与历史页 openCard 同一遇：三调/雷达模式能带就带（老收藏条目没有则回退，
+      // card 页对空 pyramid 自带跳过分支）
+      pyramid: item.pyramid,
+      radarMode: item.radarMode,
       note: item.note
     })
   } catch (e) { /* 忽略 */ }
@@ -112,10 +142,37 @@ function openCard(item) {
 }
 
 function unfav(f) {
-  removeFav(f.time)
+  // removeFav 现在返回写入成败：存储写失败时列表实际没变，
+  // 不能弹「已取消」也不能给撤销栏——此时点「撤销」会走一次真删除流程
+  if (!removeFav(f.time)) {
+    uni.showToast({ title: '没存上，请重试', icon: 'none' })
+    return
+  }
   favorites.value = getFavorites()
   track('fav_remove')
-  uni.showToast({ title: '已取消收藏', icon: 'none' })
+  // 中13：不直接一句「已取消收藏」完事——记下这条，底部弹 5 秒撤销栏，
+  // 点「撤销」原样放回（回到列表最前）。误触代价从「去历史里重新找」降到「点一下」
+  lastRemoved = f
+  undoVisible.value = true
+  if (undoTimer) clearTimeout(undoTimer)
+  undoTimer = setTimeout(() => { undoVisible.value = false; lastRemoved = null }, 5000)
+}
+let lastRemoved = null
+let undoTimer = null
+const undoVisible = ref(false)
+function undoRemove() {
+  if (!lastRemoved) return
+  const r = toggleFav(lastRemoved)
+  if (r === null) {
+    // 存储写失败：撤销栏留着，用户可以再点一次
+    uni.showToast({ title: '没存上，请重试', icon: 'none' })
+    return
+  }
+  favorites.value = getFavorites()
+  undoVisible.value = false
+  if (undoTimer) { clearTimeout(undoTimer); undoTimer = null }
+  lastRemoved = null
+  uni.showToast({ title: '已恢复收藏', icon: 'none' })
 }
 
 // 删除收藏：与右侧 ♥ 同一存储操作，但走确认弹窗——
@@ -128,7 +185,10 @@ function del(f) {
     confirmColor: '#c45c5c',
     success: (m) => {
       if (!m.confirm) return
-      removeFav(f.time)
+      if (!removeFav(f.time)) {
+        uni.showToast({ title: '没存上，请重试', icon: 'none' })
+        return
+      }
       favorites.value = getFavorites()
       track('fav_remove')
       uni.showToast({ title: '已删除', icon: 'none' })
@@ -138,12 +198,24 @@ function del(f) {
 
 onShow(() => {
   favorites.value = getFavorites()
+  // 重新进页从首屏开始分批展开（新数据长度未知，重置最稳）
+  favVisible.value = FAV_STEP
 })
 </script>
 
 <style scoped>
 .page { min-height: 100vh; background: #f0eee5; padding: 24rpx 28rpx 60rpx; box-sizing: border-box; }
 .empty { font-size: 24rpx; color: #6b6a6a; text-align: center; padding: 120rpx 40rpx; line-height: 1.7; }
+.list-more {
+  text-align: center; font-size: 22rpx; color: #8a5f18;
+  padding: 18rpx 0 6rpx; background: transparent;
+}
+.list-more:active { opacity: 0.6; }
+
+/* 中13：撤销栏——固定底部，深色底金币字，5 秒后自动消失 */
+.undo-bar { position: fixed; left: 28rpx; right: 28rpx; bottom: 48rpx; background: #2b2b2e; color: #fff; border-radius: 14rpx; padding: 20rpx 28rpx; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.18); z-index: 50; }
+.undo-text { font-size: 26rpx; }
+.undo-btn { font-size: 26rpx; color: #e8c887; font-weight: 600; padding: 4rpx 8rpx; }
 
 /* 列表顶部汇总条：与历史页同款 */
 .sum {

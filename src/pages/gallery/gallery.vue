@@ -71,7 +71,13 @@
 
     <!-- 香料列表（按主导香调分组） -->
     <scroll-view v-show="tab === 'ingredients'" scroll-y class="g-scroll" :show-scrollbar="false">
-      <view class="ing-group" v-for="g in ingredientGroups" :key="g.key">
+      <!-- 香料搜索：本地即时过滤，命中时下方切为单个「匹配」组 -->
+      <view class="ing-search">
+        <input class="ing-search-input" v-model="ingQuery" placeholder="搜香料，如：玫瑰 / 檀木" placeholder-class="ing-search-ph" confirm-type="search" @confirm="hideSearchKb" />
+        <text v-if="ingQuery" class="ing-search-clear" @tap="clearIngQuery">×</text>
+      </view>
+      <view v-if="!ingredientGroups.length" class="ing-empty">没找到「{{ ingQueryLive.trim() }}」，换个字试试</view>
+      <view class="ing-group" v-for="g in ingGroupsShown" :key="g.key">
         <view class="ing-group-head">
           <view class="a-dot" :style="{ background: g.color }"></view>
           <text class="ing-group-label">{{ g.label }}</text>
@@ -92,6 +98,8 @@
           </view>
         </view>
       </view>
+      <!-- 打磨：104 味一次性全渲染低端机会卡，先给 24 味，剩下的点按/下滑展开 -->
+      <view class="ing-more" v-if="ingHasMore" @tap="loadMoreIng">还有 {{ ingRemain }} 味 · 点这里展开</view>
       <view class="g-footer">共 {{ totalIngredients }} 种香料 · 来自调香师工具书</view>
     </scroll-view>
 
@@ -243,7 +251,7 @@
 
 <script setup>
 import { ref, computed, nextTick, watch } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onShow, onHide } from '@dcloudio/uni-app'
 import { galleryPerfumes, ACCORDS, INGREDIENT_LIBRARY, notesData, RADAR_LABELS, RADAR_DIM_DESC } from '@/utils/data.js'
 import { THEME, accordColor, accordTextColor, ingredientAccordTextColor } from '@/utils/theme.js'
 import { computeRadarValues, radarSummary } from '@/utils/mix.js'
@@ -267,6 +275,8 @@ function imgBg(acc) {
 function onImgError(where, id) {
   // 不静默：真失败了留一条 warn，方便事后定位是哪张图
   console.warn(`[gallery] 图片加载失败 ${where}:`, id)
+  // 打磨：详情大图挂了要告诉用户一声（拍立得缩略图多且小，静默即可不弹）
+  if (where === 'detail') uni.showToast({ title: '图片没加载出来，退出去再进试试', icon: 'none' })
 }
 
 const tab = ref('perfumes')
@@ -299,6 +309,44 @@ function calcAccordLayout() {
   accordColW.value = ((w - used) / 3).toFixed(2) + 'px'
 }
 const sel = ref(null)
+// 香料本地即时搜索：命中时 ingredientGroups 切成单个「匹配」组，模板结构不变
+const ingQuery = ref('')
+// 中12：输入防抖——ingQuery 只管输入框回显，真正参与过滤的是 300ms 后的 ingQueryLive；
+// 否则每敲一个字都重新过滤 104 味并整列重渲染，低端机上打字肉眼可见地卡
+const ingQueryLive = ref('')
+let ingQueryTimer = null
+watch(ingQuery, (v) => {
+  if (ingQueryTimer) clearTimeout(ingQueryTimer)
+  ingQueryTimer = setTimeout(() => { ingQueryLive.value = v }, 300)
+})
+function clearIngQuery() {
+  ingQuery.value = ''
+  if (ingQueryTimer) { clearTimeout(ingQueryTimer); ingQueryTimer = null }
+  ingQueryLive.value = ''
+}
+// 打磨：搜索键盘的「搜索」键按下即收起键盘（过滤已由防抖完成，不用再等）
+function hideSearchKb() { try { uni.hideKeyboard() } catch (e) {} }
+// 打磨：香料懒渲染——104 味一次全渲染低端机会卡，先给 24 味逐批展开；
+// 搜索时不限量，防止命中结果被上限藏住
+const ING_VISIBLE_STEP = 24
+const ingVisible = ref(ING_VISIBLE_STEP)
+const ingGroupsShown = computed(() => {
+  if (ingQueryLive.value.trim()) return ingredientGroups.value
+  let remain = ingVisible.value
+  const out = []
+  for (const g of ingredientGroups.value) {
+    if (remain <= 0) break
+    const items = g.items.slice(0, remain)
+    remain -= items.length
+    out.push({ ...g, items })
+  }
+  return out
+})
+const ingHasMore = computed(() => !ingQueryLive.value.trim() && ingVisible.value < totalIngredients)
+const ingRemain = computed(() => totalIngredients - ingVisible.value)
+function loadMoreIng() {
+  ingVisible.value = Math.min(ingVisible.value + ING_VISIBLE_STEP, totalIngredients)
+}
 // 详情里的「香气成分」默认收起：首屏只讲古先生的话，参数翻到背面才看
 const dataOpen = ref(false)
 const radarHelpOpen = ref(false)
@@ -341,22 +389,22 @@ const selRadarCaption = computed(() => {
   return ''
 })
 
-const GALLERY_LABELS = {
-  citrus: '柑橘', floral: '花香', fruity: '果香', woody: '木质',
-  oriental: '东方', fougere: '馥奇', green: '绿意', musk: '麝香',
-  amber: '琥珀', vanilla: '香草', tobacco: '烟草', aquatic: '水生'
+// 香调名一律查 data.js 的 ACCORDS 表，别再维护一份重复的中文映射
+// （之前本地 GALLERY_LABELS 与工具库逐字重复，改表时两处容易不同步）
+function label(k) {
+  const a = ACCORDS.find((x) => x.key === k)
+  return (a && a.label) || k
 }
-function label(k) { return GALLERY_LABELS[k] || k }
 
 // 本地品牌图（小程序不能加载境外域名）
 // 1/3/5/6 下载真实 jpg；2/4 由用户提供的 webp 产品图转 jpg；全部为无水印真实图
-const IMG_EXT = { 1: 'jpg', 2: 'jpg', 3: 'jpg', 4: 'jpg', 5: 'jpg', 6: 'jpg', 7: 'jpg', 8: 'jpg', 9: 'jpg', 10: 'jpg', 11: 'jpg' }
+// 现 1-11 号图统一为 jpg，不再需要逐 id 的扩展名映射
 // 图鉴图走本地资源，不走 CDN。
 // 之前试过 raw.githubusercontent.com，属境外域名：开发者工具里勾选
 // 「不校验合法域名」能显示，真机上一律加载失败，且该域名在国内本身就不稳定。
 // 本地图已过 scripts/optimize-gallery.py 压缩（最长边 700px / q80 / 单张≤150KB），
 // 11 张合计约 537KB，主包装得下。后续加图务必先跑压缩脚本再看主包余量。
-function imgSrc(id) { return '/static/gallery/p' + id + '.' + (IMG_EXT[id] || 'png') }
+function imgSrc(id) { return '/static/gallery/p' + id + '.jpg' }
 // 香调矢量图标（SVG→PNG 静态图，体积小保留本地）
 function accordImg(key) { return '/static/gallery/accords/' + key + '.png' }
 // 香调卡短注：从「一句气味素描」压到「两三个字」，作标签而非说明。
@@ -382,6 +430,18 @@ function pyrSep(i, arr) {
 // 香料按主导香调分组
 const ingredientGroups = computed(() => {
   const map = {}
+  // 搜索优先：有关键词时不按香调分组，直接给一个扁平「匹配」组；
+  // 名字包含即命中（香料名全是中文短词，includes 足够，不上拼音）
+  const q = ingQueryLive.value.trim()
+  if (q) {
+    const hits = INGREDIENT_LIBRARY.filter((ing) => ing.name.includes(q))
+    return hits.length ? [{
+      key: '__search',
+      label: `匹配 ${hits.length} 味`,
+      color: THEME.gold,
+      items: hits
+    }] : []
+  }
   INGREDIENT_LIBRARY.forEach((ing) => {
     const sorted = Object.entries(ing.accords).sort((a, b) => b[1] - a[1])
     const main = sorted[0] ? sorted[0][0] : 'woody'
@@ -448,6 +508,9 @@ function openAccord(a) { sel.value = { type: 'accord', data: a }; noteSeen('acco
 function openIngredient(ing) { sel.value = { type: 'ingredient', data: ing } }
 function openNote(n, i) { sel.value = { type: 'note', data: n, index: i }; noteSeen('note', n.title) }
 function closeDetail() { sel.value = null }
+
+// 切走 tab（弹层盖不住原生 tabBar）时收起详情，回来不残留半开的弹层
+onHide(() => { if (sel.value) sel.value = null })
 // 仅当点击遮罩层（而非详情内容区）时关闭
 function closeDetailIfMask(e) {
   const role = e.target.dataset && e.target.dataset.role
@@ -737,6 +800,14 @@ function ingMainKey(accords) {
 .ing-list { display: flex; flex-wrap: wrap; gap: 14rpx; }
 .ing-item { background: #fff; border-radius: 24rpx; padding: 12rpx 24rpx; }
 .ing-name { font-size: 24rpx; color: #2b2b2e; }
+/* 香料搜索 */
+.ing-search { position: -webkit-sticky; position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12rpx; margin: 0 24rpx 16rpx; padding: 14rpx 24rpx; background: #fff; border: 2rpx solid rgba(169,120,38,0.35); border-radius: 999rpx; }
+/* 打磨：懒加载展开入口 */
+.ing-more { margin: 8rpx 24rpx 16rpx; text-align: center; font-size: 24rpx; color: #8a5f18; padding: 20rpx; border: 2rpx dashed rgba(169,120,38,0.4); border-radius: 14rpx; }
+.ing-search-input { flex: 1; font-size: 26rpx; color: #2b2b2e; height: 40rpx; line-height: 40rpx; }
+.ing-search-ph { color: #b9b4a2; }
+.ing-search-clear { font-size: 34rpx; line-height: 1; color: #b9b4a2; padding: 8rpx 10rpx; }
+.ing-empty { margin: 100rpx 24rpx; text-align: center; font-size: 26rpx; color: #8f8a79; }
 
 /* ---------- 手记子栏目 ---------- */
 .n-card {

@@ -18,28 +18,24 @@
         },
         /* 模块配置 */
         "modules" : {},
-        /* 应用发布信息 */
-        "distribute" : {
-            /* android打包配置 */
-            "android" : {
-                "permissions" : [
-                    "<uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\"/>",
-                    "<uses-permission android:name=\"android.permission.MOUNT_UNMOUNT_FILESYSTEMS\"/>",
-                    "<uses-permission android:name=\"android.permission.VIBRATE\"/>",
-                    "<uses-permission android:name=\"android.permission.READ_LOGS\"/>",
-                    "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
-                    "<uses-feature android:name=\"android.hardware.camera.autofocus\"/>",
-                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
-                    "<uses-permission android:name=\"android.permission.CAMERA\"/>",
-                    "<uses-permission android:name=\"android.permission.GET_ACCOUNTS\"/>",
-                    "<uses-permission android:name=\"android.permission.READ_PHONE_STATE\"/>",
-                    "<uses-permission android:name=\"android.permission.CHANGE_WIFI_STATE\"/>",
-                    "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>",
-                    "<uses-permission android:name=\"android.permission.FLASHLIGHT\"/>",
-                    "<uses-feature android:name=\"android.hardware.camera\"/>",
-                    "<uses-permission android:name=\"android.permission.WRITE_SETTINGS\"/>"
-                ]
-            },
+    /* 应用发布信息 */
+    "distribute" : {
+        /* android打包配置 */
+        "android" : {
+            /* 审计 P3：仅保留本工程真实使用的最小权限集。
+               CAMERA / READ_PHONE_STATE / GET_ACCOUNTS / READ_LOGS / WRITE_SETTINGS /
+               FLASHLIGHT / MOUNT_UNMOUNT_FILESYSTEMS 等均为脚手架默认、与本项目功能无关
+               （源码只用 uni.vibrateShort 震动与微信相册 API，均不经 Android 权限），
+               保留它们只会让未来打 App 包时过度索权、审核被问询。勿再放回。 */
+            "permissions" : [
+                "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+                "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+                "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
+                "<uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\"/>",
+                "<uses-permission android:name=\"android.permission.CHANGE_WIFI_STATE\"/>",
+                "<uses-permission android:name=\"android.permission.VIBRATE\"/>"
+            ]
+        },
             /* ios打包配置 */
             "ios" : {},
             /* SDK配置 */
@@ -52,7 +48,10 @@
     "mp-weixin" : {
         "appid" : "wx348e6814a06444db",
         "setting" : {
-            "urlCheck" : false,
+            /* 审计 P3：urlCheck 开 true——本项目真实网络请求为零（云开发免域名
+               白名单、图片全本地化、无外链跳转），开校验不会误伤任何功能，
+               反而能在上传前提前暴露未来误引入外链的合规问题。勿关回 false。 */
+            "urlCheck" : true,
             "minified": true,
             "es6": true,
             "postcss": true,

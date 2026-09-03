@@ -14,7 +14,7 @@
       <view class="egg-body">
         <view class="egg-name-row">
           <text class="egg-name">{{ e.name }}</text>
-          <text class="egg-time" v-if="e.time">{{ fmt(e.time) }} 达成</text>
+          <text class="egg-time" v-if="isSealedTime(e.time)">{{ fmt(e.time) }} 达成</text>
         </view>
         <!-- 收藏细节只在点亮后揭晓：未点亮的连条件都不给，保持撞见时的惊喜 -->
         <view class="egg-desc" v-if="e.time">{{ e.desc }}</view>
@@ -34,6 +34,7 @@ import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getEggs } from '@/utils/eggs.js'
 import { getSeenProgress, SEEN_EGG } from '@/utils/seen.js'
+import { isSealedTime } from '@/utils/favorites.js'
 import { track } from '@/utils/analytics.js'
 
 const list = ref([])
@@ -41,6 +42,10 @@ const achieved = ref(0)
 const total = ref(0)
 
 function fmt(t) {
+  // 审计 P2-6：损坏/旧版时间戳（字符串、NaN、扫码哈希）会 new Date 出
+  // NaN.NaN.NaN；只有真实毫秒时间戳（>1e12）才展示日期。模板层 v-if
+  // 同用 isSealedTime 整行隐藏，这里再兜一层防手滑。
+  if (!isSealedTime(t)) return ''
   const d = new Date(t)
   const p = (n) => ('' + n).padStart(2, '0')
   return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}`

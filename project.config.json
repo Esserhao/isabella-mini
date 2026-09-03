@@ -6,7 +6,7 @@
   "appid": "wx348e6814a06444db",
   "projectname": "isabella-mini",
   "setting": {
-    "urlCheck": false,
+    "urlCheck": true,
     "es6": true,
     "minified": true,
     "postcss": true,

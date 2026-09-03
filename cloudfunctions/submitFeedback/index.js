@@ -1,8 +1,6 @@
 // ============================================================
 // 云函数 submitFeedback
-// 作用：
-//   1. action='check'  —— 仅做内容安全审查（msgSecCheck），不落库
-//   2. action='submit' —— 审查通过后把「留言建议」写入云数据库
+// 作用：审查通过后把「留言建议」写入云数据库（官方审查在写入前强制执行）
 //
 // 留言只有店主能在云开发控制台看到，前端不开放读取接口。
 // 数据库集合：feedbacks（首次使用需在云开发控制台手动创建，
@@ -59,27 +57,22 @@ async function tooFrequent(openid) {
 }
 
 exports.main = async (event = {}) => {
-  const { action = 'submit', content = '' } = event
+  const { content = '' } = event
   const openid = cloud.getWXContext().OPENID || ''
 
   const text = String(content || '').trim()
   if (!text) return { ok: false, errCode: 400, errMsg: '内容为空' }
   if (text.length > 500) return { ok: false, errCode: 414, errMsg: '内容过长（最多 500 字）' }
 
-  // 写入前频控（check 不落库，不限）
-  if (action === 'submit' && await tooFrequent(openid)) {
+  // 写入前频控：同一 openid 10 秒内只放行一条，防止脚本灌库/刷审查配额
+  if (await tooFrequent(openid)) {
     return { ok: false, errCode: 429, errMsg: '发送太频繁，歇口气再寄' }
   }
 
-  // 无论 check 还是 submit，都先过官方审查
+  // 写入前先过官方审查
   const check = await secCheck(text, openid)
   if (!check.pass) {
     return { ok: false, errCode: 87014, errMsg: check.errMsg || '内容审核未通过' }
-  }
-
-  // 仅审查模式：前端提交感言前可单独调用
-  if (action === 'check') {
-    return { ok: true, needReview: !!check.needReview }
   }
 
   // 写入留言（submit）

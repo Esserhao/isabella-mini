@@ -43,7 +43,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onUnload } from '@dcloudio/uni-app'
-import { moderateText, cloudModerate } from '@/utils/moderate.js'
+import { moderateText } from '@/utils/moderate.js'
 import { track } from '@/utils/analytics.js'
 
 const content = ref('')
@@ -105,8 +105,8 @@ async function submit() {
     // #endif
 
     // #ifndef MP-WEIXIN
-    // 非微信环境（H5 预览）：无云函数，仅本地审查后提示
-    track('feedback_submit')
+    // 非微信环境（H5 预览）：无云函数，仅本地审查后提示。
+    // 这里并未真正提交，不记 feedback_submit 埋点（否则数据虚高）
     uni.showToast({ title: '当前环境暂不支持寄信', icon: 'none' })
     // #endif
   } catch (e) {

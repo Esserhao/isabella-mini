@@ -8,13 +8,6 @@
       }
     },
     {
-      "path": "pages/notes/notes",
-      "style": {
-        "navigationBarTitleText": "手记",
-        "backgroundColor": "#f0eee5"
-      }
-    },
-    {
       "path": "pages/gallery/gallery",
       "style": { "navigationBarTitleText": "图鉴" }
     },

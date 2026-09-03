@@ -88,6 +88,29 @@ export function generateFormula(accordValues) {
     return out;
 }
 
+// ---------- 前中后三调 ----------
+// 自配方没有调香师的分层设计，但每味香料的主导香调自带「挥发速度」的暗示：
+// 柑橘/绿意/水生这类小分子先冲出来归前调，花香/果香/馥奇撑起中段，
+// 木质/东方/琥珀/麝香/香草/烟草这些大分子沉底留香归后调。
+// 按味归层而不是按权重拆分——用户封存的是「配方里的这些香料」，不是抽象比例。
+const PYRAMID_TIER = {
+    citrus: 'top', green: 'top', aquatic: 'top',
+    floral: 'middle', fruity: 'middle', fougere: 'middle',
+    woody: 'base', oriental: 'base', amber: 'base', musk: 'base', vanilla: 'base', tobacco: 'base'
+}
+
+export function generatePyramid(names) {
+    const pyr = { top: [], middle: [], base: [] };
+    (names || []).forEach((n) => {
+        const ing = INGREDIENT_LIBRARY.find((it) => it.name === n);
+        if (!ing) return;
+        const sorted = Object.entries(ing.accords).sort((a, b) => b[1] - a[1]);
+        const main = sorted[0] ? sorted[0][0] : 'woody';
+        pyr[PYRAMID_TIER[main] || 'base'].push(n);
+    });
+    return pyr;
+}
+
 // 根据雷达最高维挑选古先生台词（random=true 时为随机灵感台词）
 const DIM_KEYS = ['brightness', 'warmth', 'sweetness', 'crispness', 'depth', 'airiness'];
 const RANDOM_QUOTES = [
@@ -98,12 +121,22 @@ const RANDOM_QUOTES = [
     "今天风往南吹，我让香气跟着走。你闻到的，是风替你选的路。"
 ];
 
+// 纯水态（12 轴全 0）：这时候谈「明亮温柔」是瞎说，台词先承认这是一杯水
+const PURE_WATER_QUOTES = [
+    "现在它只是一杯水。第一味落下去，故事才开始。",
+    "清水反而装得下任何方向。你说了算。",
+    "水在等它的第一味香。不急。"
+];
+
 export function getGuQuote(radarValues, opts = {}) {
     if (opts.random) {
         return RANDOM_QUOTES[Math.floor(Math.random() * RANDOM_QUOTES.length)];
     }
     // 防御：radarValues 非数组 / 空数组时 sorted[0] 为 undefined，会在 .index 上崩
     const arr = Array.isArray(radarValues) ? radarValues : [];
+    // 纯水态：一根轴都没亮，读任何「气质」台词都是瞎说——先承认这是一杯水
+    const total = arr.reduce((s, v) => s + (Number(v) || 0), 0);
+    if (arr.length && total <= 0) return PURE_WATER_QUOTES[Math.floor(Math.random() * PURE_WATER_QUOTES.length)];
     const sorted = arr.map((v, i) => ({ index: i, value: v })).sort((a, b) => b.value - a.value);
     const primaryKey = (sorted[0] && DIM_KEYS[sorted[0].index]) || 'brightness';
 

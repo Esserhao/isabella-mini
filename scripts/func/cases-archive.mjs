@@ -124,6 +124,56 @@ suite('档案行囊', () => {
         expect(h.some((x) => x.time === 1)).toBe(false) // 最旧被挤出
     })
 
+    test('合并：满仓且档案全更旧时 added 为 0、dropped 如实计数（截断提示数据源）', () => {
+        // 本机历史已满 50 条，档案里全是更旧的记录：一条都进不去
+        const local = []
+        for (let i = 1; i <= 50; i++) local.push({ time: i * 100, name: 'n' + i })
+        poke('isabella_history', local)
+        const archive = { v: 1, t: 1, d: { h: [
+            { time: 10, name: '旧一' }, { time: 20, name: '旧二' }, { time: 30, name: '旧三' }
+        ] } }
+        const r = mergeArchive(archive)
+        expect(r.ok).toBe(true)
+        expect(r.sum.history).toBe(0) // 全部被 cap 顶掉，不能虚报「并进 3 瓶」
+        expect(r.sum.dropped.history).toBe(3) // 但这 3 条是档案里没进全的，UI 要说明
+        expect(peek('isabella_history')).toHaveLength(50) // 本机列表原样保留
+        expect(peek('isabella_history')[0].time).toBe(5000)
+    })
+
+    test('合并：半仓时新旧档案混合——新进的算 added，被 cap 挤掉的算 dropped', () => {
+        // 本机 48 条 + 档案 5 条（3 新 2 旧，旧的全被 50 上限顶掉）
+        const local = []
+        for (let i = 1; i <= 48; i++) local.push({ time: i * 100, name: 'n' + i })
+        poke('isabella_history', local)
+        const archive = { v: 1, t: 1, d: { h: [
+            { time: 6000, name: '新三' }, { time: 6100, name: '新四' }, { time: 6200, name: '新五' },
+            { time: 10, name: '旧甲' }, { time: 20, name: '旧乙' }
+        ] } }
+        const r = mergeArchive(archive)
+        expect(r.ok).toBe(true)
+        expect(r.sum.history).toBe(3)  // 3 条新的进来了
+        expect(r.sum.dropped.history).toBe(2) // 2 条旧的没能并进
+        const h = peek('isabella_history')
+        expect(h).toHaveLength(50) // 合并后仍封顶 50
+        expect(h.some((x) => x.time === 10)).toBe(false)
+        expect(h.some((x) => x.time === 6200)).toBe(true)
+    })
+
+    test('合并：收藏满 100 时 dropped.favorites 分列计数', () => {
+        const local = []
+        for (let i = 1; i <= 100; i++) local.push({ time: i, name: 'f' + i })
+        poke('isabella_favorites', local)
+        const archive = { v: 1, t: 1, d: { f: [
+            { time: 50, name: '重复(不计数)' }, { time: 0.5, name: '比全部更旧(被顶掉)' }
+        ] } }
+        const r = mergeArchive(archive)
+        expect(r.ok).toBe(true)
+        expect(r.sum.favorites).toBe(0)
+        expect(r.sum.dropped.favorites).toBe(1) // time:0.5 没进；time:50 重复不算 dropped
+        expect(peek('isabella_favorites')).toHaveLength(100)
+        expect(peek('isabella_favorites').some((x) => x.time === 0.5)).toBe(false)
+    })
+
     test('合并：彩蛋同 key 取最早达成时间', () => {
         poke('isabella_eggs', { first_bottle: 5000 })
         const archive = { v: 1, t: 1, d: { e: { first_bottle: 3000, dawn: 7000 } } }

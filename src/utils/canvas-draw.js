@@ -278,6 +278,27 @@ export function drawRadar(ctx, opt) {
 }
 
 // ---------- 雷达生长动画（点「开始调香」：骨架先现，多边形 0.5s 从中心长出来） ----------
+// 审计 P3：RAF 循环没有取消出口——lab 切 tab/卸载后动画还会空转完 500ms。
+// 模块级记录当前句柄，导出 cancelRadarGrow 供页面 onHide/onUnload 兜底清理。
+let growRafId = null
+let growCanvas = null
+function cancelGrowRaf(canvas, id) {
+  if (id == null) return
+  try {
+    // 与 raf() 的选择逻辑同构：canvas RAF → 全局 RAF → setTimeout
+    if (canvas && typeof canvas.requestAnimationFrame === 'function') {
+      if (typeof canvas.cancelAnimationFrame === 'function') { canvas.cancelAnimationFrame(id); return }
+    }
+    if (typeof cancelAnimationFrame === 'function') { cancelAnimationFrame(id); return }
+    clearTimeout(id)
+  } catch (e) { /* 取消失败无害，动画自行结束 */ }
+}
+export function cancelRadarGrow() {
+  cancelGrowRaf(growCanvas, growRafId)
+  growRafId = null
+  growCanvas = null
+}
+
 export function drawRadarGrow(ctx, opt, onDone) {
   const { cx, cy, radius, values, labels, max = 100,
     theme = THEME, duration = 500, canvas = null } = opt
@@ -367,13 +388,21 @@ export function drawRadarGrow(ctx, opt, onDone) {
     drawSkeleton()
     drawPoly(eased)
     if (t >= 1) {
+      growRafId = null
+      growCanvas = null
       drawDots()
       onDone && onDone()
       return
     }
     rafId = raf(canvas, frame)
+    growRafId = rafId
+    growCanvas = canvas
   }
+  // 上一段未播完的动画先停（连续触发 playGrow 时后一段覆盖前一段）
+  cancelRadarGrow()
   rafId = raf(canvas, frame)
+  growRafId = rafId
+  growCanvas = canvas
 }
 
 // ---------- 封存卡主体（不含签名，同步绘制） ----------
@@ -455,7 +484,7 @@ export function drawCardBase(ctx, opt) {
   // ---------- 区块 1：主要香调（浅底卡片，含占比彩条） ----------
   // 纯水只是工坊里「从里置换香调」的中间载体，不是「闻起来怎样」的香，
   // 绝不写进任何香味分析 —— 过滤掉，否则纯水 100% 封存会冒出「纯水·主调 100%」。
-  const topAccords = accords.slice().sort((a, b) =>
+  const topAccords = (accords || []).slice().sort((a, b) =>
     (accordValues[b.key] || 0) - (accordValues[a.key] || 0))
     .filter((a) => (accordValues[a.key] || 0) > 0 && a.key !== SOLVENT.key)
     .slice(0, 3)
@@ -538,7 +567,30 @@ export function drawCardBase(ctx, opt) {
   ctx.textAlign = 'left'
   // 配方与香调同色：每味香料按主导香调着色（与「主要香调」彩条同一套色系），
   // 顿号用淡墨弱化——扫一眼配方，就知道每味香料来自上面哪条彩带。
-  cursor += drawFormulaColored(ctx, ingX, cursor, ingW, theme, formula) + 20
+  cursor += drawFormulaColored(ctx, ingX, cursor, ingW, theme, formula)
+
+  // 前中后三调：一行淡墨小字，紧贴配方。自配方也讲「头香—主体—留香」的故事。
+  // 没传 pyramid（旧卡/外部调用）或三层全空时整段不占位，布局与旧版完全一致。
+  const pyr = opt.pyramid
+  if (pyr && ((pyr.top && pyr.top.length) || (pyr.middle && pyr.middle.length) || (pyr.base && pyr.base.length))) {
+    const segs = []
+    if (pyr.top && pyr.top.length) segs.push('前 ' + pyr.top.join('、'))
+    if (pyr.middle && pyr.middle.length) segs.push('中 ' + pyr.middle.join('、'))
+    if (pyr.base && pyr.base.length) segs.push('后 ' + pyr.base.join('、'))
+    let txt = segs.join('  ·  ')
+    cursor += 2
+    ctx.font = '11px sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = 'rgba(95,94,94,0.75)'
+    // 超宽截断：逐字收再补省略号（配方折行同源的按宽截断策略）
+    const full = txt
+    while (ctx.measureText(txt + '…').width > ingW && txt.length > 1) txt = txt.slice(0, -1)
+    if (txt !== full) txt += '…'
+    ctx.fillText(txt, ingX, cursor + 8)
+    cursor += 15 + 10
+  }
+  cursor += 20
 
   // ---------- 小程序码 + 品牌信息 + 古先生感言（金线之上，紧接配方）----------
   // 码本体由 drawCard 绘制（需要异步 loadImage），这里只排文案并算出码的位置。
@@ -666,7 +718,13 @@ export function measureCardHeight(ctx, opt = {}) {
     ctx.font = '14px sans-serif'
     // 行数估算与 drawFormulaColored 的整词折行同源（逐字折行会低估行数）
     const formulaItems = opt.formula && opt.formula.length ? opt.formula : ['—']
-    cursor += formulaLinesOf(ctx, formulaItems, ingW, 2).length * 21 + 20
+    cursor += formulaLinesOf(ctx, formulaItems, ingW, 2).length * 21
+    // 三调行：与 drawCardBase 同条件（有 pyramid 且至少一层非空）才占位，增量同源
+    const pyr = opt.pyramid
+    if (pyr && ((pyr.top && pyr.top.length) || (pyr.middle && pyr.middle.length) || (pyr.base && pyr.base.length))) {
+      cursor += 2 + 15 + 10
+    }
+    cursor += 20
     // 码块：古先生感言栏宽取决于是否带码（工坊预览不带、封存/卡片页带），与绘制侧一致
     const qrSize = CARD_QR.size
     const colX = opt.qrCode ? CARD_QR.x + qrSize + 16 : M
@@ -683,8 +741,9 @@ export function measureCardHeight(ctx, opt = {}) {
       const nLines = wrapLines(ctx, noteText, width - M * 2, 4)
       bottom = footerY + 14 + 22 + nLines.length * 26
     }
-    // 上限 900：不高于旧固定高度（超出时绘制侧的 nMaxLines 会自然截断多出的行）
-    return Math.round(Math.min(900, Math.max(700, bottom + 30)))
+    // 上限 940：最坏内容（3 行主要香调 + 2 行配方 + 三调行 + 4 行台词）会把
+    // 感言顶进底部 30px 边距；940 刚好保住感言区与底边的呼吸位。
+    return Math.round(Math.min(940, Math.max(700, bottom + 30)))
   } catch (e) {
     return FALLBACK
   }
@@ -768,6 +827,22 @@ export async function drawCard(ctx, opt) {
     } catch (e) {
       // 加载失败静默，不阻塞主流程
     }
+  } else if (qrCode && qr) {
+    // 出码失败（云函数不可用/网络断）：码位空着像渲染坏了——
+    // 画虚线占位框加一句兜底文案，卡片不显得残缺，也不承诺「扫码」
+    ctx.save()
+    ctx.strokeStyle = 'rgba(146,124,88,0.4)'
+    ctx.lineWidth = 1
+    ctx.setLineDash([4, 4])
+    ctx.strokeRect(qr.x, qr.y, qr.size, qr.size)
+    ctx.setLineDash([])
+    ctx.fillStyle = 'rgba(95,94,94,0.55)'
+    ctx.font = '11px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('这瓶', qr.x + qr.size / 2, qr.y + qr.size / 2 - 8)
+    ctx.fillText('只属于你', qr.x + qr.size / 2, qr.y + qr.size / 2 + 9)
+    ctx.restore()
   }
 }
 

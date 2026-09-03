@@ -35,7 +35,7 @@
       <textarea
         class="paste-box"
         v-model="importText"
-        :maxlength="-1"
+        maxlength="50000"
         placeholder="把档案文本完整粘贴到这里"
         placeholder-class="paste-ph"
       />
@@ -99,9 +99,16 @@ function mergeDone(sum) {
   if (sum.seen) lines.push(`图鉴翻阅记上 ${sum.seen} 项`)
   if (sum.streak) lines.push('连续天数取了更长的那串')
   if (sum.sealCount) lines.push('累计封存数取了更多的那边')
-  if (sum.stats) lines.push(` ${sum.stats} 项足迹取了多的一边`)
+  if (sum.stats) lines.push(`${sum.stats} 项足迹取了多的一边`)
+  // 截断提示一致性（审计 P3）：历史满 50/收藏满 100 各有时机 toast，唯独归档合并
+  // 一直静默——档案里更旧的记录被本机上限顶掉时，用户该知道「这份档案没进全」。
+  // dropped 只算「远端条目被 cap 挤出」，本机旧条目让位不算（它们仍在列表，只是更靠后）。
+  const dropped = sum.dropped || {}
+  if (dropped.history) lines.push(`本机日记只留 50 瓶，档案里更旧的 ${dropped.history} 瓶没能并进`)
+  if (dropped.favorites) lines.push(`本机收藏只留 100 件，档案里更旧的 ${dropped.favorites} 件没能并进`)
+  const partial = dropped.history || dropped.favorites
   if (!lines.length) return { title: '两边已经同步', lines: ['这份档案里的记忆，本机都有。'] }
-  return { title: '行囊已归位', lines }
+  return { title: partial ? '收下一部分' : '行囊已归位', lines }
 }
 
 function importArchive() {
@@ -136,7 +143,10 @@ function importArchive() {
             track('archive_import')
             mergeResult.value = mergeDone(r.sum)
             importText.value = ''
-            uni.showToast({ title: '行囊已归位', icon: 'none' })
+            const dropped = (r.sum.dropped && (r.sum.dropped.history || r.sum.dropped.favorites))
+            // 与 result 面板同口径：有档案条目因本机上限没能进全时，toast 也点明，
+            // 不让人误以为「整份档案都归位了」
+            uni.showToast({ title: dropped ? '本机已满，部分没能并进' : '行囊已归位', icon: 'none', duration: 2500 })
           }
         } catch (e) { /* 忽略 */ }
         merging.value = false

@@ -19,6 +19,8 @@
       <view class="block">
         <view class="b-title">3. 信息收集与使用</view>
         <view class="b-text">使用「留言」功能时，我们会收集您的微信 openid 及提交的内容。该信息仅用于接收和回复您的反馈，不会用于其他目的，不会分享给第三方。我们不会收集姓名、电话、位置等个人敏感信息。</view>
+        <view class="b-text b-sub">当您把调好的「封存卡」图片保存到手机相册时，需要您授权相册写入权限（writePhotosAlbum），图片仅保存在您自己的设备上，我们不会读取或上传您的相册内容。</view>
+        <view class="b-text b-sub">为了改进产品体验，我们会使用微信云开发的匿名访问统计（traceUser）记录页面访问情况，统计结果不含可识别您个人身份的信息。</view>
       </view>
 
       <view class="block">
@@ -32,7 +34,7 @@
         </view>
       </view>
 
-      <view class="updated">最后更新：2026 年 8 月 20 日</view>
+      <view class="updated">最后更新：2026 年 9 月 3 日</view>
     </view>
   </view>
 </template>
@@ -75,6 +77,7 @@ function goContact() {
 .block { margin-bottom: 26rpx; }
 .b-title { font-size: 26rpx; font-weight: 700; color: #2b2b2e; margin-bottom: 8rpx; }
 .b-text { font-size: 24rpx; color: #6b6a6a; line-height: 1.85; }
+.b-sub { margin-top: 10rpx; }
 .b-link:active { opacity: 0.6; }
 /* 邮箱入口行：样式与 contact 页的邮箱行同源，点按跳转该页 */
 .b-email {

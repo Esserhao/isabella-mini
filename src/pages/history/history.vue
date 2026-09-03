@@ -11,7 +11,7 @@
       </view>
       <view class="sum-pref" v-if="summary.pref">你偏爱的香调：{{ summary.pref }}</view>
     </view>
-    <view class="row" v-for="h in history" :key="h.time" @tap="openCard(h)">
+    <view class="row" v-for="h in visibleHistory" :key="h.time" @tap="openCard(h)">
       <view class="row-main">
         <view class="row-name">{{ h.name }}</view>
         <view class="row-quote" v-if="h.quote">「{{ h.quote }}」</view>
@@ -30,19 +30,35 @@
         <view class="row-del" @tap.stop="del(h)">✕</view>
       </view>
     </view>
+    <!-- 审计 P2-5：历史最多 50 条，同样分批渲染；触底自动加载 + 按钮兜底 -->
+    <view class="list-more" v-if="histHasMore" @tap="loadMoreHist">
+      还有 {{ histRemain }} 条 · 点开更多
+    </view>
   </view>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onShow, onReachBottom } from '@dcloudio/uni-app'
 import { ACCORDS, SOLVENT } from '@/utils/data.js'
 import { accordColor } from '@/utils/theme.js'
-import { getFavorites, toggleFav } from '@/utils/favorites.js'
+import { getFavorites, toggleFav, isSealedTime } from '@/utils/favorites.js'
 import { track } from '@/utils/analytics.js'
 
 const history = ref([])
 const favorites = ref([])
+
+// 审计 P2-5：列表分批渲染（上限 50）。onShow 重置首屏 20 条，
+// 触底/点按钮 +20；单条删除不重置（slice 自动收窄），保留展开位置。
+const HIST_STEP = 20
+const histVisible = ref(HIST_STEP)
+const visibleHistory = computed(() => history.value.slice(0, histVisible.value))
+const histHasMore = computed(() => histVisible.value < history.value.length)
+const histRemain = computed(() => history.value.length - histVisible.value)
+function loadMoreHist() {
+  histVisible.value = Math.min(histVisible.value + HIST_STEP, history.value.length)
+}
+onReachBottom(() => { if (histHasMore.value) loadMoreHist() })
 
 const accordLabelMap = {}
 ACCORDS.forEach((a) => { accordLabelMap[a.key] = a.label })
@@ -60,7 +76,7 @@ const favedMap = computed(() => {
 const summary = computed(() => {
   const arr = history.value || []
   if (!arr.length) return null
-  const times = arr.map((x) => x.time).filter(Boolean).sort((a, b) => a - b)
+  const times = arr.map((x) => x.time).filter(isSealedTime).sort((a, b) => a - b)
   const freq = {}
   arr.forEach((x) => {
     const t = topOf(x.accords)[0]
@@ -75,7 +91,8 @@ const summary = computed(() => {
   }
 })
 function fmtDate(t) {
-  if (!t) return ''
+  // 审计 P2-6：非真实毫秒时间戳（损坏/旧版/哈希）不展示日期
+  if (!isSealedTime(t)) return ''
   const d = new Date(t)
   const p = (n) => ('' + n).padStart(2, '0')
   return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}`
@@ -100,7 +117,8 @@ function topOf(acc) {
 }
 
 function formatTime(t) {
-  if (!t) return ''
+  // 审计 P2-6：与 fmtDate 同一闸——旧数据里混入的异常时间戳不 new Date
+  if (!isSealedTime(t)) return ''
   const d = new Date(t)
   const p = (n) => ('' + n).padStart(2, '0')
   return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
@@ -117,6 +135,10 @@ function openCard(item) {
       accords: item.accords,
       quote: item.quote,
       formula: item.formula,
+      // 三调与雷达模式随记录带上：否则封存卡页重算时回退 relative，
+      // 且卡面永远缺「前中后调」区块（与 lab 预览卡不一致）
+      pyramid: item.pyramid,
+      radarMode: item.radarMode,
       note: item.note
     })
   } catch (e) { /* 忽略 */ }
@@ -125,6 +147,11 @@ function openCard(item) {
 
 function fav(h) {
   const nowFaved = toggleFav(h)
+  if (nowFaved === null) {
+    // 存储写失败：状态没变，明确要用户重试，不能弹「已取消收藏」假反馈
+    uni.showToast({ title: '收藏没存上，请重试', icon: 'none' })
+    return
+  }
   favorites.value = getFavorites()
   track(nowFaved ? 'fav_add' : 'fav_remove')
   uni.showToast({ title: nowFaved ? '已收藏' : '已取消收藏', icon: 'none' })
@@ -162,11 +189,19 @@ onShow(() => {
     history.value = []
   }
   favorites.value = getFavorites()
+  // 重新进页从首屏开始分批展开
+  histVisible.value = HIST_STEP
 })
 </script>
 
 <style scoped>
 .page { min-height: 100vh; background: #f0eee5; padding: 24rpx 28rpx 60rpx; box-sizing: border-box; }
+.empty { font-size: 24rpx; color: #6b6a6a; text-align: center; padding: 120rpx 40rpx; line-height: 1.7; }
+.list-more {
+  text-align: center; font-size: 22rpx; color: #8a5f18;
+  padding: 18rpx 0 6rpx; background: transparent;
+}
+.list-more:active { opacity: 0.6; }
 .empty { font-size: 24rpx; color: #6b6a6a; text-align: center; padding: 120rpx 40rpx; line-height: 1.7; }
 
 /* 列表顶部汇总条：款数 + 时间跨度 + 偏好香调，给裸列表一个锚点 */

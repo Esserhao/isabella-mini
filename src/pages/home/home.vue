@@ -152,7 +152,6 @@ const topAccords = computed(() =>
     }))
 )
 
-const formulaText = computed(() => generateFormula(demo.value.accords).slice(0, 4).join('、'))
 // 逐味带香调色的配方段落（卡片配方行 v-for 渲染，与封存卡 canvas 同一色源）。
 // 文字前景用对比度版文字色——本色浅调（柑橘/香草等）印小字看不清。
 const formulaParts = computed(() => generateFormula(demo.value.accords).slice(0, 4)

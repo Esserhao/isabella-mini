@@ -54,7 +54,7 @@ import { ACCORDS, RADAR_LABELS } from '@/utils/data.js'
 import { computeRadarValues, generateFormula, getGuQuote, topAccordDesc, getDailyChallenge, setDailyChallengeTarget } from '@/utils/mix.js'
 import { drawCard, drawShareCard, SHARE_SIZE, mainAccordColor, measureCardHeight } from '@/utils/canvas-draw.js'
 import { THEME } from '@/utils/theme.js'
-import { isFaved, toggleFav as toggleFavStore, stableFavId } from '@/utils/favorites.js'
+import { isFaved, toggleFav as toggleFavStore, stableFavId, getFavorites, isSealedTime } from '@/utils/favorites.js'
 import { achieveEgg } from '@/utils/eggs.js'
 import { track } from '@/utils/analytics.js'
 import { currentTier } from '@/utils/progress.js'
@@ -84,7 +84,9 @@ const tempPathTimeline = ref('')
 let card = null
 
 const subtitle = computed(() => {
-  if (!data.value.time) return '已封存'
+  // time=0 或哈希主键（stableFavId，扫码/分享卡的收藏键）都不是封存成品，
+  // 别误称「已封存」——哈希拿去 new Date() 会得到 1970 或 NaN
+  if (!isSealedTime(data.value.time)) return '扫码调香'
   const d = new Date(data.value.time)
   const p = (n) => ('' + n).padStart(2, '0')
   return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} · 已封存`
@@ -167,6 +169,9 @@ onLoad((option) => {
     radarMode,
     quote: parsed.quote || getGuQuote(radarValues, { voice: tier.voice }),
     formula: parsed.formula && parsed.formula.length ? parsed.formula : generateFormula(accords),
+    // 前中后三调：lab 封存时已写入 cardData，历史记录也存了；扫码/分享来源没有，给 null
+    // （drawCard/measureCardHeight 对空 pyramid 自带跳过分支，不会崩）
+    pyramid: parsed.pyramid || null,
     note: parsed.note || '',
     rarity: parsed.rarity || '',
     rarityText: parsed.rarityText || '',
@@ -176,8 +181,10 @@ onLoad((option) => {
     origin: parsed.origin || '',
     challenge: parsed.challenge || null
   }
-  favTime.value = data.value.time || 0
-  faved.value = isFaved(data.value.time)
+  // 收藏状态按稳定主键初始化：扫码/分享卡 time=0，直接用 time 查会永远显示未收藏，
+  // 而首次点收藏会反向命中旧记录变成「取消收藏」（与按钮文案相反）
+  favTime.value = data.value.time || stableFavId(data.value.name, data.value.accords)
+  faved.value = isFaved(favTime.value)
   sealLabelFromSeal.value = !!parsed.sealLabel
   // 对决参数（发起人分数/名字/题名走 query，配方走 s 参数）：
   // 同一天打开是同一道题（按日期取模选题），跨天则题名仅作参照
@@ -254,6 +261,7 @@ onReady(async () => {
   // 卡面高度随内容伸缩：先量后画，没感言/配方短的卡不再拖着一片死白
   fitCardHeight({
     formula: data.value.formula, quote: data.value.quote, note: data.value.note,
+    pyramid: data.value.pyramid,
     accords: ACCORDS, accordValues: data.value.accords, qrCode: true
   })
   // 这瓶香专属的真小程序码：扫码直达封存卡并还原配方。
@@ -267,6 +275,8 @@ onReady(async () => {
     labels: RADAR_LABELS,
     quote: data.value.quote,
     formula: data.value.formula,
+    // 前中后三调（封存时归好层）：旧数据没这个字段，drawCardBase 自动不占位
+    pyramid: data.value.pyramid,
     // 用户封存时填的调香感言，画在金线下方；未填则不显示该区块
     note: data.value.note,
     accords: ACCORDS,
@@ -280,8 +290,9 @@ onReady(async () => {
     // 接力链印记 + 主调金线
     origin: data.value.origin,
     accent: mainAccordColor(data.value.accords),
-    // 真实封存时间（data.time）；分享/扫码进来的卡 time 为 0，drawCardBase 回退当天
-    sealTime: data.value.time,
+    // 真实封存时间（data.time）；哈希主键（扫码/分享收藏）不是日期，回退 0
+    // 让 drawCardBase 用当天，不出现 1970/NaN
+    sealTime: isSealedTime(data.value.time) ? data.value.time : 0,
     canvas: card.canvas,
     qrCode: true,
     qrSrc
@@ -407,8 +418,8 @@ function authorizeAlbum() {
 
 function toggleFav() {
   // 分享链接（s 参数）/ 扫码（p 参数）进来的卡片没有 time，
-  // 而 favorites.js 的 toggleFav 用 time 当主键、缺失就 return false，
-  // 会导致点收藏静默失败还提示「已取消收藏」。这里补一个只用于收藏主键的时间戳，
+  // 而 favorites.js 的 toggleFav 用 time 当主键，缺失会被判非法入参返回 null，
+  // 点收藏会误弹「收藏没存上」。这里补一个只用于收藏主键的时间戳，
   // 不写回 data.value.time——否则 subtitle 会把"今天"当成封存日期显示，反而误导。
   if (!favTime.value) {
     // 长周期雷修复：主键若是「当场生成的随机时间戳」，同一瓶扫码香每次收藏
@@ -423,14 +434,22 @@ function toggleFav() {
     accords: data.value.accords,
     quote: data.value.quote,
     formula: data.value.formula,
+    pyramid: data.value.pyramid || null, // 收藏条目带上三调，收藏卡也能画前中后调
+    radarMode: data.value.radarMode || '', // 雷达模式也随条目保存，收藏卡雷达不回退默认
     note: data.value.note,
     origin: data.value.origin
   })
+  if (nowFaved === null) {
+    // 存储写失败：界面状态不动，明确告诉用户重试，不能假成功
+    uni.showToast({ title: '收藏没存上，请重试', icon: 'none' })
+    return
+  }
   faved.value = nowFaved
   track(nowFaved ? 'fav_add' : 'fav_remove')
-  // 满仓提示：把「静默挤掉最早」变成知情选择
+  // 满仓提示：告知最早一条已经让位（完成时——点收藏的这一下就已经挤出去了，
+  // 别再用「将被挤出」的将来时误导用户）
   if (nowFaved && !wasFaved && getFavorites().length >= 100) {
-    uni.showToast({ title: '收藏已满 100 件，最早的将被挤出', icon: 'none', duration: 2500 })
+    uni.showToast({ title: '收藏已满 100 件，最早的一条已让位', icon: 'none', duration: 2500 })
   } else {
     uni.showToast({ title: nowFaved ? '已收藏' : '已取消收藏', icon: 'none' })
   }
@@ -438,7 +457,7 @@ function toggleFav() {
 
 async function saveCard() {
   if (!card) {
-    uni.showToast({ title: '卡片未就绪', icon: 'none' })
+    uni.showToast({ title: '卡片还在画，稍等一下再试', icon: 'none' })
     return
   }
   await ensureTemp()
@@ -464,8 +483,10 @@ async function saveCard() {
           confirmText: '去设置', cancelText: '稍后',
           success: (m) => { if (m.confirm) uni.openSetting() }
         })
+      } else if (/cancel/i.test(msg)) {
+        // 用户在系统对话框点了「取消」：是主动放弃不是失败，不打扰
       } else {
-        uni.showToast({ title: '保存失败：' + msg, icon: 'none' })
+        uni.showToast({ title: '保存失败，请重试', icon: 'none' })
       }
     }
   })

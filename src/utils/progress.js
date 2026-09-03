@@ -9,6 +9,10 @@
 // ============================================================
 
 const KEY_SEAL_COUNT = 'isabella_seal_count'
+// 已展示过解锁文案的层级（幂等表）：正常路径层级只跨一次；但若封存计数
+// 写入失败（存储异常），下次封存会按历史兜底重算计数，可能重复跨层——
+// 用这张表保证同一层级的解锁文案永远只弹一次。
+const KEY_TIER_SHOWN = 'isabella_tier_shown'
 
 // 层级表。thresh = 达到该层所需的累计封存数
 // stampScale / stampRotate：印章视觉随层级变化（程序化绘制，不换素材）
@@ -78,7 +82,19 @@ export function bumpSealCount() {
   const tBefore = tierOf(before)
   const tier = tierOf(count)
   const leveledUp = tier.key !== tBefore.key
-  return { count, tier, leveledUp, unlock: leveledUp ? tier.unlock : '' }
+  let unlock = ''
+  if (leveledUp) {
+    try {
+      const shown = uni.getStorageSync(KEY_TIER_SHOWN)
+      const list = Array.isArray(shown) ? shown : []
+      if (list.indexOf(tier.key) < 0) {
+        unlock = tier.unlock
+        list.push(tier.key)
+        uni.setStorageSync(KEY_TIER_SHOWN, list)
+      }
+    } catch (e) { /* 存储异常时 unlock 照常返回，最多多弹一次不误导 */ }
+  }
+  return { count, tier, leveledUp, unlock }
 }
 
 export function tierOf(count) {

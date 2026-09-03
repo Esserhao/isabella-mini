@@ -53,6 +53,17 @@ suite('小程序码参数（12 香调编解码）', () => {
     const unnamed = buildWxacodePath(blend({ citrus: 100 }), '未命名香氛')
     expect(unnamed.includes('&n=')).toBe(false)
   })
+  test('码路径：超 128 字符丢名字只留配方（getwxacode path 上限）', () => {
+    // 中文香名 encodeURIComponent 后每字 9 字符，20 字必然顶爆 128
+    const longName = buildWxacodePath(blend({ citrus: 100 }), '晨雾桂花与雨夜图书馆的漫长相遇')
+    expect(longName.length <= 128).toBe(true)
+    expect(longName.includes('&n=')).toBe(false)
+    expect(longName.startsWith('pages/card/card?p=')).toBe(true)
+    // 短名仍然完整保留
+    const shortName = buildWxacodePath(blend({ citrus: 100 }), '晨雾桂花')
+    expect(shortName.includes('&n=')).toBe(true)
+    expect(shortName.length <= 128).toBe(true)
+  })
   test('云开发不可用时出码回退空串（画卡跳过码图，不阻塞）', () => {
     expect(FALLBACK_QR).toBe('')
   })

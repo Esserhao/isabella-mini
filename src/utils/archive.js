@@ -218,35 +218,51 @@ export function describeArchive(archive) {
 function validTime(x) { return x && typeof x === 'object' && typeof x.time === 'number' && isFinite(x.time) }
 
 // 按 time 去重并集，新的在前；入口记录以本机为准（导出后可能又改过感言）
+// added 只统计「最终真正写进结果（cap 截断后仍在）」的远端新增条数——
+// 本机已满仓时，并入的记录可能被 cap 挤掉，不能按合并前计数虚报。
+// dropped = 因超过本机上限(cap)而没能并进来的远端条数（本机旧条目被挤出不计，
+// 那些是本机自己的记忆仍在库中，只是被更近的记录顶到列表外；远端条目被挤出
+// 才意味着这份档案里的东西没进全，UI 需要向用户说明）。
 function mergeByTime(localList, remoteList, cap) {
     const out = Array.isArray(localList) ? localList.filter(validTime) : []
     const seen = new Set(out.map((x) => x.time))
-    let added = 0
+    const localTimes = new Set(seen)
+    let remoteNew = 0
     ;(Array.isArray(remoteList) ? remoteList : []).forEach((x) => {
         if (!validTime(x) || seen.has(x.time)) return
         out.push(x)
         seen.add(x.time)
-        added++
+        remoteNew++
     })
     out.sort((a, b) => b.time - a.time)
-    return { list: out.slice(0, cap), added }
+    const capped = out.slice(0, cap)
+    let kept = 0
+    capped.forEach((x) => { if (localTimes.has(x.time)) kept++ })
+    return { list: capped, added: capped.length - kept, dropped: Math.max(0, remoteNew - (capped.length - kept)) }
 }
 
 export function mergeArchive(archive) {
     if (!archive || archive.v !== 1) return { ok: false }
     const d = archive.d || {}
-    const sum = { history: 0, favorites: 0, eggs: 0, seen: 0, streak: false, sealCount: false, stats: 0 }
+    // dropped：档案里因超过本机上限而没能并进的远端条数（history/favorites 分列）。
+    // added 语义见 mergeByTime：只算 cap 截断后仍在列表里的，满仓时不虚报。
+    const sum = {
+        history: 0, favorites: 0, eggs: 0, seen: 0, streak: false, sealCount: false, stats: 0,
+        dropped: { history: 0, favorites: 0 }
+    }
 
     // 调香日记 / 收藏：time 去重并集
     try {
         const h = mergeByTime(readRaw('isabella_history'), d.h, HISTORY_CAP)
         if (h.list.length) uni.setStorageSync('isabella_history', h.list)
         sum.history = h.added
+        sum.dropped.history = h.dropped
     } catch (e) { /* 忽略 */ }
     try {
         const f = mergeByTime(readRaw('isabella_favorites'), d.f, FAV_CAP)
         if (f.list.length) uni.setStorageSync('isabella_favorites', f.list)
         sum.favorites = f.added
+        sum.dropped.favorites = f.dropped
     } catch (e) { /* 忽略 */ }
 
     // 彩蛋：同 key 取最早达成时间（与 achieveEgg 的「只记第一次」语义一致）

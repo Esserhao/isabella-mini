@@ -19,7 +19,8 @@ suite('收藏（含删除按钮的存储路径）', () => {
     expect(getFavorites()).toHaveLength(0)
   })
   test('缺 time 的条目拒绝入收藏（收藏以封存时间为主键）', () => {
-    expect(toggleFav({ name: '无主之香' })).toBe(false)
+    // 三态契约：true=已收藏 / false=已取消 / null=写失败或非法入参（缺 time 属非法入参）
+    expect(toggleFav({ name: '无主之香' })).toBe(null)
   })
   test('removeFav 按 time 精确删除，不动别人', () => {
     toggleFav({ time: 1, name: 'a' })
@@ -118,13 +119,14 @@ if (tutMod) {
       nextStep()
       finishTour()
       expect(tut.active).toBe(false)
-      expect(peek('gu_tour_done')).toBe(1)
+      // gu_tour_done 孤儿键已移除（只写不读），不再写入
+      expect(peek('gu_tour_done')).toBe('')
       expect(peek('gu_lab_guided')).toBe(1)
     })
     test('首页就早退（index<3）→ 不算看过工坊引导', () => {
       startTour()
       finishTour()
-      expect(peek('gu_tour_done')).toBe(1)
+      expect(peek('gu_tour_done')).toBe('')
       expect(peek('gu_lab_guided')).toBe('')
     })
     test('nextStep 推进，最后一步 finishTour 收尾', () => {

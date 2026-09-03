@@ -56,15 +56,16 @@ export function takePendingBlend() {
 //   1. getwxacode 的 path 不能以 / 开头
 //   2. 不指向 lab 页 —— lab 是 tabBar 页，部分微信版本扫 tabBar 页的码
 //      会丢弃 query 参数导致配方还原失败；card 是普通页，参数稳定可达。
+//   3. getwxacode 的 path 上限 128 字符（不是 1024）。中文香名经
+//      encodeURIComponent 每字膨胀到 9 字符（%E4%BD%A0），8 字中文名即可顶爆，
+//      云函数会静默生成失败回退占位图——超限时丢名字只留配方参数：
+//      名字丢了扫码仍能还原这瓶香，比扫出个半截名更稳。
 export function buildWxacodePath(accordValues, name) {
   const p = encodeAccordParams(accordValues)
-  let path = `pages/card/card?p=${p}`
-  if (name && name !== '未命名香氛') {
-    path += `&n=${encodeURIComponent(name)}`
-  }
-  // 超长保护（接口上限 1024，实际数字配方 ~60 字符，几乎不会触发）
-  if (path.length > 1000) path = `pages/card/card?p=${p}`
-  return path
+  const base = `pages/card/card?p=${p}`
+  if (!name || name === '未命名香氛') return base
+  const withName = `${base}&n=${encodeURIComponent(name)}`
+  return withName.length <= 128 ? withName : base
 }
 
 // #ifdef MP-WEIXIN
@@ -84,6 +85,35 @@ function writeBase64Image(base64, fileKey) {
 function fileExists(p) {
   try { fs.accessSync(p); return true } catch (e) { return false }
 }
+
+// ---------- 缓存 LRU ----------
+// 每个「配方+香名」组合都会落一个 wxacode:* 存储键 + 一张用户目录 jpg，
+// 不设上限会随使用无限累积。按最近使用保留 WXACODE_CAP 个，
+// 淘汰时同步删存储键与本地文件。索引为空时先收编历史遗留键（t=0 最先淘汰）。
+const WXACODE_CAP = 20
+const WXACODE_INDEX_KEY = 'wxacode:index'
+function trimWxacodeCache(currentKey, filePath) {
+  try {
+    let idx = uni.getStorageSync(WXACODE_INDEX_KEY)
+    if (!Array.isArray(idx)) idx = []
+    if (!idx.length) {
+      try {
+        const info = uni.getStorageInfoSync()
+        idx = ((info && info.keys) || [])
+          .filter((k) => k.indexOf('wxacode:') === 0 && k !== WXACODE_INDEX_KEY)
+          .map((k) => ({ k, p: String(uni.getStorageSync(k) || ''), t: 0 }))
+      } catch (e) { idx = [] }
+    }
+    idx = idx.filter((it) => it && it.k && it.k !== WXACODE_INDEX_KEY && it.k !== currentKey)
+    idx.unshift({ k: currentKey, p: filePath || '', t: Date.now() })
+    while (idx.length > WXACODE_CAP) {
+      const old = idx.pop()
+      try { uni.removeStorageSync(old.k) } catch (e) { /* 忽略 */ }
+      if (old.p) { try { fs.unlink({ filePath: old.p, fail: () => {} }) } catch (e2) { /* 忽略 */ } }
+    }
+    uni.setStorageSync(WXACODE_INDEX_KEY, idx)
+  } catch (e) { /* 索引失败不影响主流程 */ }
+}
 // #endif
 
 /**
@@ -95,7 +125,10 @@ function fileExists(p) {
 export function getWxacodePath(accordValues, name = '') {
   // #ifdef MP-WEIXIN
   const key = encodeAccordParams(accordValues)
-  const cacheKey = `wxacode:${key}`
+  // 缓存签名必须带上香名：码里的落地 path 含 &n=香名，
+  // 同配方改了名还复用旧码，扫出来会带着旧名字
+  const sig = `${key}|${name || ''}`
+  const cacheKey = `wxacode:${sig}`
 
   return new Promise((resolve) => {
     // 1) 本地缓存：记的是文件路径，还要确认文件没被系统清理
@@ -107,24 +140,29 @@ export function getWxacodePath(accordValues, name = '') {
     // 2) 未开通云开发 / wx.cloud 不可用：直接兜底
     if (typeof wx === 'undefined' || !wx.cloud) { resolve(FALLBACK_QR); return }
 
-    // 3) 调云函数生成
-    wx.cloud.callFunction({
-      name: 'getWxacode',
-      data: { path: buildWxacodePath(accordValues, name), width: 430 },
-      success: (res) => {
-        const r = res && res.result
-        if (r && r.ok && r.base64) {
-          const filePath = writeBase64Image(r.base64, `wxacode_${key.replace(/,/g, '_')}`)
-          if (filePath) {
-            try { uni.setStorageSync(cacheKey, filePath) } catch (e) { /* 忽略 */ }
-            resolve(filePath)
-            return
+    // 3) 调云函数生成。wx.cloud 未 init / 环境异常时 callFunction 可能同步抛错，
+    //    必须兜住：Promise executor 里抛出会让整条 Promise reject 且无 catch
+    try {
+      wx.cloud.callFunction({
+        name: 'getWxacode',
+        data: { path: buildWxacodePath(accordValues, name), width: 430 },
+        success: (res) => {
+          const r = res && res.result
+          if (r && r.ok && r.base64) {
+            // 文件名同样拼香名，避免同名不同香的码互相覆盖
+            const filePath = writeBase64Image(r.base64, `wxacode_${key.replace(/,/g, '_')}${name ? '_' + encodeURIComponent(name) : ''}`)
+            if (filePath) {
+              try { uni.setStorageSync(cacheKey, filePath) } catch (e) { /* 忽略 */ }
+              trimWxacodeCache(cacheKey, filePath)
+              resolve(filePath)
+              return
+            }
           }
-        }
-        resolve(FALLBACK_QR)
-      },
-      fail: () => resolve(FALLBACK_QR)
-    })
+          resolve(FALLBACK_QR)
+        },
+        fail: () => resolve(FALLBACK_QR)
+      })
+    } catch (e) { resolve(FALLBACK_QR) }
   })
   // #endif
 

@@ -36,14 +36,14 @@
 
     <view class="name-row">
       <text class="name-label">香名</text>
-      <input class="name-input" :value="name" placeholder="为这瓶香起个名字（8字内，英文算半字）" @input="onName" @blur="checkName" :maxlength="nameMax" />
+      <input class="name-input" :value="name" placeholder="为这瓶香起个名字（8字内，英文算半字）" @input="onName" @blur="checkName" @confirm="confirmName" :maxlength="nameMax" />
       <text class="name-suggest" @tap="suggestName">帮我起名</text>
     </view>
 
     <!-- 调香感言：20 字内，记录调香时的感触。提交前过内容审查（moderate.js） -->
     <view class="name-row note-row">
       <text class="name-label">感言</text>
-      <input class="name-input" :value="note" placeholder="此刻的感触（20字内，英文算半字）" @input="onNote" @blur="checkNote" :maxlength="noteMax" />
+      <input class="name-input" :value="note" placeholder="此刻的感触（20字内，英文算半字）" @input="onNote" @blur="checkNote" @confirm="confirmNote" :maxlength="noteMax" />
       <text class="note-count">{{ textWidth(note) }}/20</text>
     </view>
 
@@ -212,6 +212,13 @@
     <view class="panel quote-panel">
       <text class="quote">「{{ quote }}」</text>
       <text class="formula" v-if="formulaParts.length">配方：<text v-for="(p, i) in formulaParts" :key="i" :style="p.s">{{ p.n }}{{ p.t }}</text></text>
+      <view class="pyramid-lines" v-if="pyramidRows.length">
+        <view class="pyr-line" v-for="(row, ri) in pyramidRows" :key="ri">
+          <text class="pyr-tag">{{ row.label }}</text><text class="pyr-ing" v-for="(n, i) in row.items" :key="i" :style="ingStyle(n)">{{ n }}{{ i < row.items.length - 1 ? '、' : '' }}</text>
+        </view>
+        <!-- 中10：首次说明——只给第一次见到的用户讲一遍「前中后调」是什么，此后不再打扰 -->
+        <view class="pyr-hint" v-if="showPyrHint">前调最先散，中调是主体，后调留得最久</view>
+      </view>
     </view>
 
     <view class="panel card-panel">
@@ -223,7 +230,7 @@
         <text class="card-toggle">{{ cardOpen ? '收起' : '展开' }}</text>
       </view>
       <view class="card-body" :class="{ hidden: !cardOpen }">
-        <button class="btn ghost seal-cta" @tap="triggerSeal">封存这张卡片</button>
+        <button class="btn ghost seal-cta" @tap="triggerSeal">{{ cardSealed ? '已封存 · 再封一瓶' : '封存这张卡片' }}</button>
         <canvas type="2d" id="cardCanvas" class="ccanvas" :style="{ height: cardCssH + 'rpx' }"></canvas>
         <!-- 封存卡预览区不设底部按钮：封存后直接跳转 card 页，保存/分享/收藏都在 card 页 -->
       </view>
@@ -263,10 +270,10 @@
 
 <script setup>
 import { ref, reactive, nextTick, computed, watch } from 'vue'
-import { onLoad, onShow, onReady, onUnload, onPageScroll, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
+import { onLoad, onShow, onHide, onReady, onUnload, onPageScroll, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { ACCORDS, SOLVENT, BLEND_KEYS, RADAR_LABELS, CORE_INGREDIENTS, galleryPerfumes, RADAR_DIM_DESC, SCENT_TEMPLATES } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, isChallengeDone, topAccordDesc, randomAccords, shakeSolvent, findExactMatch, blankBlend, strengthOf } from '@/utils/mix.js'
-import { drawRadar, drawRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE, mainAccordColor, measureCardHeight } from '@/utils/canvas-draw.js'
+import { computeRadarValues, generateFormula, generatePyramid, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, isChallengeDone, topAccordDesc, randomAccords, shakeSolvent, findExactMatch, blankBlend, strengthOf } from '@/utils/mix.js'
+import { drawRadar, drawRadarGrow, cancelRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE, mainAccordColor, measureCardHeight } from '@/utils/canvas-draw.js'
 import { THEME, accordTextColor, ingredientAccordTextColor } from '@/utils/theme.js'
 import { recordSeal, getStreak } from '@/utils/streak.js'
 import { achieveEgg, sealLabelOf } from '@/utils/eggs.js'
@@ -300,6 +307,9 @@ const originRef = ref('')
 const advOpen = ref(false)
 // 深夜夜调：进店时若处于深夜时段，铺烛光蒙层并弹古先生夜话（仅首弹，避免每次切回都烦）
 const nightMode = ref(false)
+// 时段寄语气泡的定时器句柄：onUnload 统一清理（此前夜话/晨语/当午/向晚四个漏了，
+// 页面销毁后回调仍会触发）
+const tipTimers = []
 const nightTip = ref(false)
 let nightTipShown = false
 function checkNight() {
@@ -311,7 +321,7 @@ function checkNight() {
     nightTip.value = true
     // 首次深夜进店记入「夜半灯下」彩蛋（幂等，重复不计数）
     achieveEgg('night_owl')
-    setTimeout(() => { nightTip.value = false }, 4500)
+    tipTimers.push(setTimeout(() => { nightTip.value = false }, 4500))
   }
 }
 
@@ -328,7 +338,7 @@ function checkDawn() {
     dawnTipShown = true
     dawnTip.value = true
     achieveEgg('dawn')
-    setTimeout(() => { dawnTip.value = false }, 4500)
+    tipTimers.push(setTimeout(() => { dawnTip.value = false }, 4500))
   }
 }
 
@@ -341,7 +351,7 @@ function checkNoon() {
     noonTipShown = true
     noonTip.value = true
     achieveEgg('noon')
-    setTimeout(() => { noonTip.value = false }, 4500)
+    tipTimers.push(setTimeout(() => { noonTip.value = false }, 4500))
   }
 }
 
@@ -354,7 +364,7 @@ function checkTwilight() {
     twilightTipShown = true
     twilightTip.value = true
     achieveEgg('twilight')
-    setTimeout(() => { twilightTip.value = false }, 4500)
+    tipTimers.push(setTimeout(() => { twilightTip.value = false }, 4500))
   }
 }
 
@@ -453,14 +463,15 @@ function applyRestore({ accords, name: n, fromScan, origin }) {
 
 // 接力落地：图鉴/随机/调查(running blend) 与 每日挑战(challenge) 经 storage 暂存后跳工坊。
 // 冷启动时画布未就绪，onShow 先把它们收进 incoming，等 onReady 画布就绪再应用。
-// 优先级：running blend > 每日挑战（二者实际不会同帧出现）。
+// 审计 P3：blend 分支原先提前 return，极端构造（两路同帧暂存）下 challenge 会被
+// 顺延到下一次进工坊——若中途页面销毁，incoming 内存态随页面一起丢，挑战目标就丢了。
+// 去掉提前 return，两路各自独立落地（正常场景不会同帧出现，行为不变）。
 function applyIncomingIfReady() {
   if (!radar) return
   if (incoming.blend) {
     applyRestore(incoming.blend)
     incoming.blend = null
     drawLive(); syncCard()
-    return
   }
   if (incoming.challenge) {
     const c = incoming.challenge
@@ -484,8 +495,25 @@ function applyIncomingIfReady() {
 }
 
 const quote = ref('')
-const formulaText = ref('')
 const formulaParts = ref([])
+// 前中后三调：按每味香料主导香调归层，配方区与封存卡共用一份数据
+const formulaPyramid = ref({ top: [], middle: [], base: [] })
+// 模板友好行数组：过滤空层（纯木质配方没有前调，就不硬凑一行「前调 —」）
+const pyramidRows = computed(() => {
+  const p = formulaPyramid.value
+  return [
+    { label: '前调', items: p.top },
+    { label: '中调', items: p.middle },
+    { label: '后调', items: p.base }
+  ].filter((r) => r.items.length)
+})
+// 中10：三调行首次说明——第一次进工坊展示一行「前中后」的含义，之后永不再出现。
+// 读到即写标记（哪怕这次没滚到配方区，也不再追着提醒，保持克制）
+const PYR_HINT_KEY = 'isabella_pyr_hint'
+let pyrHintSeen = false
+try { pyrHintSeen = !!uni.getStorageSync(PYR_HINT_KEY) } catch (e) { pyrHintSeen = true }
+if (!pyrHintSeen) { try { uni.setStorageSync(PYR_HINT_KEY, Date.now()) } catch (e) { /* 忽略 */ } }
+const showPyrHint = ref(!pyrHintSeen)
 // 香料名 → 香调「文字色」的 inline style（查不到回退空串，文字保持墨色）。
 // 滑块名/配方行都是小字，用对比度版文字色而非色带本色——浅色本色印字看不清。
 function ingStyle(name) {
@@ -904,6 +932,10 @@ function normalizeFrom(anchorKey, target) {
 
 // 两套滑块共用同一份底层占比：香料 ←→ 香调按 CORE_INGREDIENTS.accord 映射同步
 function syncIngFromAccord() {
+  // 配方被改动的统一信号点：所有变化路径（拖滑块/步进/载入配方/随机/挑战）
+  // 都经过这里，而 onShow 重绘不经过它——已封存状态在配方变化后失效，
+  // 按钮回到「封存这张卡片」，防止返回工坊后无感重复封存。
+  cardSealed.value = false
   CORE_INGREDIENTS.forEach((ing) => { ingValues[ing.key] = values[ing.accord] || 0 })
 }
 
@@ -984,14 +1016,17 @@ function fitCardHeight(opt) {
   if (h && h !== card.h) resizeCardCanvas(card, h)
 }
 
-function recompute() {
+// refreshQuote：拖滑块的每一帧都会走 recompute，若每帧重摇台词会变成跑马灯，
+// 松手后的防抖重绘还会再摇一次、卡高跟着台词行数抖。默认 true（单次动作路径
+// 照常换一句），拖动帧传 false，抬手（onSlideEnd）再统一换一次。
+function recompute(refreshQuote = true) {
   const vals = getAccordValues()
   const radarValues = computeRadarValues(vals, radarMode.value)
-  quote.value = getGuQuote(radarValues)
+  if (refreshQuote || !quote.value) quote.value = getGuQuote(radarValues)
   const formulaNames = generateFormula(vals)
-  formulaText.value = formulaNames.join('、')
   // 逐味带香调色的配方段落（配方行模板 v-for 渲染）
   formulaParts.value = formulaNames.map((n, i, arr) => ({ n, s: ingStyle(n), t: i < arr.length - 1 ? '、' : '' }))
+  formulaPyramid.value = generatePyramid(formulaNames)
   // 小白引导：把抽象雷达实时翻译成一句话；挑战模式同步契合度
   // 注意：radarSummary 吃的是 6 维雷达「数组」，不是 12 香调对象——
   // 传错会 vals.map is not a function，整条 drawLive 链路一起崩。
@@ -1045,9 +1080,9 @@ function setRadarMode(mode) {
   syncCard()
 }
 
-function drawLive() {
-  if (!radar) return
-  const radarValues = recompute()
+// 画雷达公共出口：drawLive（全量计算后画）与 drawRadarOnly（拖动帧轻量）共用同一套绘制参数。
+function paintRadar(radarValues) {
+  if (!radar || !radar.ctx) return
   drawRadar(radar.ctx, {
     cx: radar.w / 2, cy: radar.h / 2,
     radius: Math.min(radar.w, radar.h) * 0.34,
@@ -1058,18 +1093,35 @@ function drawLive() {
   })
 }
 
-// 拖动即实时重绘：每一下都让雷达跟着动，不用等按钮
+function drawLive(refreshQuote = true) {
+  if (!radar) return
+  paintRadar(recompute(refreshQuote))
+}
+
+// 拖动帧轻量路径（审计 P1-2）：@changing 60–100Hz 每帧只做两件事——
+// 更新 values（normalizeFrom 内完成）与重画雷达。generateFormula 全量打分/
+// generatePyramid/radarSummary/图鉴余弦/findExactMatch/挑战计分等六路重算
+// 全部推迟到抬手 onSlideEnd 统一算一次，低端机拖动不再掉帧。
+function drawRadarOnly() {
+  if (!radar) return
+  const vals = getAccordValues()
+  paintRadar(computeRadarValues(vals, radarMode.value))
+}
+
+// 拖动即实时重绘：每一下都让雷达跟着动，不用等按钮。
+// 审计 P1-2：拖动帧走 drawRadarOnly 轻量路径（只画雷达），
+// 配方/字幕/相似/彩蛋/挑战计分与卡片重绘全部在抬手 onSlideEnd 统一算一次。
 function onSlide(key, e) {
   beginGesture(key)
   normalizeFrom(key, e.detail.value)
   const dir = values[key] > gestureBase[key] ? 'up' : 'down'
   syncIngFromAccord()
-  drawLive()
+  drawRadarOnly()
   flashFeedback()
-  syncCard()
   broadcastAccord(key, dir)
 }
-// 抬手收尾：应用最终值（纯点击时 changing 可能未触发），结束本次手势
+// 抬手收尾：应用最终值（纯点击时 changing 可能未触发），结束本次手势。
+// 全量重算（drawLive 内 recompute）与卡片防抖重绘都在这里做，每帧只做一次。
 function onSlideEnd(key, e) {
   beginGesture(key)
   normalizeFrom(key, e.detail.value)
@@ -1101,7 +1153,8 @@ function stepIng(ingKey, delta) {
   const ing = CORE_INGREDIENTS.find((i) => i.key === ingKey)
   if (ing) stepAccord(ing.accord, delta)
 }
-// 高级区：改香料等价于改它对应的那个香调，同一份占比双向同步
+// 高级区：改香料等价于改它对应的那个香调，同一份占比双向同步。
+// 拖动帧同 onSlide 走轻量 drawRadarOnly，全量计算在抬手 onIngSlideEnd。
 function onIngSlide(key, e) {
   const ing = CORE_INGREDIENTS.find((i) => i.key === key)
   if (!ing) return
@@ -1110,9 +1163,8 @@ function onIngSlide(key, e) {
   normalizeFrom(ak, e.detail.value)
   const dir = values[ak] > gestureBase[ak] ? 'up' : 'down'
   syncIngFromAccord()
-  drawLive()
+  drawRadarOnly()
   flashFeedback()
-  syncCard()
   broadcastAccord(ak, dir)
 }
 function onIngSlideEnd(key, e) {
@@ -1202,6 +1254,10 @@ function onNote(e) {
 
 // 失焦时本地审查：命中敏感词立即清空并提示，不让脏内容等到封存才暴露。
 // 宽度超限则提示用户手动删减（不自动截断——混合中英文时截断会切坏词）。
+// 打磨：键盘「确认」键和失焦同待遇——校验 + 收起键盘，而不是按了没反应
+function confirmName() { checkName(); try { uni.hideKeyboard() } catch (e) {} }
+function confirmNote() { checkNote(); try { uni.hideKeyboard() } catch (e) {} }
+
 function checkNote() {
   if (!note.value) return
   const r = moderateText(note.value)
@@ -1239,7 +1295,8 @@ async function renderCard(opts = {}) {
   if (!card) return false
   const vals = getAccordValues()
   const formula = generateFormula(vals)
-  recompute()
+  // 不再调 recompute()：syncCard 是 drawLive 之后的防抖重绘，quote/雷达/三调
+  // 已与当前配方同源；再算一遍只会把台词重摇一次、让卡高跟着台词行数抖。
   // 获取真小程序码（封存时才需要）
   const qrSrc = stamp ? await getWxacodePath(vals, name.value) : ''
   const cardOpt = {
@@ -1248,6 +1305,8 @@ async function renderCard(opts = {}) {
     labels: RADAR_LABELS,
     quote: quote.value,
     formula,
+    // 前中后三调：预览卡与封存卡同一套归层（recompute 已算好）
+    pyramid: formulaPyramid.value,
     // 用户亲手填的调香感言（20 字内），画在卡片金线下方；未填则整块留白
     note: note.value,
     // 预览阶段尚无真实封存时间，用当前（重绘那天就是「今天」，符合预期）
@@ -1297,33 +1356,13 @@ function syncCard() {
   }, 400)
 }
 
-// 封存：重绘卡片 + 埋点 + 连续天数 + 历史持久化
-async function sealCard(stamped = true) {
+// 预览卡渲染：onReady 等处调用，只画卡不带任何封存副作用。
+// 真正的封存走 sealCore（埋点/连签/历史入库都在那边）——
+// 历史上这里曾重复实现过一份 stamped 分支，属死代码已删，勿再加回
+async function sealCard() {
   if (!card) return false
-  const ok = await renderCard({ stamp: stamped })
+  const ok = await renderCard({ stamp: false })
   if (!ok) return false
-  // 仅当用户真正「封存」（stamped=true）时才做埋点/连签/历史；
-  // onReady 里的 sealCard(false) 只是画预览卡，不应触发副作用
-  if (stamped) {
-    track('seal')
-    recordSeal()
-    const vals = getAccordValues()
-    // 历史持久化（供配方库页读取）
-    try {
-      const key = 'isabella_history'
-      const list = uni.getStorageSync(key)
-      const arr = Array.isArray(list) ? list : []
-      arr.unshift({
-        time: Date.now(),
-        name: name.value,
-        accords: { ...vals },
-        quote: quote.value,
-        formula: generateFormula(vals),
-        note: note.value  // 调香感言随封存记录入库（已过审查）
-      })
-      uni.setStorageSync(key, arr.slice(0, 50))
-    } catch (e) { /* 忽略存储异常 */ }
-  }
   ensureCardTemp()
   return true
 }
@@ -1339,7 +1378,19 @@ function showUnlockModal(unlock) {
   })
 }
 
+// 防重入：封存链路含云函数出码，慢网数秒，连点会重复入历史/叠页面
+let sealing = false
 async function triggerSeal() {
+  if (sealing) return
+  sealing = true
+  try {
+    await sealCore()
+  } finally {
+    sealing = false
+  }
+}
+
+async function sealCore() {
   // 未起名则自动生成一个香名
   if (!nameTouched) {
     name.value = genPerfumeName()
@@ -1406,9 +1457,14 @@ async function triggerSeal() {
   // 完成后再封存不重复祝贺。
   let challengeJustDone = false
   let challengeDoneScore = 0
+  // 中7：画卡失败要回滚完成标记，让重封时还能正常走完成流程——先留底原记录
+  let challengePrevDone = null
   if (challengeTarget.value) {
     challengeDoneScore = challengeScore.value
     challengeJustDone = !isChallengeDone()
+    if (challengeJustDone) {
+      try { const pv = uni.getStorageSync('isabella_challenge_done'); challengePrevDone = pv || null } catch (e) { challengePrevDone = null }
+    }
     // 完成记录带上分数，首页/我的页卡片当天回显「今日 X 分」
     markChallengeDone(challengeDoneScore)
     // 「主题正解」：以正解级契合（≥95，即评分封顶的满分）完成当日挑战
@@ -1496,17 +1552,28 @@ async function triggerSeal() {
   const rarity = getRarity(computeRadarValues(getAccordValues()))
 
   // 画带印章的封存卡（含稀有度徽章 + 层级称号），用该层级的 stampScale/stampRotate
+  // 中7：整段套 try/catch——出码/画卡任何一环卡住，都要给用户明确反馈，
+  // 并回滚挑战完成标记（挑战作业没交出，重封时还能正常走完成流程）；
+  // 连签/埋点/彩蛋等记录按既有设计不回滚（记录不依赖画卡成功）
   if (card) {
+   try {
     const vals = getAccordValues()
     const formula = generateFormula(vals)
     recompute()
     // 一瓶留白：卡片台词不用随机语录，念留白专属这句
     if (isPureWater) quote.value = '你封存了一杯水。留白也是一种配方，我收下了。'
     // 获取这瓶香专属的真小程序码
+    // 慢段：云函数出码。遮挡点击给等待反馈（写失败会回空串，卡面自动跳过码）
+    uni.showLoading({ title: '封存中…', mask: true })
     const qrSrc = await getWxacodePath(vals, name.value)
+    uni.hideLoading()
+    // 中8：出码失败（云函数挂/网络断）不再默默吞掉，给一句知情提示；
+    // 卡面由 drawCard 画虚线占位框兑底，不承诺「扫码」
+    if (!qrSrc) uni.showToast({ title: '小程序码没生成，卡面先占个位', icon: 'none' })
     // 先量后画：封存卡带码、带感言，高度可能与预览时不同
     fitCardHeight({
       formula, quote: quote.value, note: note.value,
+      pyramid: generatePyramid(formula),
       accords: ACCORDS, accordValues: vals, qrCode: true
     })
     await drawCard(card.ctx, {
@@ -1516,6 +1583,7 @@ async function triggerSeal() {
       labels: RADAR_LABELS,
       quote: quote.value,
       formula,
+      pyramid: generatePyramid(formula),
       note: note.value,
       accords: ACCORDS, accordValues: vals, theme: THEME,
       rarity: rarity.label,
@@ -1532,6 +1600,17 @@ async function triggerSeal() {
     })
     cardDrawn = true
     cardSealed.value = true
+   } catch (e) {
+    console.error('sealCore: 封存卡绘制失败', e)
+    if (challengeJustDone) {
+      try {
+        if (challengePrevDone) uni.setStorageSync('isabella_challenge_done', challengePrevDone)
+        else uni.removeStorageSync('isabella_challenge_done')
+      } catch (e2) { /* 忽略 */ }
+    }
+    uni.showToast({ title: '封存没成功，请重试一次', icon: 'none', duration: 2500 })
+    return
+   }
   }
 
   // 历史持久化（供配方库页读取）。埋点/连签/挑战判定已提前到画卡之前：
@@ -1550,6 +1629,9 @@ async function triggerSeal() {
       accords: { ...vals },
       quote: quote.value,
       formula: generateFormula(vals),
+      pyramid: generatePyramid(generateFormula(vals)),
+      // 雷达模式随记录存：历史页→封存卡页链路才能保持同一形状，不回退 relative
+      radarMode: radarMode.value,
       origin: originRef.value || '',
       note: note.value  // 调香感言随封存记录入库（已过审查）
     })
@@ -1573,6 +1655,7 @@ async function triggerSeal() {
     accords: { ...vals },
     quote: quote.value,
     formula: generateFormula(vals),
+    pyramid: formulaPyramid.value,
     note: note.value,
     rarity: rarity.label,
     rarityText: rarity.line,
@@ -1611,28 +1694,6 @@ async function triggerSeal() {
   }
 }
 
-async function saveCard() {
-  // 保存到相册已移至 card 页，lab 页保留此函数供向后兼容（模板中不再调用）
-  if (!card) { uni.showToast({ title: '请先调香', icon: 'none' }); return }
-  if (!cardDrawn) { await renderCard(); ensureCardTemp(); }
-  const c = card.canvas
-  uni.canvasToTempFilePath({
-    canvas: c, x: 0, y: 0, width: c.width, height: c.height,
-    destWidth: c.width, destHeight: c.height,
-    success: (res) => {
-      uni.saveImageToPhotosAlbum({
-        filePath: res.tempFilePath,
-        success: () => { track('save_card'); uni.showToast({ title: '已保存到相册', icon: 'success' }) },
-        fail: (err) => {
-          if (/auth|deny/i.test(err.errMsg || '')) {
-            uni.showModal({ title: '需要相册权限', content: '请在设置中允许保存到相册', confirmText: '去设置', success: (m) => { if (m.confirm) uni.openSetting() } })
-          } else { uni.showToast({ title: '保存失败', icon: 'none' }) }
-        }
-      })
-    },
-    fail: () => uni.showToast({ title: '导出失败', icon: 'none' })
-  })
-}
 
 // 生成封存卡临时图（供分享缩略图使用）
 function ensureCardTemp() {
@@ -1733,6 +1794,18 @@ onShow(() => {
   touchedAccords.clear()
   // 「旧作重现」比对源刷新：历史可能被配方库/收藏页的删除按钮改过
   loadSelfHistory()
+  // 首次进工坊：弹一次性在场引导（gu_lab_guided 记忆，之后不再弹）。
+  // 若正在走「怎么做」聚光灯教程，则让位给教程，避免两层蒙层叠加。
+  // 放 onShow 而非只在 onReady：lab 是 tabBar 页，onReady 只在首次创建时
+  // 执行一次——若首进恰逢教程激活而让位，此后就永远没有触发点了。
+  // onShow 每次切回都跑，gu_lab_guided / tut.active 双闸防重复弹。
+  // 残留蒙层清理：用户可能带着未关闭的引导蒙层经 tabBar 离开去启动教程；
+  // 教程结束回本页时，教程自己的遮罩一撤，底下这张 z300 蒙层会露出来挡页。
+  // 凡「教程接管中」或「教程已完成（gu_lab_guided 已写）」，一律收起蒙层。
+  if (coachmarkOpen.value && (tut.active || uni.getStorageSync('gu_lab_guided'))) {
+    coachmarkOpen.value = false
+  }
+  if (!uni.getStorageSync('gu_lab_guided') && !tut.active) coachmarkOpen.value = true
   // 接力接收：图鉴/随机/调查(running blend) 与 每日挑战。取出即删（storage），
   // 暂存到 incoming，等画布就绪（onReady 或本帧 nextTick）再落到滑块。
   const pb = takePendingBlend()
@@ -1743,7 +1816,10 @@ onShow(() => {
   nextTick(() => {
     if (card) {
       renderCard({ stamp: cardSealed.value })
-      ensureCardTemp()
+      // 审计 P3：canvasToTempFilePath 每次切回都整卡导出是浪费——缩略图只为
+      // UI 预览，配方/封存态未变时内容不变。renderCard 保留（canvas 级重绘
+      // 成本低，同时是 Canvas2D 残影的修复）；只有缩略图缺失才补一次导出。
+      if (!cardTempPath.value) ensureCardTemp()
     }
     // 由首页 CTA 进入：补播一次雷达生长（radar 已就绪的情况，如二次进入）
     if (radar) consumePendingGrow()
@@ -1761,6 +1837,19 @@ onUnload(() => {
   if (broadcastTimer) clearTimeout(broadcastTimer)
   if (shareTimer) clearTimeout(shareTimer)
   if (eggTimer) clearTimeout(eggTimer)
+  cancelRadarGrow()
+  // 时段寄语气泡（夜话/晨语/当午/向晚）的定时器补入清理清单
+  tipTimers.forEach(clearTimeout)
+  tipTimers.length = 0
+})
+
+// 审计 P3：切走/退后台时兜底清理——lab 是 tabBar 页常驻不销毁，
+// onUnload 只在真退出时跑；onHide 负责把「切 tab 后仍在空转」的重活停掉。
+// 卡片/雷达回到 onShow 会全量重绘兜底，清掉防抖 timer 不会丢显示。
+onHide(() => {
+  if (syncTimer) clearTimeout(syncTimer)
+  if (shareTimer) clearTimeout(shareTimer)
+  cancelRadarGrow()
 })
 
 // 首页「看看我是什么香」会写下这个标记：进入工坊时播一次生长动画
@@ -1775,14 +1864,31 @@ function consumePendingGrow() {
 }
 
 onReady(async () => {
+  // 审计 P3：init 首轮失败（canvas 未挂载/尺寸为 0 的偶发时序）给一次延迟重试。
+  // lab 是 tabBar 页，onReady 只在页面首次创建时执行一次，之后切 tab 回来不会重跑——
+  // 若首轮失败直接放弃，radar/card 永远为 null，incoming 接力（图鉴/挑战/分享）
+  // 会永久滞留在内存里。initCanvas 内部已有 3×100ms 快速重试，仍失败多半是
+  // 页面时序问题，隔 400ms 再整体试一次成功率显著更高；二次仍失败则维持
+  // if (!radar) / if (!card) 的降级路径，不抛错。
   radar = await initCanvas('#radarCanvas')
   card = await initCanvas('#cardCanvas', 600, 870)
+  if (!radar || !card) {
+    await new Promise((r) => setTimeout(r, 400))
+    if (!radar) radar = await initCanvas('#radarCanvas')
+    if (!card) card = await initCanvas('#cardCanvas', 600, 870)
+  }
   if (restoreData) {
     // 扫码/分享进入：先把这瓶香写回滑块，再用生长动画「长出来」——
     // 让被分享者第一眼看到「这瓶香在我手里成形」，而不是干巴巴的数字
     applyRestore(restoreData)
     restoreData = null
     playGrow()
+    // 审计 P2-3：本次带参直达的配方优先。incoming.blend 是更早暂存、
+    // 尚未消费的「我也调一瓶」接力（card 页点完跳工坊但画布未就绪时
+    // 会攒到这里），若让它也落地，会顶掉刚铺好的分享配方——而分享配方
+    // 此刻只存在于撤销栈，用户看到的将是那瓶旧的接力香。直接作废接力；
+    // 每日挑战与分享直达不冲突，照常由下方 applyIncomingIfReady 落地。
+    incoming.blend = null
   } else if (!incoming.blend && !incoming.challenge && !consumePendingGrow()) {
     // 由首页 CTA 进入则播生长动画，否则直接静态呈现预设配方
     drawLive()
@@ -1790,11 +1896,8 @@ onReady(async () => {
   // 冷启动接力落地（图鉴/随机/调查/每日挑战）：此刻画布刚就绪
   applyIncomingIfReady()
   // 初始预览卡不带印章；点击三个功能按钮后才叠加程序化印章
-  await sealCard(false)
-  await ensureCardTemp()
-  // 首次进工坊：弹一次性在场引导（gu_lab_guided 记忆，之后不再弹）。
-  // 若正在走「怎么做」聚光灯教程，则让位给教程，避免两层蒙层叠加。
-  if (!uni.getStorageSync('gu_lab_guided') && !tut.active) coachmarkOpen.value = true
+  //（sealCard 内部已 ensureCardTemp，这里不再重复导出一次临时图）
+  await sealCard()
 })
 </script>
 
@@ -1954,6 +2057,14 @@ onReady(async () => {
 .quote-panel { display: flex; flex-direction: column; gap: 14rpx; }
 .quote { font-size: 28rpx; color: #6b6a6a; line-height: 1.6; font-family: inherit; }
 .formula { font-size: 26rpx; color: #2b2b2e; line-height: 1.6; }
+
+/* 前中后三调：配方下方三行小字，标签淡墨、香料跟配方同一套香调色 */
+.pyramid-lines { margin-top: 12rpx; display: flex; flex-direction: column; gap: 8rpx; }
+.pyr-line { font-size: 24rpx; line-height: 1.5; }
+/* 中10：层级标签用深金小字加字距，与墨色香料名拉开——标签是结构，名字是内容 */
+.pyr-tag { color: #8a5f18; font-size: 21rpx; font-weight: 600; letter-spacing: 2rpx; margin-right: 12rpx; }
+.pyr-ing { color: #2b2b2e; }
+.pyr-hint { margin-top: 6rpx; font-size: 20rpx; color: #a09a8a; }
 
 .btn-row { display: flex; gap: 20rpx; margin-top: 22rpx; }
 .btn {
