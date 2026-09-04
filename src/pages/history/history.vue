@@ -1,7 +1,9 @@
 <template>
   <view class="page">
+    <!-- 空态给行动出口：新客被分享图/首页拉进来时没有历史，别让一句话成死胡同 -->
     <view class="empty" v-if="history.length === 0">
-      架子还空着。去工坊调一瓶，留下你的气味签名。
+      <view>架子还空着，第一瓶气味签名正等你落笔。</view>
+      <button class="empty-btn" @tap="goLab">去工坊调一瓶</button>
     </view>
     <view class="sum" v-if="summary">
       <view class="sum-row">
@@ -70,6 +72,12 @@ const favedMap = computed(() => {
   favorites.value.forEach((f) => { m[f.time] = true })
   return m
 })
+
+// 空态 CTA：工坊是 tabBar 页，必须 switchTab 而非 navigateTo
+function goLab() {
+  track('empty_go_lab')
+  uni.switchTab({ url: '/pages/lab/lab' })
+}
 
 // 列表顶部汇总：款数 + 时间跨度 + 收藏者偏爱的香调。让两页不再是「裸列表」，
 // 进页先给一个锚点；偏好取各瓶 topOf 第一香调的众数（纯水已滤，见 topOf）。
@@ -196,13 +204,23 @@ onShow(() => {
 
 <style scoped>
 .page { min-height: 100vh; background: #f0eee5; padding: 24rpx 28rpx 60rpx; box-sizing: border-box; }
-.empty { font-size: 24rpx; color: #6b6a6a; text-align: center; padding: 120rpx 40rpx; line-height: 1.7; }
+/* 空态：整块垂直居中，正文 + 一个行动按钮，别让一句话悬在顶部 */
+.empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 36rpx; min-height: 60vh; padding: 40rpx;
+  font-size: 24rpx; color: #6b6a6a; text-align: center; line-height: 1.7;
+}
+.empty-btn {
+  margin: 0; font-size: 26rpx; color: #fff; background: #2e5c45;
+  border-radius: 12rpx; padding: 14rpx 44rpx; line-height: 1.6;
+}
+.empty-btn::after { border: none; }
+.empty-btn:active { opacity: 0.85; }
 .list-more {
   text-align: center; font-size: 22rpx; color: #8a5f18;
   padding: 18rpx 0 6rpx; background: transparent;
 }
 .list-more:active { opacity: 0.6; }
-.empty { font-size: 24rpx; color: #6b6a6a; text-align: center; padding: 120rpx 40rpx; line-height: 1.7; }
 
 /* 列表顶部汇总条：款数 + 时间跨度 + 偏好香调，给裸列表一个锚点 */
 .sum {

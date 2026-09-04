@@ -1,7 +1,9 @@
 <template>
   <view class="page">
+    <!-- 空态给行动出口：被分享图拉进来的新客没有历史可点♡，一句话是死胡同 -->
     <view class="empty" v-if="favorites.length === 0">
-      还没有收藏。在历史配方里点♡，把你满意的那瓶留在这里。
+      <view>还没有收藏。在历史配方里点 ♡，把满意的那瓶留在这里。</view>
+      <button class="empty-btn" @tap="goLab">去工坊调一瓶</button>
     </view>
     <view class="sum" v-if="summary">
       <view class="sum-row">
@@ -121,6 +123,12 @@ function formatTime(t) {
   return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
+// 空态 CTA：工坊是 tabBar 页，必须 switchTab 而非 navigateTo
+function goLab() {
+  track('empty_go_lab')
+  uni.switchTab({ url: '/pages/lab/lab' })
+}
+
 // 点整行进封存卡页。与历史配方页同一条路：走 Storage 不走 URL query，
 // note 可能上百字，塞进 url 会被截断，card 页 JSON.parse 失败就成空卡。
 function openCard(item) {
@@ -205,7 +213,18 @@ onShow(() => {
 
 <style scoped>
 .page { min-height: 100vh; background: #f0eee5; padding: 24rpx 28rpx 60rpx; box-sizing: border-box; }
-.empty { font-size: 24rpx; color: #6b6a6a; text-align: center; padding: 120rpx 40rpx; line-height: 1.7; }
+/* 空态：整块垂直居中，正文 + 一个行动按钮，别让一句话悬在顶部 */
+.empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 36rpx; min-height: 60vh; padding: 40rpx;
+  font-size: 24rpx; color: #6b6a6a; text-align: center; line-height: 1.7;
+}
+.empty-btn {
+  margin: 0; font-size: 26rpx; color: #fff; background: #2e5c45;
+  border-radius: 12rpx; padding: 14rpx 44rpx; line-height: 1.6;
+}
+.empty-btn::after { border: none; }
+.empty-btn:active { opacity: 0.85; }
 .list-more {
   text-align: center; font-size: 22rpx; color: #8a5f18;
   padding: 18rpx 0 6rpx; background: transparent;

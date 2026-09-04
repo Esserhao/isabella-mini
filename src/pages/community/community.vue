@@ -16,9 +16,11 @@
       <view class="ch-body">
         <view class="ch-tag">每日挑战</view>
         <view class="ch-theme">{{ challenge.theme }}</view>
-        <view class="ch-hint">根据标题推测香调，来试试</view>
+        <!-- 完成态回显与首页同口径：做过了 hint 收成一句、按钮变「✓ X/95」，
+             没做过才显示「接受」。让用户进门一眼知道今天做没做，不用点开猜 -->
+        <view class="ch-hint">{{ dailyDone ? '明天换新题 · 再来练手' : '根据标题推测香调，来试试' }}</view>
       </view>
-      <button class="ch-btn" @tap="acceptChallenge">接受</button>
+      <button class="ch-btn" @tap="acceptChallenge">{{ dailyDone ? (challengeScore != null ? '✓ ' + challengeScore + '/95' : '✓ 已完成') : '接受' }}</button>
     </view>
 
     <!-- 收藏 / 历史：横排入口卡，点击进入独立页面 -->
@@ -126,7 +128,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getDailyChallenge, setDailyChallengeTarget, isChallengeDone, getChallengeScore } from '@/utils/mix.js'
 import { getStreak } from '@/utils/streak.js'
@@ -144,7 +146,13 @@ const eggSummary = ref(initEggs.achieved >= initEggs.total
   ? `全部点亮 ${initEggs.total}/${initEggs.total} ✦`
   : `已点亮 ${initEggs.achieved}/${initEggs.total}`)
 
-const challenge = computed(() => getDailyChallenge())
+// 挑战题面跨天会换、完成态每天归零——用 ref 并在每次 onShow 重读，
+// 不能用 computed（getDailyChallenge 无响应依赖，computed 只会算一次，
+// 页面跨天存活时会一直显示昨天的题与完成态）。
+const challenge = ref(getDailyChallenge())
+// 完成态与首页卡片同口径：做过了回显「✓ X/95」，没做过显示「接受」
+const dailyDone = ref(false)
+const challengeScore = ref(null)
 
 function goFavorites() {
   track('open_favorites')
@@ -219,6 +227,10 @@ function acceptChallenge() {
 }
 
 onShow(() => {
+  // 挑战题面与完成态每次进页重读：跨天换题、今天做完明天归零
+  challenge.value = getDailyChallenge()
+  dailyDone.value = isChallengeDone()
+  challengeScore.value = getChallengeScore()
   // 只取数量，列表渲染交给各自的独立页面
   favCount.value = getFavorites().length
   try {
