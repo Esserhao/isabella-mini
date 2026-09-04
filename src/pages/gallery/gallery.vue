@@ -255,18 +255,33 @@
     </view>
 
     <!-- 前中后调释义 sheet：香水金字塔 / 手记金字塔行内 ⓘ 共用。
-         与工坊三调行 ⓘ 同一份 PYRAMID_TIERS 文案；与图鉴香调卡可点进详情不同，
-         这里点了分类里的香调直接切到那个香调的详情页（openAccord），不再叠一层 sheet -->
+         与工坊三调行 ⓘ 同一份 PYRAMID_TIERS 文案；分类里点香调 chip
+         再额外弹一层该香调的释义 sheet（与工坊递归切入同款，不跳详情页） -->
     <view class="sheet-mask" v-if="tierKey" @tap="closeTierDesc"></view>
     <view class="sheet" v-if="tierKey">
       <view class="sheet-title">{{ tierInfo.label }} · {{ tierInfo.tagline }}</view>
       <view class="sheet-desc">{{ tierInfo.description }}</view>
       <view class="sheet-note">{{ tierInfo.note }}</view>
-      <view class="sheet-sub">这一层收着这些香调 · <text class="sheet-sub-tip">点一下看它的单独介绍</text></view>
+      <view class="sheet-sub">这一层收着这些香调 · <text class="sheet-sub-tip">点一下看它的单独释义</text></view>
       <view class="chip-row">
-        <text class="chip tier-chip" v-for="k in tierAccordKeys" :key="k" @tap="goTierAccord(k)" :style="{ color: accordTextColor(k) }">{{ label(k) }}</text>
+        <text class="chip tier-chip" v-for="k in tierAccordKeys" :key="k" @tap="openAccordSheet(k)" :style="{ color: accordTextColor(k) }">{{ label(k) }}</text>
       </view>
       <button class="sheet-close" @tap="closeTierDesc">知道了</button>
+    </view>
+
+    <!-- 香调释义 sheet（顶层）：从层释义的分类 chip 递归点入时再叠一层，
+         关掉它回到层释义，再关回详情——香调的完整介绍页仍是首屏香调卡的入口 -->
+    <view class="sheet-mask top" v-if="accordSheetKey" @tap="closeAccordSheet"></view>
+    <view class="sheet top" v-if="accordSheetKey">
+      <view class="sheet-title">{{ accordSheetInfo.label }} · 这是什么香</view>
+      <view class="sheet-desc">{{ accordSheetInfo.description }}</view>
+      <template v-if="accordSheetInfo.typicalIngredients && accordSheetInfo.typicalIngredients.length">
+        <view class="sheet-sub">常见原料</view>
+        <view class="chip-row">
+          <text class="chip" v-for="(ing, i) in accordSheetInfo.typicalIngredients" :key="i" :style="{ color: accordTextColor(accordSheetInfo.key) }">{{ ing }}</text>
+        </view>
+      </template>
+      <button class="sheet-close" @tap="closeAccordSheet">知道了</button>
     </view>
 
     <!-- 手把手教程：暗色聚光灯，高亮图鉴 -->
@@ -385,12 +400,12 @@ const tierInfo = computed(() => PYRAMID_TIERS.find((t) => t.key === tierKey.valu
 const tierAccordKeys = computed(() => (tierKey.value ? tierAccords(tierKey.value) : []))
 function openTierDesc(key) { tierKey.value = key }
 function closeTierDesc() { tierKey.value = '' }
-// sheet 分类里的香调：直接进该香调详情页（同香调列表入口，含翻阅计数），不再叠一层
-function goTierAccord(k) {
-  tierKey.value = ''
-  const a = ACCORDS.find((x) => x.key === k)
-  if (a) openAccord(a)
-}
+// 层释义 sheet 分类里的香调 chip：额外再弹一层该香调的释义 sheet
+//（用户拍板：不跳香调详情页；完整介绍页仍是首屏香调卡的入口）
+const accordSheetKey = ref('')
+const accordSheetInfo = computed(() => ACCORDS.find((a) => a.key === accordSheetKey.value) || null)
+function openAccordSheet(k) { accordSheetKey.value = k }
+function closeAccordSheet() { accordSheetKey.value = '' }
 // 香水金字塔三行：tierRatio 直接由 12 香调 accords 现算（图鉴名香没有官方香料名单，
 // 那份在手记里；这里给「层占比」视角，与工坊三调行同口径）
 const perfumeTierRows = computed(() => {
@@ -908,6 +923,9 @@ function ingMainKey(accords) {
   padding: 36rpx 36rpx calc(40rpx + env(safe-area-inset-bottom));
   max-height: 72vh; overflow-y: auto;
 }
+/* 叠在释义 sheet 之上的顶层 sheet（香调释义）：z-index 抬一档，盖住下层 sheet */
+.sheet-mask.top { z-index: 300; }
+.sheet.top { z-index: 301; }
 .sheet-title { font-size: 32rpx; font-weight: 700; color: #2b2b2e; margin-bottom: 16rpx; }
 .dim-row { display: flex; gap: 16rpx; padding: 14rpx 0; border-bottom: 2rpx solid rgba(0,0,0,0.05); }
 .dim-name { font-size: 26rpx; font-weight: 700; color: #2e5c45; width: 130rpx; flex-shrink: 0; }
