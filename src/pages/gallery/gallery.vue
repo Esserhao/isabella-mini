@@ -148,6 +148,15 @@
 
             <view v-if="dataOpen" class="d-data">
               <view class="d-section-title">香气结构</view>
+              <!-- 香水金字塔：图鉴名香没有官方香料名单（那份在手记里），
+                   所以这里给「层占比」视角 —— tierRatio 直接由 12 香调配比现算，
+                   与工坊三调行同口径；行内 ⓘ 看这一层收着什么。 -->
+              <view class="d-pyramid" v-if="perfumeTierRows.length">
+                <view class="pyr-row" v-for="tr in perfumeTierRows" :key="tr.k">
+                  <text class="pyr-label" @tap="openTierDesc(tr.k)">{{ tr.label }}<text class="pyr-info">i</text></text>
+                  <text class="pyr-pct">{{ tr.pct }}%</text>
+                </view>
+              </view>
               <!-- 堆叠色带取代原来的灰底进度条：一眼看到整瓶的配比，
                    也顺手用上香调本身的颜色（原来 12 个香调共用同一个绿） -->
               <view class="ribbon">
@@ -210,9 +219,10 @@
               <view class="d-sec-text">{{ s.text }}</view>
             </view>
             <view class="d-pyramid" v-if="sel.data.pyramid">
-              <view class="pyr-row"><text class="pyr-label">前调</text><text class="pyr-val"><text v-for="(n, i) in sel.data.pyramid.top" :key="i" :style="ingStyle(n)">{{ n }}{{ pyrSep(i, sel.data.pyramid.top) }}</text></text></view>
-              <view class="pyr-row"><text class="pyr-label">中调</text><text class="pyr-val"><text v-for="(n, i) in sel.data.pyramid.middle" :key="i" :style="ingStyle(n)">{{ n }}{{ pyrSep(i, sel.data.pyramid.middle) }}</text></text></view>
-              <view class="pyr-row"><text class="pyr-label">后调</text><text class="pyr-val"><text v-for="(n, i) in sel.data.pyramid.base" :key="i" :style="ingStyle(n)">{{ n }}{{ pyrSep(i, sel.data.pyramid.base) }}</text></text></view>
+              <!-- 手记金字塔：官方香料名单版。行标签的 ⓘ 与香水金字塔共用同一份层释义 -->
+              <view class="pyr-row"><text class="pyr-label" @tap="openTierDesc('top')">前调<text class="pyr-info">i</text></text><text class="pyr-val"><text v-for="(n, i) in sel.data.pyramid.top" :key="i" :style="ingStyle(n)">{{ n }}{{ pyrSep(i, sel.data.pyramid.top) }}</text></text></view>
+              <view class="pyr-row"><text class="pyr-label" @tap="openTierDesc('middle')">中调<text class="pyr-info">i</text></text><text class="pyr-val"><text v-for="(n, i) in sel.data.pyramid.middle" :key="i" :style="ingStyle(n)">{{ n }}{{ pyrSep(i, sel.data.pyramid.middle) }}</text></text></view>
+              <view class="pyr-row"><text class="pyr-label" @tap="openTierDesc('base')">后调<text class="pyr-info">i</text></text><text class="pyr-val"><text v-for="(n, i) in sel.data.pyramid.base" :key="i" :style="ingStyle(n)">{{ n }}{{ pyrSep(i, sel.data.pyramid.base) }}</text></text></view>
             </view>
           </template>
 
@@ -244,6 +254,21 @@
       <button class="sheet-close" @tap="radarHelpOpen = false">知道了</button>
     </view>
 
+    <!-- 前中后调释义 sheet：香水金字塔 / 手记金字塔行内 ⓘ 共用。
+         与工坊三调行 ⓘ 同一份 PYRAMID_TIERS 文案；与图鉴香调卡可点进详情不同，
+         这里点了分类里的香调直接切到那个香调的详情页（openAccord），不再叠一层 sheet -->
+    <view class="sheet-mask" v-if="tierKey" @tap="closeTierDesc"></view>
+    <view class="sheet" v-if="tierKey">
+      <view class="sheet-title">{{ tierInfo.label }} · {{ tierInfo.tagline }}</view>
+      <view class="sheet-desc">{{ tierInfo.description }}</view>
+      <view class="sheet-note">{{ tierInfo.note }}</view>
+      <view class="sheet-sub">这一层收着这些香调 · <text class="sheet-sub-tip">点一下看它的单独介绍</text></view>
+      <view class="chip-row">
+        <text class="chip tier-chip" v-for="k in tierAccordKeys" :key="k" @tap="goTierAccord(k)" :style="{ color: accordTextColor(k) }">{{ label(k) }}</text>
+      </view>
+      <button class="sheet-close" @tap="closeTierDesc">知道了</button>
+    </view>
+
     <!-- 手把手教程：暗色聚光灯，高亮图鉴 -->
     <CoachMask page="gallery" />
   </view>
@@ -252,9 +277,9 @@
 <script setup>
 import { ref, computed, nextTick, watch } from 'vue'
 import { onShow, onHide } from '@dcloudio/uni-app'
-import { galleryPerfumes, ACCORDS, INGREDIENT_LIBRARY, notesData, RADAR_LABELS, RADAR_DIM_DESC } from '@/utils/data.js'
+import { galleryPerfumes, ACCORDS, INGREDIENT_LIBRARY, notesData, RADAR_LABELS, RADAR_DIM_DESC, PYRAMID_TIERS } from '@/utils/data.js'
 import { THEME, accordColor, accordTextColor, ingredientAccordTextColor } from '@/utils/theme.js'
-import { computeRadarValues, radarSummary } from '@/utils/mix.js'
+import { computeRadarValues, radarSummary, tierRatio, tierAccords } from '@/utils/mix.js'
 import { drawRadar } from '@/utils/canvas-draw.js'
 import { setPendingBlend } from '@/utils/wxacode.js'
 import { track } from '@/utils/analytics.js'
@@ -351,6 +376,29 @@ function loadMoreIng() {
 const dataOpen = ref(false)
 const radarHelpOpen = ref(false)
 const radarDimList = RADAR_LABELS.map((lab) => ({ label: lab, desc: RADAR_DIM_DESC[lab] || '' }))
+
+// 前中后调释义 sheet：香水金字塔 / 手记金字塔行内 ⓘ 共用。
+// 文案复用 data.js 的 PYRAMID_TIERS，分类由 tierAccords 从 PYRAMID_TIER 反向聚合——
+// 与工坊三调行 ⓘ 完全同源，改归层只动 data.js 一处。
+const tierKey = ref('')
+const tierInfo = computed(() => PYRAMID_TIERS.find((t) => t.key === tierKey.value) || null)
+const tierAccordKeys = computed(() => (tierKey.value ? tierAccords(tierKey.value) : []))
+function openTierDesc(key) { tierKey.value = key }
+function closeTierDesc() { tierKey.value = '' }
+// sheet 分类里的香调：直接进该香调详情页（同香调列表入口，含翻阅计数），不再叠一层
+function goTierAccord(k) {
+  tierKey.value = ''
+  const a = ACCORDS.find((x) => x.key === k)
+  if (a) openAccord(a)
+}
+// 香水金字塔三行：tierRatio 直接由 12 香调 accords 现算（图鉴名香没有官方香料名单，
+// 那份在手记里；这里给「层占比」视角，与工坊三调行同口径）
+const perfumeTierRows = computed(() => {
+  if (!sel.value || sel.value.type !== 'perfume') return []
+  const r = tierRatio(sel.value.data.accords)
+  if (!r) return []
+  return PYRAMID_TIERS.map((t) => ({ k: t.key, label: t.label, pct: r[t.key] }))
+})
 // 雷达视角：默认「结构」（相对值看名香自身气息）；切「绝对」按全局刻度，方便和别的香横比
 const radarMode = ref('relative')
 
@@ -838,8 +886,9 @@ function ingMainKey(accords) {
 .d-sec-text { font-size: 26rpx; color: #3a3a38; line-height: 1.9; letter-spacing: 0.5rpx; }
 .d-pyramid { background: #fff; border-radius: 16rpx; padding: 26rpx 30rpx; margin-top: 10rpx; }
 .pyr-row { display: flex; gap: 18rpx; padding: 10rpx 0; align-items: baseline; }
-.pyr-label { font-size: 24rpx; color: #8a5f18; font-weight: 600; width: 70rpx; flex-shrink: 0; }
-.pyr-val { font-size: 24rpx; color: #3a3a38; line-height: 1.6; }
+/* 宽度要装下「前调」两字 + 行内 ⓘ（原 70rpx 只够两字） */
+.pyr-label { font-size: 24rpx; color: #8a5f18; font-weight: 600; width: 110rpx; flex-shrink: 0; }
+.pyr-val { font-size: 24rpx; color: #3a3a38; line-height: 1.6; flex: 1; }
 
 /* 香水六维「说明」入口 + 六维释义底 sheet */
 .d-section-title-wrap { display: flex; align-items: baseline; gap: 14rpx; }
@@ -873,4 +922,30 @@ function ingMainKey(accords) {
   background: #2e5c45; color: #fff; border-radius: 16rpx; padding: 22rpx 0;
 }
 .sheet-close::after { border: none; }
+
+/* 前中后调释义 sheet：与 lab 三调行 ⓘ 同语言（desc/sub/chip），
+   分类 chip 文字色由各香调深色文字色接管，边框中性不抢戏 */
+.sheet-desc { font-size: 26rpx; color: #3a3a38; line-height: 1.8; }
+.sheet-sub { font-size: 24rpx; color: #6b6a6a; margin: 22rpx 0 12rpx; }
+.sheet-sub-tip { color: #a09a8a; font-size: 22rpx; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.chip {
+  font-size: 24rpx; color: #2e5c45; background: #fff;
+  border: 2rpx solid rgba(46,92,69,0.2); border-radius: 24rpx; padding: 8rpx 18rpx;
+}
+.tier-chip { border-color: rgba(43,43,46,0.14) !important; }
+
+/* 金字塔行标签里的 ⓘ（与 lab .pyr-info 同款，小圆 i = 可点开解释） */
+.pyr-info {
+  display: inline-block; font-size: 18rpx; color: #8a5f18;
+  border: 2rpx solid rgba(169,120,38,0.4); border-radius: 50%;
+  width: 30rpx; height: 30rpx; line-height: 26rpx; box-sizing: border-box;
+  text-align: center; margin-left: 8rpx; vertical-align: 2rpx;
+  font-style: italic; font-family: inherit;
+}
+/* 香水金字塔的层占比读数（金色小字，与色带/名单区分） */
+.pyr-pct {
+  color: #b08a4f; font-size: 24rpx; font-weight: 600; letter-spacing: 1rpx;
+  align-self: baseline;
+}
 </style>
