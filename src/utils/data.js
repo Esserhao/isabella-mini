@@ -33,6 +33,46 @@ export const SOLVENT = {
 // 凡是「整瓶怎么分」的地方用它；凡是「闻起来怎样」的地方仍用 ACCORDS。
 export const BLEND_KEYS = ACCORDS.map((a) => a.key).concat(SOLVENT.key);
 
+// 前中后调（三调金字塔）：香水学里最常用的一套结构语言——气味分子按挥发快慢分三层：
+// 先到先走的是前调（top）、撑场子的是中调（middle）、最后留下的是后调（base）。
+// PYRAMID_TIER 是「12 香调 → 层」的结构映射，全项目唯一事实源：
+// mix.js 的 generatePyramid/tierRatio、lab 三调行释义、以及任何「这层收着哪些香调」的分类
+// 都从它派生，不许在别处再抄一份（曾双份维护，改一边另一边悄悄漂移）。
+// 注意：每味香调只归一层（按主流气质），但真实香料往往跨层——一只佛手柑既给前调
+// 清新、它的木质底也能在后调留一点，这里从简、不展开。
+export const PYRAMID_TIER = {
+    citrus: 'top', green: 'top', aquatic: 'top',
+    floral: 'middle', fruity: 'middle', fougere: 'middle',
+    woody: 'base', oriental: 'base', amber: 'base', musk: 'base', vanilla: 'base', tobacco: 'base'
+};
+
+// 三调金字塔各层的释义（lab 三调行「前/中/后」旁 ⓘ 弹层的内容；图鉴/教程可复用）。
+// tagline 进弹窗标题（「前调 · 最先开口，也最先离开」），description 是正文，
+// note 是收尾的一句体己话；accords 分类不写死，由 PYRAMID_TIER 反向聚合，避免双份。
+export const PYRAMID_TIERS = [
+    {
+        key: 'top',
+        label: '前调',
+        tagline: '最先开口，也最先离开',
+        description: '喷上身后的头几分钟，你闻到的那一口气。分子小、跑得快，柑橘、绿意、水生这些清亮的气味抢在前头说话——它写下整瓶香的第一印象，却常常一刻钟上下就散场，把位置让给中调。',
+        note: '想让别人「第一眼就记住」，在前调下功夫；想让人「慢慢记住你」，得看后调。'
+    },
+    {
+        key: 'middle',
+        label: '中调',
+        tagline: '一瓶香的脊梁',
+        description: '前调退场后浮现的「正题」。花香、果香、馥奇在这里不急不慢地展开，留香通常以小时计。别人问你「这瓶是什么味道」，你答上来的那一句，多半是中调写的。',
+        note: '试香别急着在纸上一闻就定——等前调散了再闻，那才是它大部分时间的样子。'
+    },
+    {
+        key: 'base',
+        label: '后调',
+        tagline: '压轴登场，留到最久',
+        description: '最后出现却最能熬的一层。大分子沉得慢、赖得久，木质、琥珀、麝香、香草、烟草这些厚实的底子在这里定调，常常陪你到第二天早上。',
+        note: '前调负责让人记住你，后调负责让别人记得久。'
+    }
+];
+
 // 六维雷达释义：小白向，解释每个抽象维度代表什么（按 RADAR_LABELS 的中文标签索引）
 export const RADAR_DIM_DESC = {
   '明亮度': '一鼻子上去就「亮」起来的感觉，像柑橘、清晨阳光，让人精神。',

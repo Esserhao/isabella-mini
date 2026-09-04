@@ -100,6 +100,20 @@
       <button class="sheet-close" @tap="closeAccordDesc">知道了</button>
     </view>
 
+    <!-- 前中后调释义 sheet：三层各自的解释 + 「这一层收着哪些香调」的分类。
+         与香调释义同款底 sheet；点分类里的香调 chip 会切到那个香调的单独释义（递归深入） -->
+    <view class="sheet-mask" v-if="activeTier" @tap="closeTierDesc"></view>
+    <view class="sheet" v-if="activeTier">
+      <view class="sheet-title">{{ activeTierInfo.label }} · {{ activeTierInfo.tagline }}</view>
+      <view class="sheet-desc">{{ activeTierInfo.description }}</view>
+      <view class="sheet-note">{{ activeTierInfo.note }}</view>
+      <view class="sheet-sub">这一层收着这些香调 · <text class="sheet-sub-tip">点一下看它的单独释义</text></view>
+      <view class="chip-row">
+        <text class="chip tier-chip" v-for="(k, i) in activeTierAccords" :key="k" @tap="openAccordDesc(k)" :style="{ color: accordTextColor(k) }">{{ accordLabelOf(k) }}</text>
+      </view>
+      <button class="sheet-close" @tap="closeTierDesc">知道了</button>
+    </view>
+
     <!-- 六维说明 sheet -->
     <view class="sheet-mask" v-if="radarHelpOpen" @tap="radarHelpOpen = false"></view>
     <view class="sheet" v-if="radarHelpOpen">
@@ -214,7 +228,7 @@
       <text class="formula" v-if="formulaParts.length">配方：<text v-for="(p, i) in formulaParts" :key="i" :style="p.s">{{ p.n }}{{ p.t }}</text></text>
       <view class="pyramid-lines" v-if="pyramidRows.length">
         <view class="pyr-line" v-for="(row, ri) in pyramidRows" :key="ri">
-          <text class="pyr-tag">{{ row.label }}</text><text class="pyr-pct" :class="{ zero: row.ratio === 0 }">{{ row.ratio }}%</text><text class="pyr-ing" v-for="(n, i) in row.items" :key="i" :style="ingStyle(n)">{{ n }}{{ i < row.items.length - 1 ? '、' : '' }}</text>
+          <text class="pyr-tag" @tap="openTierDesc(row.key)">{{ row.label }}<text class="pyr-info">i</text></text><text class="pyr-pct" :class="{ zero: row.ratio === 0 }">{{ row.ratio }}%</text><text class="pyr-ing" v-for="(n, i) in row.items" :key="i" :style="ingStyle(n)">{{ n }}{{ i < row.items.length - 1 ? '、' : '' }}</text>
         </view>
         <!-- 中10：首次说明——只给第一次见到的用户讲一遍「前中后调」是什么，此后不再打扰 -->
         <view class="pyr-hint" v-if="showPyrHint">前调最先散，中调是主体，后调留得最久</view>
@@ -271,8 +285,8 @@
 <script setup>
 import { ref, reactive, nextTick, computed, watch } from 'vue'
 import { onLoad, onShow, onHide, onReady, onUnload, onPageScroll, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
-import { ACCORDS, SOLVENT, BLEND_KEYS, RADAR_LABELS, CORE_INGREDIENTS, galleryPerfumes, RADAR_DIM_DESC, SCENT_TEMPLATES } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, generatePyramid, tierRatio, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, isChallengeDone, topAccordDesc, randomAccords, shakeSolvent, findExactMatch, blankBlend, strengthOf } from '@/utils/mix.js'
+import { ACCORDS, SOLVENT, BLEND_KEYS, RADAR_LABELS, CORE_INGREDIENTS, galleryPerfumes, RADAR_DIM_DESC, SCENT_TEMPLATES, PYRAMID_TIERS } from '@/utils/data.js'
+import { computeRadarValues, generateFormula, generatePyramid, tierRatio, tierAccords, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, isChallengeDone, topAccordDesc, randomAccords, shakeSolvent, findExactMatch, blankBlend, strengthOf } from '@/utils/mix.js'
 import { drawRadar, drawRadarGrow, cancelRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE, mainAccordColor, measureCardHeight } from '@/utils/canvas-draw.js'
 import { THEME, accordTextColor, ingredientAccordTextColor } from '@/utils/theme.js'
 import { recordSeal, getStreak } from '@/utils/streak.js'
@@ -510,9 +524,9 @@ const pyramidRows = computed(() => {
   const p = tierPct.value
   if (!p) return []
   return [
-    { label: '前调', ratio: p.top, items: formulaPyramid.value.top },
-    { label: '中调', ratio: p.middle, items: formulaPyramid.value.middle },
-    { label: '后调', ratio: p.base, items: formulaPyramid.value.base }
+    { key: 'top', label: '前调', ratio: p.top, items: formulaPyramid.value.top },
+    { key: 'middle', label: '中调', ratio: p.middle, items: formulaPyramid.value.middle },
+    { key: 'base', label: '后调', ratio: p.base, items: formulaPyramid.value.base }
   ]
 })
 // 中10：三调行首次说明——第一次进工坊展示一行「前中后」的含义，之后永不再出现。
@@ -563,8 +577,18 @@ const radarDimList = RADAR_LABELS.map((lab) => ({ label: lab, desc: RADAR_DIM_DE
 const ACCORD_LABEL = {}
 ACCORDS.forEach((a) => { ACCORD_LABEL[a.key] = a.label })
 ACCORD_LABEL[SOLVENT.key] = SOLVENT.label   // 纯水也要有名字，拖它时提示语要用
-function openAccordDesc(key) { activeAccord.value = key }
+function openAccordDesc(key) { activeTier.value = ''; activeAccord.value = key }
 function closeAccordDesc() { activeAccord.value = '' }
+
+// 前中后调释义弹层（三调行「前/中/后」标签旁的小 ⓘ）：
+// 两个底 sheet 互斥——从「层」点分类里的香调 chip 会切去香调释义，反之亦然，绝不叠开。
+const activeTier = ref('')
+const activeTierInfo = computed(() => PYRAMID_TIERS.find((t) => t.key === activeTier.value) || null)
+// 该层收着的香调 key 列表：由 data.js 的 PYRAMID_TIER 反向聚合，与三调行/层占比同源
+const activeTierAccords = computed(() => (activeTier.value ? tierAccords(activeTier.value) : []))
+function accordLabelOf(k) { const a = ACCORDS.find((x) => x.key === k); return a ? a.label : k }
+function openTierDesc(key) { activeAccord.value = ''; activeTier.value = key }
+function closeTierDesc() { activeTier.value = '' }
 
 // 群友聊天式情感化提示词：每个香调一对上调/下调台词
 const EMOTIONAL_HINT = {
@@ -2220,6 +2244,20 @@ onReady(async () => {
   box-sizing: border-box; text-align: center; flex-shrink: 0; font-family: inherit;
   font-style: italic;
 }
+
+/* 三调行「前调/中调/后调」旁的小 ⓘ（比滑块的小一号，嵌在行内小字标签后）：
+   与香调滑块同语言——小圆 i = 可点开解释。金色描边在深金标签旁自成一体 */
+.pyr-info {
+  display: inline-block; font-size: 18rpx; color: #8a5f18;
+  border: 2rpx solid rgba(169,120,38,0.4); border-radius: 50%;
+  width: 30rpx; height: 30rpx; line-height: 26rpx; box-sizing: border-box;
+  text-align: center; margin-left: 6rpx; vertical-align: 2rpx;
+  font-style: italic; font-family: inherit;
+}
+/* 层释义 sheet：分类 chips 的中性描边（文字色已由各香调深色文字色接管，
+   边框再上色会跟色带抢戏——分类讲结构，色字表身份） */
+.tier-chip { border-color: rgba(43,43,46,0.14) !important; }
+.sheet-sub-tip { color: #a09a8a; font-size: 22rpx; }
 
 /* 实时气味播报：拖动时把动作翻译成大白话。
    常驻占一行，出现/消失只做透明度渐变——背景色也随之淡入淡出，

@@ -4,9 +4,9 @@
 import { suite, test, expect } from './helpers.mjs'
 import {
   computeRadarValues, generateFormula, scoreDailyChallenge,
-  normalizeAccords, findExactMatch, getDailyChallenge, tierRatio
+  normalizeAccords, findExactMatch, getDailyChallenge, tierRatio, tierAccords
 } from '../../src/utils/mix.js'
-import { DAILY_CHALLENGES, ACCORDS, SOLVENT } from '../../src/utils/data.js'
+import { DAILY_CHALLENGES, ACCORDS, SOLVENT, PYRAMID_TIER, PYRAMID_TIERS } from '../../src/utils/data.js'
 
 suite('每日挑战选题', () => {
   test('同一天内多次取题稳定，且题目结构完整', () => {
@@ -133,5 +133,31 @@ suite('前中后层占比 tierRatio（三调行加占比的数据源）', () => 
   })
   test('只有前调类香调时后两层如实为 0', () => {
     expect(tierRatio({ citrus: 30, green: 20 })).toEqual({ top: 100, middle: 0, base: 0 })
+  })
+})
+
+suite('前中后层分类 tierAccords（三调行 ⓘ 释义的「分类」数据源）', () => {
+  test('每层收着正确的香调（按 ACCORDS 顺序）', () => {
+    expect(tierAccords('top')).toEqual(['citrus', 'green', 'aquatic'])
+    expect(tierAccords('middle')).toEqual(['floral', 'fruity', 'fougere'])
+    expect(tierAccords('base')).toEqual(['woody', 'oriental', 'musk', 'amber', 'vanilla', 'tobacco'])
+  })
+  test('12 香调恰好分完三层：无重叠、无遗漏（防映射漂移丢香调）', () => {
+    const all = ['top', 'middle', 'base'].flatMap((t) => tierAccords(t))
+    expect(new Set(all).size).toBe(12)
+    expect([...new Set(all)].sort()).toEqual(ACCORDS.map((a) => a.key).sort())
+  })
+  test('PYRAMID_TIER 与 PYRAMID_TIERS 文案同源：每层文案都能查到映射里的层', () => {
+    const tierKeys = ['top', 'middle', 'base']
+    expect(PYRAMID_TIERS.map((t) => t.key)).toEqual(tierKeys)
+    tierKeys.forEach((k) => expect(tierAccords(k).length).toBeGreaterThan(0))
+  })
+  test('层文案齐全：label/tagline/description/note 均非空', () => {
+    PYRAMID_TIERS.forEach((t) => {
+      expect(t.label.length).toBeGreaterThan(0)
+      expect(t.tagline.length).toBeGreaterThan(0)
+      expect(t.description.length).toBeGreaterThan(20)
+      expect(t.note.length).toBeGreaterThan(0)
+    })
   })
 })

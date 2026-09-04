@@ -2,7 +2,7 @@
 // 调香核心算法（从原 lab.js 抽出的纯函数，零 DOM 依赖）
 // 阶段1 工坊组件直接 import 使用
 // ============================================================
-import { ACCORDS, SOLVENT, RADAR_LABELS, INGREDIENT_LIBRARY, GU_QUOTES, PERSON_QUOTES, PEER_QUOTES, DAILY_CHALLENGES } from './data.js';
+import { ACCORDS, SOLVENT, RADAR_LABELS, INGREDIENT_LIBRARY, GU_QUOTES, PERSON_QUOTES, PEER_QUOTES, DAILY_CHALLENGES, PYRAMID_TIER } from './data.js';
 
 // 12 香调比例 → 6 维雷达值（明亮度/温暖度/甜美度/清冽感/深邃度/轻盈感）
 // mode: 'relative'（默认）= 除以自身 6 维最大值，看「这瓶气息的内部结构」；
@@ -91,12 +91,15 @@ export function generateFormula(accordValues) {
 // ---------- 前中后三调 ----------
 // 自配方没有调香师的分层设计，但每味香料的主导香调自带「挥发速度」的暗示：
 // 柑橘/绿意/水生这类小分子先冲出来归前调，花香/果香/馥奇撑起中段，
-// 木质/东方/琥珀/麝香/香草/烟草这些大分子沉底留香归后调。
-// 按味归层而不是按权重拆分——用户封存的是「配方里的这些香料」，不是抽象比例。
-const PYRAMID_TIER = {
-    citrus: 'top', green: 'top', aquatic: 'top',
-    floral: 'middle', fruity: 'middle', fougere: 'middle',
-    woody: 'base', oriental: 'base', amber: 'base', musk: 'base', vanilla: 'base', tobacco: 'base'
+// 前中后调归层：PYRAMID_TIER（12 香调 → top/middle/base）唯一事实源在 data.js，
+// 这里只引用不重抄。为什么按味归层而不是按权重拆分：
+// 用户封存的是「配方里的这些香料」，不是抽象比例——所以 generatePyramid 把每味
+// 香料按它的主导香调丢进某一层（名字进哪层由香料决定，香料跨层细节从简）。
+
+// 反向派生：某一层收着哪些香调 key（按 ACCORDS 顺序）。层释义弹窗的「分类」用它，
+// 与 PYRAMID_TIER 永远同源，不存在第二份映射可漂移。
+export function tierAccords(tierKey) {
+    return ACCORDS.filter((a) => PYRAMID_TIER[a.key] === tierKey).map((a) => a.key);
 }
 
 export function generatePyramid(names) {
