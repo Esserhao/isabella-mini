@@ -214,7 +214,7 @@
       <text class="formula" v-if="formulaParts.length">配方：<text v-for="(p, i) in formulaParts" :key="i" :style="p.s">{{ p.n }}{{ p.t }}</text></text>
       <view class="pyramid-lines" v-if="pyramidRows.length">
         <view class="pyr-line" v-for="(row, ri) in pyramidRows" :key="ri">
-          <text class="pyr-tag">{{ row.label }}</text><text class="pyr-ing" v-for="(n, i) in row.items" :key="i" :style="ingStyle(n)">{{ n }}{{ i < row.items.length - 1 ? '、' : '' }}</text>
+          <text class="pyr-tag">{{ row.label }}</text><text class="pyr-pct" :class="{ zero: row.ratio === 0 }">{{ row.ratio }}%</text><text class="pyr-ing" v-for="(n, i) in row.items" :key="i" :style="ingStyle(n)">{{ n }}{{ i < row.items.length - 1 ? '、' : '' }}</text>
         </view>
         <!-- 中10：首次说明——只给第一次见到的用户讲一遍「前中后调」是什么，此后不再打扰 -->
         <view class="pyr-hint" v-if="showPyrHint">前调最先散，中调是主体，后调留得最久</view>
@@ -272,7 +272,7 @@
 import { ref, reactive, nextTick, computed, watch } from 'vue'
 import { onLoad, onShow, onHide, onReady, onUnload, onPageScroll, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { ACCORDS, SOLVENT, BLEND_KEYS, RADAR_LABELS, CORE_INGREDIENTS, galleryPerfumes, RADAR_DIM_DESC, SCENT_TEMPLATES } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, generatePyramid, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, isChallengeDone, topAccordDesc, randomAccords, shakeSolvent, findExactMatch, blankBlend, strengthOf } from '@/utils/mix.js'
+import { computeRadarValues, generateFormula, generatePyramid, tierRatio, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, isChallengeDone, topAccordDesc, randomAccords, shakeSolvent, findExactMatch, blankBlend, strengthOf } from '@/utils/mix.js'
 import { drawRadar, drawRadarGrow, cancelRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE, mainAccordColor, measureCardHeight } from '@/utils/canvas-draw.js'
 import { THEME, accordTextColor, ingredientAccordTextColor } from '@/utils/theme.js'
 import { recordSeal, getStreak } from '@/utils/streak.js'
@@ -496,16 +496,24 @@ function applyIncomingIfReady() {
 
 const quote = ref('')
 const formulaParts = ref([])
-// 前中后三调：按每味香料主导香调归层，配方区与封存卡共用一份数据
+// 前中后三调：配方区与封存卡共用一份「按味归层」的名字数据。
+// 层占比另走 tierRatio（读滑块直算），补上「这瓶前中后各占多少」——
+// 归层名单会因香料榜截断整层消失（柑橘系常把前六包圆），占比却不会。
 const formulaPyramid = ref({ top: [], middle: [], base: [] })
-// 模板友好行数组：过滤空层（纯木质配方没有前调，就不硬凑一行「前调 —」）
+// 三层占比（前/中/后，和为 100；纯水或香调全 0 时为 null）。直接由滑块 reactive 派生，
+// 拖动时与滑块数值同帧更新，不再依赖 recompute 的手动时机。
+const tierPct = computed(() => tierRatio(getAccordValues()))
+// 模板友好行数组：只要瓶里有香调就三层常显（某层 0 也显示「0%」——
+// 用户拖了木质却看不到后调，正是因为 0 层被整个藏掉了）；
+// 纯水（tierRatio 返回 null）才整块隐藏，不硬凑三行 0。
 const pyramidRows = computed(() => {
-  const p = formulaPyramid.value
+  const p = tierPct.value
+  if (!p) return []
   return [
-    { label: '前调', items: p.top },
-    { label: '中调', items: p.middle },
-    { label: '后调', items: p.base }
-  ].filter((r) => r.items.length)
+    { label: '前调', ratio: p.top, items: formulaPyramid.value.top },
+    { label: '中调', ratio: p.middle, items: formulaPyramid.value.middle },
+    { label: '后调', ratio: p.base, items: formulaPyramid.value.base }
+  ]
 })
 // 中10：三调行首次说明——第一次进工坊展示一行「前中后」的含义，之后永不再出现。
 // 读到即写标记（哪怕这次没滚到配方区，也不再追着提醒，保持克制）
@@ -2062,7 +2070,10 @@ onReady(async () => {
 .pyramid-lines { margin-top: 12rpx; display: flex; flex-direction: column; gap: 8rpx; }
 .pyr-line { font-size: 24rpx; line-height: 1.5; }
 /* 中10：层级标签用深金小字加字距，与墨色香料名拉开——标签是结构，名字是内容 */
-.pyr-tag { color: #8a5f18; font-size: 21rpx; font-weight: 600; letter-spacing: 2rpx; margin-right: 12rpx; }
+.pyr-tag { color: #8a5f18; font-size: 21rpx; font-weight: 600; letter-spacing: 2rpx; margin-right: 10rpx; }
+/* 层占比：紧跟标签，略浅的金色与标签一体；0 层用更淡的墨色弱化（0 也有信息：这层还没加） */
+.pyr-pct { color: #b08a4f; font-size: 21rpx; font-weight: 600; letter-spacing: 1rpx; margin-right: 14rpx; }
+.pyr-pct.zero { color: #c6c1b2; font-weight: 400; }
 .pyr-ing { color: #2b2b2e; }
 .pyr-hint { margin-top: 6rpx; font-size: 20rpx; color: #a09a8a; }
 

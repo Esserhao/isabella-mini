@@ -4,7 +4,7 @@
 import { suite, test, expect } from './helpers.mjs'
 import {
   computeRadarValues, generateFormula, scoreDailyChallenge,
-  normalizeAccords, findExactMatch, getDailyChallenge
+  normalizeAccords, findExactMatch, getDailyChallenge, tierRatio
 } from '../../src/utils/mix.js'
 import { DAILY_CHALLENGES, ACCORDS, SOLVENT } from '../../src/utils/data.js'
 
@@ -109,5 +109,29 @@ suite('雷达与归一化的边界', () => {
   test('归一化：全 0 输入落到第一味 100（不让总和失守）', () => {
     const out = normalizeAccords({})
     expect(out[ACCORDS[0].key]).toBe(100)
+  })
+})
+
+suite('前中后层占比 tierRatio（三调行加占比的数据源）', () => {
+  test('纯水 / 香调全 0 返回 null（调用方隐藏整块，不硬凑三行 0）', () => {
+    expect(tierRatio({})).toBe(null)
+    expect(tierRatio({ [SOLVENT.key]: 100 })).toBe(null)
+  })
+  test('柑橘 50 + 木质 50：中调如实为 0（不再因香料榜截断整层蒸发）', () => {
+    expect(tierRatio({ citrus: 50, woody: 50 })).toEqual({ top: 50, middle: 0, base: 50 })
+  })
+  test('三调齐活时摊成和为 100 的整数', () => {
+    const r = tierRatio({ citrus: 35, floral: 30, woody: 35 })
+    expect(r.top + r.middle + r.base).toBe(100)
+    expect(r.middle).toBe(30)
+  })
+  test('SOLVENT 不进结构：入参带纯水键结果不变', () => {
+    const a = tierRatio({ citrus: 40, floral: 25, woody: 20, [SOLVENT.key]: 15 })
+    const b = tierRatio({ citrus: 40, floral: 25, woody: 20 })
+    expect(a).toEqual(b)
+    expect(a).toEqual({ top: 47, middle: 29, base: 24 })
+  })
+  test('只有前调类香调时后两层如实为 0', () => {
+    expect(tierRatio({ citrus: 30, green: 20 })).toEqual({ top: 100, middle: 0, base: 0 })
   })
 })

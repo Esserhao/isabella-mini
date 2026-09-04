@@ -111,6 +111,26 @@ export function generatePyramid(names) {
     return pyr;
 }
 
+// 前中后三层占比：把 12 香调按挥发层加总，摊成和为 100 的整数（最大余数法）。
+// 与 generatePyramid 的分工不同——那边把「前 6 味香料」按主导香调归层列名字，
+// 受榜单截断影响会整层消失（柑橘系香料常把前六包圆，木质 50% 也可能后调一个
+// 名字都不给，层就空了）；这边直接读用户滑块，只要某层真有香调就必有读数，
+// 层不再「人间蒸发」。工坊三调行加这组数，正好补上「这瓶前中后各占多少」的缺口。
+// 口径：只看 12 香调（SOLVENT 纯水是稀释剂不是气味，不进结构）；
+// 归一化到 100 描述「香气内部结构」，浓淡另由 strengthOf 描述。
+// 纯水 / 香调全 0 返回 null，调用方据此隐藏整块。
+export function tierRatio(accordValues) {
+    const src = accordValues && typeof accordValues === 'object' ? accordValues : {};
+    const raw = { top: 0, middle: 0, base: 0 };
+    ACCORDS.forEach((a) => {
+        const tier = PYRAMID_TIER[a.key];
+        const v = Number(src[a.key]);
+        if (tier && Number.isFinite(v) && v > 0) raw[tier] += v;
+    });
+    if (raw.top + raw.middle + raw.base <= 0) return null;
+    return normalizeTo(raw, 100, ['top', 'middle', 'base']);
+}
+
 // 根据雷达最高维挑选古先生台词（random=true 时为随机灵感台词）
 const DIM_KEYS = ['brightness', 'warmth', 'sweetness', 'crispness', 'depth', 'airiness'];
 const RANDOM_QUOTES = [
