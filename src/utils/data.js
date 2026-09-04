@@ -534,6 +534,66 @@ export const galleryPerfumes = [
         description: "一支带刺的红玫瑰，胡椒的辛让花香不敢撒娇，底下是蜂蜜的暗甜。它不是那种『温柔小姐姐』的玫瑰，是『我美但别惹我』的玫瑰——像雪地里的血，冷，但让人移不开眼。",
         wiki: "https://baike.baidu.com/item/柏林少女",
         hook: "带刺的红玫瑰，雪地里的那滴血"
+    },
+    // ---- 以下 5 款为「经典香型补齐」：专补原 11 款几乎没有的主导项 ----
+    // vanilla 主（美食调）、aquatic 主（水生）、amber+vanilla 主（东方琥珀）、
+    // fougere 主（芳香木质馥奇）、tobacco 主（烟草美食）。
+    // 图走 imgSrc(id) 的 /static/gallery/p{id}.jpg，与 7-11 同款（不写 image 字段）。
+    {
+        id: 12,
+        name: "天使",
+        brand: "穆格勒",
+        year: 1992,
+        perfumer: "Olivier Cresp & Yves de Chirin",
+        // 果仁糖/焦糖(东方)、红果(果)、广藿香(木质)、香草、香柠檬(柑橘)、琥珀
+        accords: { citrus: 12, floral: 0, fruity: 26, woody: 12, oriental: 16, fougere: 0, green: 0, musk: 6, amber: 6, vanilla: 22, tobacco: 0, aquatic: 0 },
+        description: "1992 年之前的香水，甜都是花的甜。它头一回把糖摆到台面上——果仁糖、焦糖、红果，底下压着一把潮乎乎的广藿香，甜得理直气壮，又带着一点土腥气。有人说它像童年的糖罐，有人说它像深夜还没打烊的烘焙铺。它自己大概什么都不想说，只是站在那儿，蓝汪汪的，发着不该属于一瓶香水的光。",
+        hook: "把一整颗糖，摔碎在夜空里"
+    },
+    {
+        id: 13,
+        name: "冷水",
+        brand: "大卫杜夫",
+        year: 1988,
+        perfumer: "Pierre Bourdon",
+        // 海水(水生)、薄荷/迷迭香(绿)、薰衣草/橡木苔(馥奇)、茉莉/橙花(花)、檀木(木质)、龙涎香(琥珀)、烟草
+        accords: { citrus: 12, floral: 8, fruity: 0, woody: 10, oriental: 0, fougere: 20, green: 16, musk: 8, amber: 6, vanilla: 0, tobacco: 4, aquatic: 16 },
+        description: "1988 年，它第一次把「水」这件事装进瓶子里——薄荷、海水、薰衣草的一点皂感，像刚从海里爬上来的人，头发还在滴水。三十多年过去，它成了很多人人生里的第一支香水：干净、便宜、不挑人。你闻它不会想起什么故事，你只会想，啊，凉快。",
+        hook: "海风迎面拍过来，人打了个激灵"
+    },
+    {
+        id: 14,
+        name: "一千零一夜",
+        brand: "娇兰",
+        year: 1925,
+        perfumer: "Jacques Guerlain",
+        // 佛手柑/柠檬(柑橘)、鸢尾/茉莉/玫瑰(花)、香草/零陵香豆(香草)、劳丹脂/安息香(琥珀)、乳香(东方)、檀木(木质)
+        accords: { citrus: 14, floral: 18, fruity: 0, woody: 8, oriental: 14, fougere: 0, green: 0, musk: 8, amber: 18, vanilla: 20, tobacco: 0, aquatic: 0 },
+        description: "它是最早把「东方」讲给西方人听的那瓶香：佛手柑先亮一下，鸢尾和茉莉慢慢沉下去，最后全化成琥珀与香草的暖烟。名字取自一座花园，闻起来却更像一个人在壁炉边坐得太久——想起某个人，脸被烘得发烫，什么也没说。",
+        hook: "一座花园的名字，沉进了一瓶琥珀里"
+    },
+    {
+        id: 15,
+        name: "蔚蓝",
+        brand: "香奈儿",
+        year: 2010,
+        perfumer: "Jacques Polge",
+        // 葡萄柚/柠檬(柑橘)、薄荷(绿/馥奇)、生姜/肉豆蔻/焚香(东方)、雪松/香根草/檀木(木质)、劳丹脂(琥珀)、茉莉(花)
+        accords: { citrus: 24, floral: 6, fruity: 0, woody: 22, oriental: 8, fougere: 16, green: 8, musk: 6, amber: 8, vanilla: 2, tobacco: 0, aquatic: 0 },
+        description: "葡萄柚和薄荷先出场，生姜的辛在后头等着，收尾是雪松、香根草和一缕焚香——干净、克制、不出错。它就是那种「不知道喷什么就喷它」的香水：不替你表达什么个性，只是让人觉得你出门前收拾过自己。有人嫌它太安全，可安全也是一种体面。",
+        hook: "深到发黑的蓝，像一件刚熨好的衬衫"
+    },
+    {
+        id: 16,
+        name: "烟草香草",
+        brand: "汤姆福特",
+        year: 2007,
+        perfumer: "Olivier Gillotin",
+        // 烟草叶(烟草)、香草、可可/零陵香豆(琥珀/香草)、干果(果)、姜(东方)、木质液(木质)
+        // 没有柑橘前调——三调行会如实显示前调 0%，这是它本来的样子
+        accords: { citrus: 0, floral: 0, fruity: 12, woody: 12, oriental: 14, fougere: 0, green: 0, musk: 4, amber: 14, vanilla: 26, tobacco: 18, aquatic: 0 },
+        description: "烟草叶、可可、干果，再加一大把香草——像推开一间老派绅士俱乐部的门，木头、烟、甜酒混在一起，暖得让人不想走。它不讨好所有人，也从不假装清淡。冬天穿它出门，冷风一吹，袖口上那点甜就会返上来，像有人在你耳边说了句悄悄话。",
+        hook: "壁炉、烟草，和一小勺香草"
     }
 ];
 

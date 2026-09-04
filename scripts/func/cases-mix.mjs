@@ -6,7 +6,7 @@ import {
   computeRadarValues, generateFormula, scoreDailyChallenge,
   normalizeAccords, findExactMatch, getDailyChallenge, tierRatio, tierAccords
 } from '../../src/utils/mix.js'
-import { DAILY_CHALLENGES, ACCORDS, SOLVENT, PYRAMID_TIER, PYRAMID_TIERS } from '../../src/utils/data.js'
+import { DAILY_CHALLENGES, ACCORDS, SOLVENT, PYRAMID_TIER, PYRAMID_TIERS, galleryPerfumes } from '../../src/utils/data.js'
 
 suite('每日挑战选题', () => {
   test('同一天内多次取题稳定，且题目结构完整', () => {
@@ -159,5 +159,44 @@ suite('前中后层分类 tierAccords（三调行 ⓘ 释义的「分类」数�
       expect(t.description.length).toBeGreaterThan(20)
       expect(t.note.length).toBeGreaterThan(0)
     })
+  })
+})
+
+suite('图鉴香水数据（新增名香的护栏）', () => {
+  // 香水库是「复刻名香」彩蛋、首页推荐、图鉴三调行的数据源，
+  // 配比写错（漏键 / 和不为 100 / 两款撞车）会一路错到彩蛋判定，这里挡死。
+  const KEYS = ACCORDS.map((a) => a.key)
+
+  test('每款 accords 12 键齐全且和为 100', () => {
+    galleryPerfumes.forEach((p) => {
+      KEYS.forEach((k) => expect(k in p.accords).toBe(true))
+      expect(Object.keys(p.accords).length).toBe(KEYS.length)
+      expect(KEYS.reduce((s, k) => s + (Number(p.accords[k]) || 0), 0)).toBe(100)
+    })
+  })
+  test('id 唯一、品牌与文案字段齐全', () => {
+    const ids = galleryPerfumes.map((p) => p.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    galleryPerfumes.forEach((p) => {
+      expect(p.name && p.brand && p.year && p.perfumer).toBeTruthy()
+      expect(p.hook.length).toBeGreaterThan(0)
+      expect(p.description.length).toBeGreaterThan(20)
+    })
+  })
+  test('每款都能算出三层占比，且三层和为 100', () => {
+    galleryPerfumes.forEach((p) => {
+      const r = tierRatio(p.accords)
+      expect(r === null).toBe(false) // 只有纯水/全 0 才 null，名香不该出现
+      expect(r.top + r.middle + r.base).toBe(100)
+    })
+  })
+  test('任意两款 accords 不重复（否则复刻名香彩蛋有歧义）', () => {
+    const sig = galleryPerfumes.map((p) => KEYS.map((k) => p.accords[k]).join(','))
+    expect(new Set(sig).size).toBe(sig.length)
+  })
+  test('画像足够多样：全库第一主导香调至少 6 种', () => {
+    const mains = galleryPerfumes.map((p) =>
+      ACCORDS.reduce((m, a) => (p.accords[a.key] > p.accords[m.key] ? a : m), ACCORDS[0]).key)
+    expect(new Set(mains).size >= 6).toBe(true)
   })
 })

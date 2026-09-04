@@ -7,6 +7,7 @@ import { suite, test, expect, poke, peek } from './helpers.mjs'
 import {
     collectArchive, serializeArchive, parseArchive, describeArchive, mergeArchive
 } from '../../src/utils/archive.js'
+import { galleryPerfumes } from '../../src/utils/data.js'
 
 suite('档案行囊', () => {
     test('空机器导出：往返解析成功，概要全为 0，走压缩格式 ISABELLA2', () => {
@@ -188,12 +189,13 @@ suite('档案行囊', () => {
     test('合并：翻阅记录并集且按各类总数封顶', () => {
         poke('isabella_seen', { perfume: ['p1'] })
         const arr = []
-        for (let i = 1; i <= 15; i++) arr.push('p' + i) // 香水总数 11，超出会被截
+        // 上限随香水库走（现在 16 款），写死数字会在补录名香时假红
+        for (let i = 1; i <= 20; i++) arr.push('p' + i) // 超出总数会被截
         const archive = { v: 1, t: 1, d: { s: { perfume: arr, accord: ['c1'] } } }
         const r = mergeArchive(archive)
         expect(r.ok).toBe(true)
         const rec = peek('isabella_seen')
-        expect(rec.perfume).toHaveLength(11)
+        expect(rec.perfume).toHaveLength(galleryPerfumes.length)
         expect(rec.accord.join(',')).toBe('c1')
     })
 
