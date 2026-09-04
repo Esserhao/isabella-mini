@@ -312,11 +312,18 @@ function imgBg(acc) {
   const c = accordColor(key)
   return `linear-gradient(155deg, ${c}1f, ${c}3d)`
 }
+// 已知缺图的香水 id：这几款是后补的经典香型，瓶子图还没到位。
+// 缺图期间列表与详情都靠上面 imgBg 的香调渐变兜底，看不出是坏图，所以不弹故障提示
+// ——「退出去再进试试」是给真故障（打包漏文件、文件损坏）用的，对已知缺图是误导。
+// 图补进 src/static/gallery/p{id}.jpg 之后，把对应 id 从这一行删掉即可。
+const PENDING_IMG = [12, 13, 14, 15, 16]
 function onImgError(where, id) {
   // 不静默：真失败了留一条 warn，方便事后定位是哪张图
   console.warn(`[gallery] 图片加载失败 ${where}:`, id)
   // 打磨：详情大图挂了要告诉用户一声（拍立得缩略图多且小，静默即可不弹）
-  if (where === 'detail') uni.showToast({ title: '图片没加载出来，退出去再进试试', icon: 'none' })
+  if (where === 'detail' && PENDING_IMG.indexOf(id) === -1) {
+    uni.showToast({ title: '图片没加载出来，退出去再进试试', icon: 'none' })
+  }
 }
 
 const tab = ref('perfumes')
