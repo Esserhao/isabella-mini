@@ -312,16 +312,13 @@ function imgBg(acc) {
   const c = accordColor(key)
   return `linear-gradient(155deg, ${c}1f, ${c}3d)`
 }
-// 已知缺图的香水 id：这几款是后补的经典香型，瓶子图还没到位。
-// 缺图期间列表与详情都靠上面 imgBg 的香调渐变兜底，看不出是坏图，所以不弹故障提示
-// ——「退出去再进试试」是给真故障（打包漏文件、文件损坏）用的，对已知缺图是误导。
-// 图补进 src/static/gallery/p{id}.jpg 之后，把对应 id 从这一行删掉即可。
-const PENDING_IMG = [12, 13, 14, 15, 16]
+// 图片加载失败：详情大图挂了要告诉用户一声（拍立得缩略图多且小，静默即可不弹）。
+// 本地图理论上不会失败，弹出来就是真故障（打包漏了 / 文件损坏）——曾经有一批补录款
+// 处于「已知缺图」状态，走 imgBg 香调渐变兜底不弹这个，图已补齐后即恢复正常提示。
 function onImgError(where, id) {
   // 不静默：真失败了留一条 warn，方便事后定位是哪张图
   console.warn(`[gallery] 图片加载失败 ${where}:`, id)
-  // 打磨：详情大图挂了要告诉用户一声（拍立得缩略图多且小，静默即可不弹）
-  if (where === 'detail' && PENDING_IMG.indexOf(id) === -1) {
+  if (where === 'detail') {
     uni.showToast({ title: '图片没加载出来，退出去再进试试', icon: 'none' })
   }
 }
@@ -472,8 +469,8 @@ function label(k) {
 // 图鉴图走本地资源，不走 CDN。
 // 之前试过 raw.githubusercontent.com，属境外域名：开发者工具里勾选
 // 「不校验合法域名」能显示，真机上一律加载失败，且该域名在国内本身就不稳定。
-// 本地图已过 scripts/optimize-gallery.py 压缩（最长边 700px / q80 / 单张≤150KB），
-// 11 张合计约 537KB，主包装得下。后续加图务必先跑压缩脚本再看主包余量。
+// 本地图已过 scripts/optimize-gallery.py 压缩（最长边 700px / q80 / 单张≤150KB，
+// 总量预算 1100KB），16 张合计约 797KB，主包装得下。后续加图务必先跑压缩脚本再看主包余量。
 function imgSrc(id) { return '/static/gallery/p' + id + '.jpg' }
 // 香调矢量图标（SVG→PNG 静态图，体积小保留本地）
 function accordImg(key) { return '/static/gallery/accords/' + key + '.png' }

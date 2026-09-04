@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-图鉴图压缩：把 src/static/gallery/*.jpg 压到总和 ≤700KB。
+图鉴图压缩：把 src/static/gallery/*.jpg 压到主包可接受的总量（当前 1100KB）。
 
 策略：
   1. 先在内存里试算，不落盘。只有整轮达标后才一次性写盘——否则第二轮
@@ -24,7 +24,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = ROOT / 'src' / 'static' / 'gallery'
 MAX_EDGE = 700
-TARGET_TOTAL = 700 * 1024  # 700KB
+TARGET_TOTAL = 1100 * 1024  # 总量预算：随图库扩容上调（16 张约 ~1MB），主包 2MB 内安全
 MAX_SINGLE = 150 * 1024    # 单张 150KB
 QUALITY = 80
 
