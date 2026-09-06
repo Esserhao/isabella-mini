@@ -130,18 +130,13 @@
                香气结构/雷达收进「查看香气成分」里，像翻到背面才看的东西。
                雷达 canvas 在 v-if 里，展开后必须重新量一次才画得出来（见 drawRadarSoon）。 -->
           <template v-if="sel.type === 'perfume'">
-            <view class="d-paste">
-              <image class="d-perfume-img" :src="imgSrc(sel.data.id)" mode="aspectFill"
-                     :style="{ background: imgBg(sel.data.accords) }" @error="onImgError('detail', sel.data.id)"></image>
-              <view class="d-paste-cap">{{ sel.data.hook }}</view>
-            </view>
             <view class="d-title">{{ sel.data.name }}</view>
             <view class="d-sub">{{ sel.data.brand }} · {{ sel.data.year }} · 调香师 {{ sel.data.perfumer }}</view>
 
             <view class="d-section-title">古先生说</view>
             <view class="d-desc">{{ sel.data.description }}</view>
-            <!-- CC 图署名（imageCredit 缺省则不显示） -->
-            <view v-if="sel.data.imageCredit" class="d-credit">图：<text class="d-credit-link" @tap="openCreditUrl(sel.data.imageCredit.url)">{{ sel.data.imageCredit.text }}</text> · {{ sel.data.imageCredit.license }}</view>
+            <!-- 图片出处（imageCredit 缺省则不显示）：合规要求展示作者与许可，未整理出处的款不显示 -->
+            <view v-if="sel.data.imageCredit" class="d-credit">瓶图出处：<text class="d-credit-link" @tap="openCreditUrl(sel.data.imageCredit.url)">{{ sel.data.imageCredit.text }}</text> · {{ sel.data.imageCredit.license }}</view>
 
             <view class="d-fold" @tap="toggleData">
               <text class="d-fold-txt">{{ dataOpen ? '收起香气成分' : '查看香气成分' }}</text>
@@ -315,14 +310,10 @@ function imgBg(acc) {
   return `linear-gradient(155deg, ${c}1f, ${c}3d)`
 }
 // 图片加载失败：详情大图挂了要告诉用户一声（拍立得缩略图多且小，静默即可不弹）。
-// 本地图理论上不会失败，弹出来就是真故障（打包漏了 / 文件损坏）——曾经有一批补录款
-// 处于「已知缺图」状态，走 imgBg 香调渐变兜底不弹这个，图已补齐后即恢复正常提示。
+// 图鉴已不展示详情高清大图（合规收敛），只剩拍立得缩略图会走到这里；
+// 本地图理论上不会失败，弹 warn 就是真故障（打包漏了 / 文件损坏）。
 function onImgError(where, id) {
-  // 不静默：真失败了留一条 warn，方便事后定位是哪张图
   console.warn(`[gallery] 图片加载失败 ${where}:`, id)
-  if (where === 'detail') {
-    uni.showToast({ title: '图片没加载出来，退出去再进试试', icon: 'none' })
-  }
 }
 
 const tab = ref('perfumes')
@@ -762,14 +753,7 @@ function openCreditUrl(url) {
 .a-label { font-family: var(--font-hand); font-size: 28rpx; color: #3a342b; letter-spacing: 1rpx; text-align: left; }
 .a-desc { font-family: var(--font-hand); font-size: 20rpx; color: #8a8276; line-height: 1; text-align: left; }
 
-/* 详情大图：只有香水走「贴上去的照片」，香调/香料走下面的 .d-accord-img 小图 */
-.d-paste { width: 480rpx; margin: 0 auto 26rpx; }
-.d-perfume-img {
-  width: 100%; height: 560rpx; border-radius: 4rpx;
-  display: block; background: #e7e3d5;
-  box-shadow: 0 10rpx 26rpx rgba(60,50,30,0.18);
-  transform: rotate(-1.2deg);
-}
+/* 详情小图：香调/香料走小图（与香水无关，保留）；香水详情已不收高清大图（合规收敛 2026-09-06） */
 .d-accord-img {
   width: 200rpx; height: 200rpx; display: block;
   margin: 0 auto 24rpx;
@@ -817,12 +801,6 @@ function openCreditUrl(url) {
 .detail-scroll { flex: 1; min-height: 0; height: 0; padding: 28rpx 32rpx 60rpx; box-sizing: border-box; }
 .d-title { font-size: 40rpx; font-weight: 700; color: #2b2b2e; }
 .d-sub { font-size: 24rpx; color: #6b6a6a; margin: 8rpx 0 14rpx; }
-/* 贴在照片下的手写感短句。字体栈与 .pol-cap 一致（App.vue 的 --font-hand） */
-.d-paste-cap {
-  font-family: var(--font-hand);
-  font-size: 27rpx; color: #8a5f18;
-  line-height: 1.6; text-align: center; margin-top: 24rpx;
-}
 /* 香气成分折叠入口：首屏只讲故事，参数翻到背面才看 */
 .d-fold {
   display: flex; align-items: center; justify-content: center; gap: 10rpx;
