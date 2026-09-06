@@ -4,7 +4,7 @@
 // 由 installEnv 的 wx 替身 + 上层流程用例覆盖，这里不重复。
 import { createRequire } from 'node:module'
 import { suite, test, expect } from './helpers.mjs'
-import { buildAiQuotePayload } from '../../src/utils/ai-quote.js'
+import { buildAiQuotePayload, buildAiQuoteSig, trimAiQuoteCache, AI_QUOTE_TIMEOUT } from '../../src/utils/ai-quote.js'
 
 const require = createRequire(import.meta.url)
 const lib = require('../../cloudfunctions/aiQuote/lib.js')
@@ -20,6 +20,27 @@ suite('AI 评香：配方载荷构造', () => {
   test('全 0（纯水）→ 空数组（云函数会拒，前端不发）', () => {
     const p = buildAiQuotePayload({})
     expect(p.accords.length).toBe(0)
+  })
+})
+
+suite('AI 评香：等待上限与缓存签名', () => {
+  test('超时 ≤2.5s：封存不让用户干等（宁回退本地文案库）', () => {
+    expect(AI_QUOTE_TIMEOUT <= 2500).toBe(true)
+  })
+  test('签名含配方与香名，同配方不同名签名不同', () => {
+    const v = { citrus: 60, floral: 40 }
+    expect(buildAiQuoteSig(v, '蓝')).toBe(buildAiQuoteSig(v, '蓝'))
+    expect(buildAiQuoteSig(v, '蓝') === buildAiQuoteSig(v, '青')).toBe(false)
+    expect(buildAiQuoteSig(v, '蓝') !== buildAiQuoteSig({ citrus: 50, floral: 50 }, '蓝')).toBe(true)
+  })
+  test('LRU 淘汰：超上限删最旧，保留最新', () => {
+    const cache = {}
+    for (let i = 0; i < 5; i++) cache['s' + i] = { q: '句' + i, t: i }
+    const out = trimAiQuoteCache(cache, 3)
+    expect(Object.keys(out).length).toBe(3)
+    expect(out.s4 && out.s3 && out.s2).toBeTruthy()
+    expect(out.s0 === undefined).toBe(true)
+    expect(out.s1 === undefined).toBe(true)
   })
 })
 
