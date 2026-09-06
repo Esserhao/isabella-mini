@@ -500,7 +500,8 @@ export const galleryPerfumes = [
         description: "我对它的第一反应是：这瓶香水一定很怕无聊。青芒果开得又绿又冲，胡萝卜籽在底下搅局，像有人把整条尼罗河的下午都倒进了前调里。等莲花出来，它才肯安静一点点——但也只是从「闹」变成「晃」。有人嫌它留香短，我不嫌。它本来就是那种你刚以为自己懂了、它就溜走的香，跟芒果林里的下午一样，抓不住才记得住。",
         wiki: "https://baike.baidu.com/item/尼罗河花园",
         hook: "她在尼罗河畔种了一整片芒果林",
-        image: "https://upload.wikimedia.org/wikipedia/commons/6/6d/Herm%C3%A8s_Jardin_sur_le_Nil.jpg"
+        image: "https://upload.wikimedia.org/wikipedia/commons/6/6d/Herm%C3%A8s_Jardin_sur_le_Nil.jpg",
+        imageCredit: { text: 'Wikimedia Commons / Kiêu Anh-Tran', license: 'CC BY 3.0', url: 'https://commons.wikimedia.org/wiki/File:Herm%C3%A8s_Jardin_sur_le_Nil.jpg' }
     },
     {
         id: 2,
@@ -526,7 +527,8 @@ export const galleryPerfumes = [
         description: "1919 年的香水大多还端着架子，它却把桃子剥好递到你面前，然后趁你接过去之前，把橡木苔的潮湿铺了一地。蜜桃和苔藓放在一起，本来该吵架的，可它们偏偏商量出了一种克制：甜得小心翼翼，旧得理直气壮。有人说这是「老派的爱情」，我倒觉得它是爱情过了很多年、还被好好收着的那一种。你大概不会天天穿它，可一年里总有那么一天，你会突然想它。",
         wiki: "https://baike.baidu.com/item/蝴蝶夫人",
         hook: "蜜桃与橡木苔的百年叹息",
-        image: "https://upload.wikimedia.org/wikipedia/commons/f/ff/Mitsouko.jpg"
+        image: "https://upload.wikimedia.org/wikipedia/commons/f/ff/Mitsouko.jpg",
+        imageCredit: { text: 'Wikimedia Commons', license: 'CC BY-SA 2.0', url: 'https://commons.wikimedia.org/wiki/File:Mitsouko.jpg' }
     },
     {
         id: 4,
@@ -577,7 +579,9 @@ export const galleryPerfumes = [
         accords: { citrus: 8, floral: 40, fruity: 0, woody: 12, oriental: 8, fougere: 2, green: 2, musk: 12, amber: 8, vanilla: 8, tobacco: 0, aquatic: 0 },
         description: "关于它，想说的话一百年下来早被别人说完了，我只补一句自己闻到的。醛香刚喷出来那一下很亮，像有人一把拉开窗帘，光涌进来，玫瑰和茉莉才慢慢从光里走出来。很多人第一次喷它都皱眉，嫌它老、嫌它凶，可你要是愿意给它十分钟，它会放软，贴着皮肤待着，不怎么说话。它是我见过最不在乎你喜不喜欢它的香水，也是因此最让人忘不掉的。",
         wiki: "https://baike.baidu.com/item/香奈儿5号",
-        hook: "一百年了，还是那瓶你妈妈梳妆台上的香水"
+        hook: "一百年了，还是那瓶你妈妈梳妆台上的香水",
+        image: "https://upload.wikimedia.org/wikipedia/commons/b/b5/Chanel_-_Flickr_-_Kevin_Rheese.jpg",
+        imageCredit: { text: 'Flickr / Kevin Rheese (Brian Goodman)', license: 'CC BY 2.0', url: 'https://commons.wikimedia.org/wiki/File:Chanel_-_Flickr_-_Kevin_Rheese.jpg' }
     },
     {
         id: 8,
@@ -588,7 +592,9 @@ export const galleryPerfumes = [
         accords: { citrus: 30, floral: 5, fruity: 0, woody: 38, oriental: 12, fougere: 0, green: 5, musk: 4, amber: 4, vanilla: 0, tobacco: 0, aquatic: 2 },
         description: "葡萄柚开场冲得很直接，跟着上来一股干燥的矿物味，像正午的旷野，土被晒得烫脚。有人管它叫「成功人士的味道」，我觉得这名字把它叫小了，它更像一个知道自己要去哪儿的人，懒得跟你解释。尾调的火石和香根草很沉，但不闷，是有分量地站在你旁边。四季里我最推荐秋冬穿，热天穿它，容易把那股稳重穿成急躁。",
         wiki: "https://baike.baidu.com/item/爱马仕大地",
-        hook: "脚下是滚烫的土，眼里是整片旷野"
+        hook: "脚下是滚烫的土，眼里是整片旷野",
+        image: "https://upload.wikimedia.org/wikipedia/commons/8/80/Terre_d%E2%80%99Herm%C3%A8s_(cropped).JPG",
+        imageCredit: { text: 'Wikimedia Commons / IDiamond', license: 'CC BY-SA 3.0', url: 'https://commons.wikimedia.org/wiki/File:Terre_d%E2%80%99Herm%C3%A8s_(cropped).JPG' }
     },
     {
         id: 9,

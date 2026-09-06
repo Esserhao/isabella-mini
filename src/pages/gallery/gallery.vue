@@ -140,6 +140,8 @@
 
             <view class="d-section-title">古先生说</view>
             <view class="d-desc">{{ sel.data.description }}</view>
+            <!-- CC 图署名（imageCredit 缺省则不显示） -->
+            <view v-if="sel.data.imageCredit" class="d-credit">图：<text class="d-credit-link" @tap="openCreditUrl(sel.data.imageCredit.url)">{{ sel.data.imageCredit.text }}</text> · {{ sel.data.imageCredit.license }}</view>
 
             <view class="d-fold" @tap="toggleData">
               <text class="d-fold-txt">{{ dataOpen ? '收起香气成分' : '查看香气成分' }}</text>
@@ -673,6 +675,18 @@ function ingMainKey(accords) {
   const sorted = Object.entries(accords || {}).sort((a, b) => b[1] - a[1])
   return sorted[0] ? sorted[0][0] : 'woody'
 }
+// CC 图署名跳转（用 copyLinks 仅在浏览器生效；小程序里用 setClipboardData 兜底）
+function openCreditUrl(url) {
+  if (!url) return
+  // #ifdef MP-WEIXIN
+  try {
+    uni.setClipboardData({ data: url, success: () => uni.showToast({ title: '链接已复制', icon: 'none' }) })
+  } catch (e) { /* 忽略 */ }
+  // #endif
+  // #ifndef MP-WEIXIN
+  try { window.open(url, '_blank') } catch (e) { /* 忽略 */ }
+  // #endif
+}
 </script>
 
 <style scoped>
@@ -840,6 +854,9 @@ function ingMainKey(accords) {
 .d-bar-fill { height: 100%; background: #2e5c45; border-radius: 8rpx; }
 .d-bar-val { font-size: 22rpx; color: #8a5f18; width: 60rpx; text-align: right; flex-shrink: 0; }
 .d-desc { font-size: 26rpx; color: #3a3a38; line-height: 1.85; }
+/* CC 图署名（仅 imageCredit 字段非空时出现，按许可要求必须展示作者与许可） */
+.d-credit { margin-top: 8rpx; font-size: 20rpx; color: #8f8a79; line-height: 1.5; }
+.d-credit-link { color: #2e5c45; text-decoration: underline; }
 /* 香水六维雷达 */
 .d-section-row { display: flex; align-items: center; justify-content: space-between; }
 .d-section-row .d-section-title { margin-bottom: 0; }
