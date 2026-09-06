@@ -296,6 +296,7 @@ import { bumpSealCount } from '@/utils/progress.js'
 import { getRarity } from '@/utils/rarity.js'
 import { moderateText } from '@/utils/moderate.js'
 import { decodeAccordParams, encodeAccordParams, takePendingBlend, getWxacodePath } from '@/utils/wxacode.js'
+import { getAiQuote } from '@/utils/ai-quote.js'
 import { textWidth } from '@/utils/mix.js'
 import { tut } from '@/utils/tutorial.js'
 
@@ -1594,11 +1595,17 @@ async function sealCore() {
     recompute()
     // 一瓶留白：卡片台词不用随机语录，念留白专属这句
     if (isPureWater) quote.value = '你封存了一杯水。留白也是一种配方，我收下了。'
-    // 获取这瓶香专属的真小程序码
-    // 慢段：云函数出码。遮挡点击给等待反馈（写失败会回空串，卡面自动跳过码）
+    // 慢段：出小程序码 + AI 评香并行（都走云函数）。遮挡点击给等待反馈。
+    // AI 评香：3.5s 内没回来 / 云函数未部署 / 没配 key → null → quote 保持本地池原句，
+    // 封存主流程对 AI 零依赖。只对非纯水调 AI——留白那句是设计好的，不让模型抢话。
     uni.showLoading({ title: '封存中…', mask: true })
-    const qrSrc = await getWxacodePath(vals, name.value)
+    const [qrSrc, aiQuoteText] = await Promise.all([
+      getWxacodePath(vals, name.value),
+      isPureWater ? Promise.resolve(null) : getAiQuote(vals, name.value)
+    ])
     uni.hideLoading()
+    // AI 版「古先生说」定稿：非空才覆盖（空则本地随机池句子原样上卡）
+    if (aiQuoteText) quote.value = aiQuoteText
     // 中8：出码失败（云函数挂/网络断）不再默默吞掉，给一句知情提示；
     // 卡面由 drawCard 画虚线占位框兑底，不承诺「扫码」
     if (!qrSrc) uni.showToast({ title: '小程序码没生成，卡面先占个位', icon: 'none' })

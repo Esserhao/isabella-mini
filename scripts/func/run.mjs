@@ -15,6 +15,7 @@ await import('./cases-seen.mjs')
 await import('./cases-archive.mjs')
 await import('./cases-store.mjs')
 await import('./cases-journey.mjs')
+await import('./cases-ai-quote.mjs')
 
 const outcomes = getOutcomes()
 const bySuite = new Map()

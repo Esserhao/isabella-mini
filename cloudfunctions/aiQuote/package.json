@@ -1,0 +1,7 @@
+{
+  "name": "aiQuote",
+  "version": "1.0.0",
+  "description": "为封存卡生成「古先生」针对性评论（OpenAI 兼容，需配 AI_API_KEY 环境变量）",
+  "main": "index.js",
+  "dependencies": {}
+}
