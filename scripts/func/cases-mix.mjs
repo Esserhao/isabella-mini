@@ -3,7 +3,7 @@
 // 所以「稀释不改变任何香水行为」在这里是被断言的产品规格，不是巧合。
 import { suite, test, expect } from './helpers.mjs'
 import {
-  computeRadarValues, generateFormula, scoreDailyChallenge,
+  computeRadarValues, generateFormula, scoreDailyChallenge, CHALLENGE_MAX,
   normalizeAccords, findExactMatch, getDailyChallenge, tierRatio, tierAccords
 } from '../../src/utils/mix.js'
 import { DAILY_CHALLENGES, ACCORDS, SOLVENT, PYRAMID_TIER, PYRAMID_TIERS, galleryPerfumes } from '../../src/utils/data.js'
@@ -42,9 +42,9 @@ suite('每日挑战评分', () => {
       expect(scoreDailyChallenge(blank, { target: c.target }).score).toBe(10)
     })
   })
-  test('正解恒为封顶 95 分', () => {
+  test(`正解恒为封顶 ${CHALLENGE_MAX} 分`, () => {
     DAILY_CHALLENGES.forEach((c) => {
-      expect(scoreDailyChallenge(c.target, { target: c.target }).score).toBe(95)
+      expect(scoreDailyChallenge(c.target, { target: c.target }).score).toBe(CHALLENGE_MAX)
     })
   })
   test('越像分越高（单调性抽查）', () => {

@@ -186,8 +186,12 @@ export function getTodayKey() {
 // 用日期的「日」取模挑选，同一天进来永远是同一题。
 export function getDailyChallenge() {
     const key = getTodayKey();
-    const day = parseInt(key.slice(-2), 10) || 1;
-    return DAILY_CHALLENGES[day % DAILY_CHALLENGES.length];
+    // 早年按「几号」取模，题库只要超过 31 条，排在后面的题就永远轮不到（一个月最多 31 天），
+    // 而且每月都从同一批开始。改成按「一年里的第几天」取模，题库多少条都能均匀轮转。
+    const [y, m, d] = key.split('-').map(Number);
+    const raw = Math.floor((Date.UTC(y, m - 1, d) - Date.UTC(y, 0, 1)) / 86400000);
+    const doy = Number.isFinite(raw) ? raw + 1 : 1;
+    return DAILY_CHALLENGES[doy % DAILY_CHALLENGES.length];
 }
 
 // 每日挑战「接受」标记：写入完整挑战对象（含当天日期），供工坊读取后把目标配方铺到滑块。
@@ -261,10 +265,21 @@ export function markChallengeDone(score) {
 }
 
 // 每日挑战评分：用户配方与目标配方余弦相似度
-const CHALLENGE_KEYS = ['citrus', 'floral', 'fruity', 'woody', 'oriental', 'fougere', 'green'];
-// 「随手乱调」的参照向量：七味各来一点。用来给分数定 0 分位，见下面 baseline 的说明。
+// 取全量香调（现 12 味）——早期这里写死 7 味，导致后加的香草 / 烟草 / 水生 / 琥珀 / 麝香
+// 就算写进题目的 target 也不参与计分，用户照提示调了却不涨分。改成从 ACCORDS 派生，
+// 以后新增香调自动跟上，不用再回来改这里。
+const CHALLENGE_KEYS = ACCORDS.map((a) => a.key);
+// 「随手乱调」的参照向量：每一味各来一点。用来给分数定 0 分位，见下面 baseline 的说明。
+// 味数跟着 CHALLENGE_KEYS 走——工坊滑块本来就是 12 根，参照向量也该是 12 味。
 const NEUTRAL = {};
 CHALLENGE_KEYS.forEach(k => { NEUTRAL[k] = 1 });
+
+// 挑战满分。定 99 而不是 100：正解也只能拿到 99，最后一分永远留在明天的题目上。
+// 历史上这个值改过不止一次（100 → 95 → 99），每次都要翻七八个文件改字面，
+// 所以收敛成这一个常量——所有显示「X / 满分」的地方都从这儿取，别再写死数字。
+export const CHALLENGE_MAX = 99;
+// 分数的地板：什么都不调（纯水）是 10 分，不是 0 分。
+const CHALLENGE_MIN = 10;
 
 function challengeSimilarity(accordValues, target) {
     let dot = 0, normA = 0, normB = 0;
@@ -286,13 +301,13 @@ export function scoreDailyChallenge(accordValues, dailyChallenge) {
     const target = dailyChallenge.target;
     const similarity = challengeSimilarity(accordValues, target);
     // 余弦相似度对「每味都来一点」的向量天生偏心：即便什么都不像，
-    // 七味均分对着任意主题也有 0.55~0.85。直接乘 100 当分数，
+    // 十二味均分对着任意主题也有 0.55~0.85。直接乘 100 当分数，
     // 用户一进页面就 68~84 分、提示语直接跳到「方向对了，继续调」。
-    // 所以把「中性态」重标定成 0 分位（10 分），满分仍是 95：
+    // 所以把「中性态」重标定成 0 分位（10 分），正解封顶 CHALLENGE_MAX（99）：
     // 分数的含义从「有多像」变成「比随手乱调好多少」。
     const baseline = challengeSimilarity(NEUTRAL, target);
     const norm = baseline < 1 ? (similarity - baseline) / (1 - baseline) : 0;
-    const score = Math.round(Math.min(95, Math.max(10, 10 + norm * 85)));
+    const score = Math.round(Math.min(CHALLENGE_MAX, Math.max(CHALLENGE_MIN, CHALLENGE_MIN + norm * (CHALLENGE_MAX - CHALLENGE_MIN))));
     return { score, theme: dailyChallenge.theme };
 }
 

@@ -16,11 +16,11 @@
       <view class="ch-body">
         <view class="ch-tag">每日挑战</view>
         <view class="ch-theme">{{ challenge.theme }}</view>
-        <!-- 完成态回显与首页同口径：做过了 hint 收成一句、按钮变「✓ X/95」，
+        <!-- 完成态回显与首页同口径：做过了 hint 收成一句、按钮变「✓ X/满分」，
              没做过才显示「接受」。让用户进门一眼知道今天做没做，不用点开猜 -->
         <view class="ch-hint">{{ dailyDone ? '明天换新题 · 再来练手' : '根据标题推测香调，来试试' }}</view>
       </view>
-      <button class="ch-btn" @tap="acceptChallenge">{{ dailyDone ? (challengeScore != null ? '✓ ' + challengeScore + '/95' : '✓ 已完成') : '接受' }}</button>
+      <button class="ch-btn" @tap="acceptChallenge">{{ dailyDone ? (challengeScore != null ? '✓ ' + challengeScore + '/' + CHALLENGE_MAX : '✓ 已完成') : '接受' }}</button>
     </view>
 
     <!-- 收藏 / 历史：横排入口卡，点击进入独立页面 -->
@@ -130,7 +130,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getDailyChallenge, setDailyChallengeTarget, isChallengeDone, getChallengeScore } from '@/utils/mix.js'
+import { getDailyChallenge, CHALLENGE_MAX, setDailyChallengeTarget, isChallengeDone, getChallengeScore } from '@/utils/mix.js'
 import { getStreak } from '@/utils/streak.js'
 import { getStats, track } from '@/utils/analytics.js'
 import { getFavorites } from '@/utils/favorites.js'
@@ -150,7 +150,7 @@ const eggSummary = ref(initEggs.achieved >= initEggs.total
 // 不能用 computed（getDailyChallenge 无响应依赖，computed 只会算一次，
 // 页面跨天存活时会一直显示昨天的题与完成态）。
 const challenge = ref(getDailyChallenge())
-// 完成态与首页卡片同口径：做过了回显「✓ X/95」，没做过显示「接受」
+// 完成态与首页卡片同口径：做过了回显「✓ X/满分」，没做过显示「接受」
 const dailyDone = ref(false)
 const challengeScore = ref(null)
 
@@ -216,7 +216,7 @@ function acceptChallenge() {
     const cur = getChallengeScore()
     uni.showModal({
       title: '今日已完成',
-      content: `今天已${cur != null ? `拿下 ${cur}/95` : '完成'}。重调会从头再来，只有分数更高才更新成绩。要再试一次吗？`,
+      content: `今天已${cur != null ? `拿下 ${cur}/${CHALLENGE_MAX}` : '完成'}。重调会从头再来，只有分数更高才更新成绩。要再试一次吗？`,
       confirmText: '再来一次',
       cancelText: '先不了',
       success: (m) => { if (m.confirm) accept() }

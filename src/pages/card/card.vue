@@ -15,7 +15,7 @@
     <!-- 对决条：从「发起对决」分享进来的好友可见——同一天打开即同一道题 -->
     <view class="duel-banner" v-if="duelInfo">
       <text class="duel-line"><text class="duel-name">{{ duelInfo.name }}</text> 在「{{ duelInfo.theme }}」拿下</text>
-      <text class="duel-score">{{ duelInfo.score }}<text class="duel-unit">/95</text></text>
+      <text class="duel-score">{{ duelInfo.score }}<text class="duel-unit">/{{ CHALLENGE_MAX }}</text></text>
       <button class="cp-duel-accept" @tap="acceptDuel">用今天的题目应战 →</button>
     </view>
 
@@ -51,7 +51,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onReady, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { ACCORDS, RADAR_LABELS } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, getGuQuote, topAccordDesc, getDailyChallenge, setDailyChallengeTarget } from '@/utils/mix.js'
+import { computeRadarValues, generateFormula, getGuQuote, topAccordDesc, getDailyChallenge, CHALLENGE_MAX, setDailyChallengeTarget } from '@/utils/mix.js'
 import { drawCard, drawShareCard, SHARE_SIZE, mainAccordColor, measureCardHeight } from '@/utils/canvas-draw.js'
 import { THEME } from '@/utils/theme.js'
 import { isFaved, toggleFav as toggleFavStore, stableFavId, getFavorites, isSealedTime } from '@/utils/favorites.js'
@@ -540,8 +540,8 @@ onShareAppMessage(() => {
     // 分享标题分级：85+ 才是「应战」语气；低分用自嘲式「交作业」，
     // 62 分还喊「敢来应战吗」会让人不好意思分享，自嘲反而更容易被点开
     const duelTitle = c.score >= 85
-      ? `我在「${c.theme}」拿下 ${c.score}/95，敢来应战吗`
-      : `我在「${c.theme}」交了 ${c.score}/95 的作业，不服来战`
+      ? `我在「${c.theme}」拿下 ${c.score}/${CHALLENGE_MAX}，敢来应战吗`
+      : `我在「${c.theme}」交了 ${c.score}/${CHALLENGE_MAX} 的作业，不服来战`
     const obj = {
       title: duelTitle,
       path: `pages/card/card?s=${encodeURIComponent(JSON.stringify(duelShare))}&ds=${c.score}&dn=${encodeURIComponent(data.value.name)}&dt=${encodeURIComponent(c.theme)}`

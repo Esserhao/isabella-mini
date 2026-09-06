@@ -454,7 +454,35 @@ export const DAILY_CHALLENGES = [
     { theme: '热可可旁的慵懒周末', hint: '东方温暖，果香甜美', target: { oriental: 60, fruity: 35, woody: 25, floral: 10 } },
     { theme: '星空下的篝火晚会', hint: '木质烟熏，东方温暖', target: { woody: 60, oriental: 45, green: 20, fougere: 10 } },
     { theme: '旅行箱里的异国记忆', hint: '东方神秘，柑橘明亮', target: { oriental: 55, citrus: 40, fruity: 30, woody: 15 } },
-    { theme: '祖母的梳妆台', hint: '花香温柔，东方古典', target: { floral: 55, oriental: 45, woody: 30, fruity: 10 } }
+    { theme: '祖母的梳妆台', hint: '花香温柔，东方古典', target: { floral: 55, oriental: 45, woody: 30, fruity: 10 } },
+
+    // ---- 以下 24 题补齐两类空白 ----
+    // ① 香草 / 烟草 / 水生 / 琥珀 / 麝香这五个后加的香调，原 16 题一道都没出过；
+    // ② 老七调的新搭配，让选题不至于每月翻来覆去那几种画面。
+    { theme: '刚出炉的黄油曲奇', hint: '香草与果香，甜得暖', target: { vanilla: 70, fruity: 35, oriental: 25, woody: 15 } },
+    { theme: '焦糖布丁的脆壳', hint: '香草主导，东方托底', target: { vanilla: 75, oriental: 40, fruity: 20, woody: 10 } },
+    { theme: '冬夜的一杯热牛奶', hint: '香草柔和，木质垫着', target: { vanilla: 60, woody: 35, oriental: 30, musk: 15 } },
+    { theme: '老书房的烟斗', hint: '烟草深沉，木质与琥珀', target: { tobacco: 70, woody: 45, amber: 30, oriental: 20 } },
+    { theme: '壁炉边抽剩的雪茄', hint: '烟草与东方，果香微甜', target: { tobacco: 65, oriental: 40, fruity: 25, amber: 20 } },
+    { theme: '皮夹克上残留的烟味', hint: '烟草与木质，麝香收尾', target: { tobacco: 60, woody: 40, musk: 25, oriental: 15 } },
+    { theme: '暴雨前的泳池', hint: '水生清冽，绿意陪衬', target: { aquatic: 70, green: 35, citrus: 20, floral: 10 } },
+    { theme: '退潮后的沙滩', hint: '水生与木质，柑橘明亮', target: { aquatic: 65, woody: 30, citrus: 25, musk: 15 } },
+    { theme: '清晨的海雾', hint: '水生轻盈，花香浮动', target: { aquatic: 60, floral: 30, green: 25, citrus: 15 } },
+    { theme: '老教堂里的烛光', hint: '琥珀温润，木质与东方', target: { amber: 70, oriental: 45, woody: 35, musk: 10 } },
+    { theme: '蜜蜡封着的旧信', hint: '琥珀与花香，东方收尾', target: { amber: 60, floral: 35, oriental: 30, fruity: 10 } },
+    { theme: '沙漠落日的余温', hint: '琥珀与东方，香草柔软', target: { amber: 65, oriental: 50, vanilla: 25, woody: 20 } },
+    { theme: '晒过的干净棉布', hint: '麝香洁净，花香很淡', target: { musk: 65, floral: 30, citrus: 20, fougere: 15 } },
+    { theme: '婴儿后颈的体温', hint: '麝香与香草，贴着皮肤', target: { musk: 60, vanilla: 40, floral: 20, oriental: 10 } },
+    { theme: '穿了一冬的羊毛衫', hint: '麝香与木质，暖而不甜', target: { musk: 55, woody: 30, amber: 25, vanilla: 15 } },
+    { theme: '春天第一个暖日', hint: '花香与绿意，一点柑橘', target: { floral: 55, green: 40, citrus: 30, musk: 10 } },
+    { theme: '中药铺的抽屉', hint: '木质与东方，绿意和烟草', target: { woody: 60, oriental: 45, green: 25, tobacco: 20 } },
+    { theme: '烘干机刚停下来', hint: '柑橘与花香，暖烘烘的干净', target: { citrus: 50, floral: 40, musk: 30, fougere: 20 } },
+    { theme: '山顶寺庙的清晨', hint: '木质与东方，绿意清冷', target: { woody: 55, oriental: 40, green: 25, musk: 15 } },
+    { theme: '刚从树上摘的桃子', hint: '果香丰盈，花香与绿意', target: { fruity: 70, floral: 35, green: 20, vanilla: 15 } },
+    { theme: '冰镇西瓜的第一口', hint: '果香多汁，水生清凉', target: { fruity: 65, aquatic: 35, green: 25, citrus: 20 } },
+    { theme: '干草垛上的午睡', hint: '绿意与馥奇，木质垫底', target: { green: 50, fougere: 45, woody: 30, floral: 15 } },
+    { theme: '檀香扇子和旧箱子', hint: '木质主导，琥珀与麝香', target: { woody: 65, amber: 35, oriental: 30, musk: 20 } },
+    { theme: '雪后的松林', hint: '木质与绿意，水生冷冽', target: { woody: 50, green: 45, aquatic: 25, citrus: 15 } }
 ];
 
 // ============================================================

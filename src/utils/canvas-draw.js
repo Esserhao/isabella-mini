@@ -2,7 +2,7 @@
 // 调用方负责根据 dpr 对 ctx 做 scale，本文件统一使用「逻辑像素」坐标。
 import { THEME, ACCORD_COLORS, ACCORD_TEXT_COLORS } from './theme.js'
 import { ACCORDS, SOLVENT, INGREDIENT_LIBRARY } from './data.js'
-import { topAccordDesc, clipTextWidth } from './mix.js'
+import { topAccordDesc, clipTextWidth, CHALLENGE_MAX } from './mix.js'
 
 function accordColor(key) {
   return ACCORD_COLORS[key] || THEME.primary
@@ -956,7 +956,7 @@ export function drawShareCard(ctx, opt) {
   if (duel) {
     ctx.fillStyle = THEME.goldDeep
     ctx.font = `${Math.round(width * 0.026)}px sans-serif`
-    ctx.fillText(`⚔ 今日挑战「${duel.theme}」 · ${duel.score}/95`, cx, height * 0.14 + Math.round(width * 0.055))
+    ctx.fillText(`⚔ 今日挑战「${duel.theme}」 · ${duel.score}/${CHALLENGE_MAX}`, cx, height * 0.14 + Math.round(width * 0.055))
   }
 
   // 2) 雷达色块：画面中心，直径约占短边 42%

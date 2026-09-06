@@ -107,7 +107,7 @@
           <view class="daily-tag">每日挑战</view>
           <view class="daily-theme">{{ daily.theme }}</view>
           <view class="daily-hint">{{ dailyDone ? '明天换新题 · 再来练手' : '根据标题推测香调，来试试' }}</view>
-          <view class="daily-cta">{{ dailyDone ? (challengeDoneScore != null ? '✓ 今日 ' + challengeDoneScore + '/95' : '✓ 已完成') : '接受挑战 →' }}</view>
+          <view class="daily-cta">{{ dailyDone ? (challengeDoneScore != null ? '✓ 今日 ' + challengeDoneScore + '/' + CHALLENGE_MAX : '✓ 已完成') : '接受挑战 →' }}</view>
         </view>
       </view>
     </view>
@@ -122,7 +122,7 @@ import { ref, computed, reactive, watch, nextTick } from 'vue'
 import { onReady, onShow } from '@dcloudio/uni-app'
 import { drawRadar, drawRadarGrow } from '@/utils/canvas-draw.js'
 import { galleryPerfumes, ACCORDS, RADAR_LABELS } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, getDailyChallenge, isChallengeDone, getChallengeScore, setDailyChallengeTarget, randomAccords, shakeSolvent, genPerfumeName } from '@/utils/mix.js'
+import { computeRadarValues, generateFormula, getDailyChallenge, CHALLENGE_MAX, isChallengeDone, getChallengeScore, setDailyChallengeTarget, randomAccords, shakeSolvent, genPerfumeName } from '@/utils/mix.js'
 import { THEME, accordColor, ingredientAccordTextColor } from '@/utils/theme.js'
 import { track } from '@/utils/analytics.js'
 import { achieveEgg } from '@/utils/eggs.js'
@@ -363,7 +363,7 @@ function goChallenge() {
     const cur = getChallengeScore()
     uni.showModal({
       title: '今日已完成',
-      content: `今天已${cur != null ? `拿下 ${cur}/95` : '完成'}。重调会从头再来，只有分数更高才更新成绩。要再试一次吗？`,
+      content: `今天已${cur != null ? `拿下 ${cur}/${CHALLENGE_MAX}` : '完成'}。重调会从头再来，只有分数更高才更新成绩。要再试一次吗？`,
       confirmText: '再来一次',
       cancelText: '先不了',
       success: (m) => { if (m.confirm) accept() }

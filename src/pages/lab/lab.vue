@@ -17,9 +17,9 @@
         <text class="cb-hint-toggle" @tap="hintOpen = !hintOpen">{{ hintOpen ? '收起提示' : '看提示' }}</text>
       </view>
       <view class="cb-meta">
-        <text class="cb-intro">挑战介绍：根据标题推测香调 · 满分 95 · 封存才记录</text>
+        <text class="cb-intro">挑战介绍：根据标题推测香调 · 满分 {{ CHALLENGE_MAX }} · 封存才记录</text>
         <text v-if="hintOpen" class="cb-hint">提示：{{ challengeInfo.hint }}</text>
-        <text class="cb-score">契合度 <text class="cb-num">{{ challengeScore || '—' }}</text><text class="cb-max" v-if="challengeScore">/ 95</text> <text class="cb-tip">{{ challengeScoreTip }}</text></text>
+        <text class="cb-score">契合度 <text class="cb-num">{{ challengeScore || '—' }}</text><text class="cb-max" v-if="challengeScore">/ {{ CHALLENGE_MAX }}</text> <text class="cb-tip">{{ challengeScoreTip }}</text></text>
       </view>
       <view class="cb-close" @tap="askExitChallenge">×</view>
     </view>
@@ -30,7 +30,7 @@
     <view v-if="challengeInfo" class="cb-sticky" :class="{ show: cbSticky }" @tap="scrollToChallenge">
       <text class="cb-sticky-tag">今日挑战</text>
       <text class="cb-sticky-theme">{{ challengeInfo.theme }}</text>
-      <text class="cb-sticky-score">{{ challengeScore || '—' }}<text class="cb-max" v-if="challengeScore">/95</text></text>
+      <text class="cb-sticky-score">{{ challengeScore || '—' }}<text class="cb-max" v-if="challengeScore">/{{ CHALLENGE_MAX }}</text></text>
       <view class="cb-sticky-close" @tap.stop="askExitChallenge">×</view>
     </view>
 
@@ -286,7 +286,7 @@
 import { ref, reactive, nextTick, computed, watch } from 'vue'
 import { onLoad, onShow, onHide, onReady, onUnload, onPageScroll, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { ACCORDS, SOLVENT, BLEND_KEYS, RADAR_LABELS, CORE_INGREDIENTS, galleryPerfumes, RADAR_DIM_DESC, SCENT_TEMPLATES, PYRAMID_TIERS } from '@/utils/data.js'
-import { computeRadarValues, generateFormula, generatePyramid, tierRatio, tierAccords, getGuQuote, genPerfumeName, scoreDailyChallenge, takeDailyChallengeTarget, radarSummary, markChallengeDone, isChallengeDone, topAccordDesc, randomAccords, shakeSolvent, findExactMatch, blankBlend, strengthOf } from '@/utils/mix.js'
+import { computeRadarValues, generateFormula, generatePyramid, tierRatio, tierAccords, getGuQuote, genPerfumeName, scoreDailyChallenge, CHALLENGE_MAX, takeDailyChallengeTarget, radarSummary, markChallengeDone, isChallengeDone, topAccordDesc, randomAccords, shakeSolvent, findExactMatch, blankBlend, strengthOf } from '@/utils/mix.js'
 import { drawRadar, drawRadarGrow, cancelRadarGrow, drawCard, drawCardBase, drawShareCard, SHARE_SIZE, mainAccordColor, measureCardHeight } from '@/utils/canvas-draw.js'
 import { THEME, accordTextColor, ingredientAccordTextColor } from '@/utils/theme.js'
 import { recordSeal, getStreak } from '@/utils/streak.js'
@@ -400,7 +400,7 @@ function bumpTodaySeal() {
 //
 // 以前初始是图鉴第一瓶（尼罗河花园），理由是降低新手门槛。但代价有两个：
 // 一是用户看到的是别人调好的香，动手前先得想「我要改什么」；
-// 二是每日挑战一来就被判 95 分（见 applyIncomingIfReady）。
+// 二是每日挑战一来就被判满分（见 applyIncomingIfReady）。
 // 纯水起步把这两个都解决了：加香调是从水里置换，不是从别的香调里抢，
 // 「我没动它却变了」的困惑从根上消失；总和仍恒为 100，雷达从原点长出来。
 const values = reactive(blankBlend())
@@ -490,7 +490,7 @@ function applyIncomingIfReady() {
   if (incoming.challenge) {
     const c = incoming.challenge
     // 起点是一杯纯水：12 个香调全 0。
-    // 以前把 c.target 本身铺进滑块，等于把答案抄上去：16 个主题进页面一律 95%，挑战送分。
+    // 以前把 c.target 本身铺进滑块，等于把答案抄上去：40 个主题进页面一律满分，挑战送分。
     // 目标只作为评分基准留着，用户从水里一样一样加出来。
     // 不走 applyRestore 是因为它会记 scan_restore 埋点，而这是挑战不是扫码还原。
     // 重接 = 覆盖当前配比，与接力同一自保：先把当前状态压入撤销栈。
@@ -845,7 +845,7 @@ function askExitChallenge() {
   if (!sc || sc <= 10) { exitChallenge(); return }
   uni.showModal({
     title: '要离开挑战吗？',
-    content: `契合度只在封存时保存。现在离开，这瓶的 ${sc}/95 不会记录。`,
+    content: `契合度只在封存时保存。现在离开，这瓶的 ${sc}/${CHALLENGE_MAX} 不会记录。`,
     confirmText: '离开',
     cancelText: '再调调',
     success: (m) => { if (m.confirm) exitChallenge() }
@@ -1499,8 +1499,8 @@ async function sealCore() {
     }
     // 完成记录带上分数，首页/我的页卡片当天回显「今日 X 分」
     markChallengeDone(challengeDoneScore)
-    // 「主题正解」：以正解级契合（≥95，即评分封顶的满分）完成当日挑战
-    if (challengeDoneScore >= 95) sealEgg('perfect')
+    // 「主题正解」：拿到评分封顶 CHALLENGE_MAX（正解 99 分）完成当日挑战
+    if (challengeDoneScore >= CHALLENGE_MAX) sealEgg('perfect')
   }
 
   // 阶梯递进：封存数 +1，拿到当前层级（印章大小/角度/称号）
@@ -1705,15 +1705,15 @@ async function sealCore() {
   // 弹提示：挑战完成优先于层级解锁（同一次封存两者都触发时，
   // 先报挑战成绩，用户确认后再看封存成就，避免两个原生弹窗打架）。
   if (challengeJustDone) {
-    // 挑战已完成，收起横幅回到自由调香。文案分级：满分 95 点出「留 5 分」的设定，
+    // 挑战已完成，收起横幅回到自由调香。文案分级：满分档点出「最后 1 分留给明天」的设定，
     // ≥85 是漂亮收尾，低于 85 诚实说「已提交」——不打击但也不硬夸（85 与提示语「很接近」的档位一致）
-    // 弹窗在横幅收起之后弹出，分数一律带「/95」基准，别让用户自己猜满分
+    // 弹窗在横幅收起之后弹出，分数一律带满分分母，别让用户自己猜满分
     exitChallenge()
-    const verdict = challengeDoneScore >= 95
-      ? `今日挑战成功完成！满分 95，你拿到了 ${challengeDoneScore} 分——剩下的 5 分，留给明天的题目。`
+    const verdict = challengeDoneScore >= CHALLENGE_MAX
+      ? `今日挑战成功完成！满分 ${CHALLENGE_MAX}，你拿到了 ${challengeDoneScore} 分——剩下的 ${100 - CHALLENGE_MAX} 分，留给明天的题目。`
       : challengeDoneScore >= 85
-      ? `今日挑战成功完成！你的得分是 ${challengeDoneScore}/95。`
-      : `今日挑战已提交，得分 ${challengeDoneScore}/95。练练手感，明天再来。`
+      ? `今日挑战成功完成！你的得分是 ${challengeDoneScore}/${CHALLENGE_MAX}。`
+      : `今日挑战已提交，得分 ${challengeDoneScore}/${CHALLENGE_MAX}。练练手感，明天再来。`
     uni.showModal({
       title: '今日挑战',
       content: verdict + eggLine,
@@ -2150,7 +2150,7 @@ onReady(async () => {
 .cb-hint { font-size: 22rpx; color: #6b6a6a; line-height: 1.4; }
 .cb-score { font-size: 22rpx; color: #6b6a6a; }
 .cb-num { font-size: 30rpx; font-weight: 700; color: #8a5f18; margin: 0 4rpx; font-variant-numeric: tabular-nums; }
-/* 满分分母「/ 95」：弱于主数字，横幅/吸顶共用（字号随父级继承） */
+/* 满分分母：弱于主数字，横幅/吸顶共用（字号随父级继承） */
 .cb-max { color: #8a5f18; font-weight: 400; opacity: .75; }
 .cb-tip { color: #2e5c45; }
 .cb-close {

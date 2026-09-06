@@ -13,7 +13,7 @@ import { recordSeal, getStreak } from '../../src/utils/streak.js'
 import { bumpSealCount, getSealCount, tierOf } from '../../src/utils/progress.js'
 import { achieveEgg, getEggs, sealLabelOf, EGGS } from '../../src/utils/eggs.js'
 import {
-  scoreDailyChallenge, markChallengeDone, isChallengeDone,
+  scoreDailyChallenge, CHALLENGE_MAX, markChallengeDone, isChallengeDone,
   takeDailyChallengeTarget, setDailyChallengeTarget,
   randomAccords, normalizeAccords
 } from '../../src/utils/mix.js'
@@ -71,7 +71,7 @@ story('小白的七天：从第一瓶到「七日不熄」', [
     ACCORDS.forEach((a) => { blank[a.key] = 0 })
     myScore = scoreDailyChallenge(myBlend, { target }).score
     expect(myScore).toBeGreaterThan(10)
-    expect(myScore).toBeLessThan(95)
+    expect(myScore).toBeLessThan(CHALLENGE_MAX)
     expect(myScore).toBeGreaterThan(scoreDailyChallenge(blank, { target }).score)
   }],
   ['封存第一瓶：连签 1、初次来访、挑战完成点亮', () => {
